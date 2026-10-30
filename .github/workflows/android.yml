@@ -17,23 +17,21 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Find and Build with Gradle
+    - name: Build Android App
       run: |
-        # البحث عن مكان ملف الإعدادات وبناء المشروع بناءً عليه
-        if [ -f "settings.gradle" ] || [ -f "settings.gradle.kts" ]; then
-          gradle assembleDebug
-        elif [ -d "app" ] && [ -f "app/build.gradle" ]; then
-          gradle -p . assembleDebug
+        # البحث عن المجلد الذي يحتوي على build.gradle وبناء المشروع منه
+        BUILD_FILE=$(find . -name "build.gradle" -o -name "build.gradle.kts" | head -n 1)
+        PROJECT_DIR=$(dirname "$BUILD_FILE")
+        echo "Found project at: $PROJECT_DIR"
+        cd "$PROJECT_DIR"
+        
+        if [ -f "gradlew" ]; then
+          chmod +x gradlew
+          ./gradlew assembleDebug
         else
-          # إذا كان المشروع داخل مجلد فرعي، سنبحث عنه
-          BUILD_DIR=$(find . -name "settings.gradle" -o -name "settings.gradle.kts" -maxdepth 3 | xargs dirname)
-          if [ ! -z "$BUILD_DIR" ]; then
-            cd "$BUILD_DIR"
-            gradle assembleDebug
-          else
-            echo "Gradle project structure not found!"
-            exit 1
-          fi
+          gradle wrapper
+          chmod +x gradlew
+          ./gradlew assembleDebug
         fi
 
     - name: Create Release and Upload APK
@@ -47,7 +45,6 @@ jobs:
           - إضافة مواقيت الصلاة
           - إضافة مباريات دوري أبطال آسيا للنخبة (AFC Champions League Elite)
         files: |
-          app/build/outputs/apk/debug/app-debug.apk
           **/build/outputs/apk/debug/app-debug.apk
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
