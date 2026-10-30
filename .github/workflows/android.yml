@@ -17,20 +17,26 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Build with Android SDK / Gradle
+    - name: Download Gradle Wrapper if missing
       run: |
-        if [ -f "gradlew" ]; then
-          chmod +x gradlew
-          ./gradlew assembleDebug
-        elif [ -f "build.sh" ]; then
-          chmod +x build.sh
-          ./build.sh
-        else
-          gradle assembleDebug
+        if [ ! -f "gradlew" ]; then
+          gradle wrapper
         fi
+        chmod +x gradlew
 
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
+    - name: Build APK with Gradle
+      run: ./gradlew assembleDebug
+
+    - name: Create Release and Upload APK
+      uses: softprops/action-gh-release@v2
+      if: success()
       with:
-        name: app-debug
-        path: app/build/outputs/apk/debug/app-debug.apk
+        tag_name: v1.0.${{ github.run_number }}
+        name: Release v1.0.${{ github.run_number }}
+        body: |
+          تحديث جديد لتطبيق tvOS Launcher يضم:
+          - إضافة مواقيت الصلاة
+          - إضافة مباريات دوري أبطال آسيا للنخبة (AFC Champions League Elite)
+        files: app/build/outputs/apk/debug/app-debug.apk
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
