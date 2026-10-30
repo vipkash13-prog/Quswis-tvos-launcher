@@ -17,22 +17,21 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Build Android App
+    - name: Prepare and Build Android App
       run: |
-        # البحث عن المجلد الذي يحتوي على build.gradle وبناء المشروع منه
-        BUILD_FILE=$(find . -name "build.gradle" -o -name "build.gradle.kts" | head -n 1)
-        PROJECT_DIR=$(dirname "$BUILD_FILE")
-        echo "Found project at: $PROJECT_DIR"
-        cd "$PROJECT_DIR"
-        
-        if [ -f "gradlew" ]; then
-          chmod +x gradlew
-          ./gradlew assembleDebug
-        else
-          gradle wrapper
-          chmod +x gradlew
-          ./gradlew assembleDebug
+        # إنشاء ملف الإعدادات إذا لم يكن موجوداً لضمان نجاح البناء
+        if [ ! -f "settings.gradle" ] && [ ! -f "settings.gradle.kts" ]; then
+          echo "Creating missing settings.gradle..."
+          echo "include ':app'" > settings.gradle
         fi
+        
+        # إنشاء ملف Gradle Wrapper إذا كان مفقوداً
+        if [ ! -f "gradlew" ]; then
+          gradle wrapper
+        fi
+        
+        chmod +x gradlew
+        ./gradlew assembleDebug
 
     - name: Create Release and Upload APK
       uses: softprops/action-gh-release@v2
@@ -45,6 +44,6 @@ jobs:
           - إضافة مواقيت الصلاة
           - إضافة مباريات دوري أبطال آسيا للنخبة (AFC Champions League Elite)
         files: |
-          **/build/outputs/apk/debug/app-debug.apk
+          app/build/outputs/apk/debug/app-debug.apk
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
