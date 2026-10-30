@@ -3,6 +3,10 @@ name: Android CI
 on:
   push:
     branches: [ "main" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -10,28 +14,36 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    
-    - name: set up JDK 17
+
+    - name: Set up JDK 17
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Prepare and Build Android App
+    # This project has no Gradle build: build.sh compiles it with the plain Android SDK tools.
+    - name: Install Android SDK platform and build-tools
       run: |
-        # إنشاء ملف الإعدادات إذا لم يكن موجوداً لضمان نجاح البناء
-        if [ ! -f "settings.gradle" ] && [ ! -f "settings.gradle.kts" ]; then
-          echo "Creating missing settings.gradle..."
-          echo "include ':app'" > settings.gradle
-        fi
-        
-        # إنشاء ملف Gradle Wrapper إذا كان مفقوداً
-        if [ ! -f "gradlew" ]; then
-          gradle wrapper
-        fi
-        
-        chmod +x gradlew
-        ./gradlew assembleDebug
+        SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+        yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+        "$SDK/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0"
+
+    - name: Build APK
+      env:
+        ANDROID_HOME: ${{ env.ANDROID_HOME }}
+      run: |
+        chmod +x build.sh
+        ./build.sh
+        mkdir -p dist
+        cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
+        ls -lh dist/Quswis-tvOS-Launcher.apk
+
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Quswis-tvOS-Launcher
+        path: dist/Quswis-tvOS-Launcher.apk
+        if-no-files-found: error
 
     - name: Create Release and Upload APK
       uses: softprops/action-gh-release@v2
@@ -44,6 +56,6 @@ jobs:
           - إضافة مواقيت الصلاة
           - إضافة مباريات دوري أبطال آسيا للنخبة (AFC Champions League Elite)
         files: |
-          app/build/outputs/apk/debug/app-debug.apk
+          dist/Quswis-tvOS-Launcher.apk
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
