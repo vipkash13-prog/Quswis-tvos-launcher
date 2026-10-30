@@ -17,15 +17,24 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    - name: Download Gradle Wrapper if missing
+    - name: Find and Build with Gradle
       run: |
-        if [ ! -f "gradlew" ]; then
-          gradle wrapper
+        # البحث عن مكان ملف الإعدادات وبناء المشروع بناءً عليه
+        if [ -f "settings.gradle" ] || [ -f "settings.gradle.kts" ]; then
+          gradle assembleDebug
+        elif [ -d "app" ] && [ -f "app/build.gradle" ]; then
+          gradle -p . assembleDebug
+        else
+          # إذا كان المشروع داخل مجلد فرعي، سنبحث عنه
+          BUILD_DIR=$(find . -name "settings.gradle" -o -name "settings.gradle.kts" -maxdepth 3 | xargs dirname)
+          if [ ! -z "$BUILD_DIR" ]; then
+            cd "$BUILD_DIR"
+            gradle assembleDebug
+          else
+            echo "Gradle project structure not found!"
+            exit 1
+          fi
         fi
-        chmod +x gradlew
-
-    - name: Build APK with Gradle
-      run: ./gradlew assembleDebug
 
     - name: Create Release and Upload APK
       uses: softprops/action-gh-release@v2
@@ -37,6 +46,8 @@ jobs:
           تحديث جديد لتطبيق tvOS Launcher يضم:
           - إضافة مواقيت الصلاة
           - إضافة مباريات دوري أبطال آسيا للنخبة (AFC Champions League Elite)
-        files: app/build/outputs/apk/debug/app-debug.apk
+        files: |
+          app/build/outputs/apk/debug/app-debug.apk
+          **/build/outputs/apk/debug/app-debug.apk
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
