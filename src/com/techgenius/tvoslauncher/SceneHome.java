@@ -856,7 +856,7 @@ final class SceneHome {
             LinearLayout.LayoutParams tlp = new LinearLayout.LayoutParams(tileSize, tileSize);
             if (i % cols != 0) tlp.leftMargin = tileGap;
             row.addView(tile, tlp);
-            dockTiles.add(tile);
+            dockTiles.add(((FrameLayout) tile).getChildAt(0));
         }
         focusedDockIdx = Math.max(0, Math.min(savedFocusIdx, dockTiles.size() - 1));
         dockBox.requestLayout();
@@ -930,20 +930,24 @@ final class SceneHome {
         focusRing.setColor(Color.TRANSPARENT);
         focusRing.setStroke(dp(2.2f), Color.WHITE);
 
-        // Silver glass focus on the ACTUAL Night Scenes app dock (not the hidden classic grid).
-        // Keep the highlight above the app image so it remains visible on all icon types.
+        // The artwork stays clipped; the silver rim floats outside as a sibling view.
+        FrameLayout focusHolder = new FrameLayout(host);
+        focusHolder.setClipChildren(false);
+        focusHolder.setClipToPadding(false);
+        focusHolder.addView(tile, new FrameLayout.LayoutParams(size, size));
         GradientDrawable glassShape = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{0x75FFFFFF, 0x16FFFFFF, 0x40B9D7EC});
-        glassShape.setCornerRadius(rad);
-        glassShape.setStroke(dp(2.5f), 0xFFF5F9FF);
+                new int[]{0x35FFFFFF, 0x09FFFFFF, 0x32C6E3FF});
+        glassShape.setCornerRadius(rad + dp(4));
+        glassShape.setStroke(dp(3), 0xFFF7FAFF);
         View glassOverlay = new View(host);
         glassOverlay.setBackground(glassShape);
         glassOverlay.setAlpha(0f);
         glassOverlay.setFocusable(false);
         glassOverlay.setClickable(false);
-        if (!isGear && !isMore) tile.addView(glassOverlay,
-                new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT));
+        FrameLayout.LayoutParams rimLp = new FrameLayout.LayoutParams(size + dp(8), size + dp(8));
+        rimLp.leftMargin = -dp(4);
+        rimLp.topMargin = -dp(4);
+        if (!isGear && !isMore) focusHolder.addView(glassOverlay, rimLp);
 
         tile.setOnFocusChangeListener((v, has) -> {
             v.setPivotX(v.getWidth() > 0 ? v.getWidth() / 2f : size / 2f);
@@ -999,7 +1003,7 @@ final class SceneHome {
             return false;
         });
 
-        return tile;
+        return focusHolder;
     }
 
     private boolean isAnyDockTileFocused() {
