@@ -3005,11 +3005,13 @@ public class MainActivity extends Activity {
         lastHaloTarget = target;
         target.post(() -> {
             if (lastHaloTarget != target || !target.isFocused() || root == null) return;
-            int[] at = new int[2], base = new int[2];
-            target.getLocationOnScreen(at);
-            root.getLocationOnScreen(base);
-            int w = target.getWidth() + dp(8), h = target.getHeight() + dp(8);
-            float x = at[0] - base[0] - dp(4), y = at[1] - base[1] - dp(4);
+            // Convert target bounds to the root's LOCAL coordinate system. Screen
+            // coordinates are incorrect when the scene dock is translated/scaled.
+            android.graphics.Rect bounds = new android.graphics.Rect(0, 0,
+                    target.getWidth(), target.getHeight());
+            root.offsetDescendantRectToMyCoords(target, bounds);
+            int w = bounds.width() + dp(8), h = bounds.height() + dp(8);
+            float x = bounds.left - dp(4), y = bounds.top - dp(4);
             if (slidingAppHalo == null) {
                 GradientDrawable glass = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
                         new int[]{0x55FFFFFF, 0x0CFFFFFF, 0x4ABCDCF4});
