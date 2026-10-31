@@ -179,7 +179,8 @@ final class FootballScores {
   if(view==null)return;
   Context app=c.getApplicationContext();
   if(!enabled(app)){view.setVisibility(android.view.View.GONE);return;}
-  view.setVisibility(android.view.View.VISIBLE);
+  MainActivity active=MainActivity.activeInstance;
+  view.setVisibility(active!=null&&active.folderMode?android.view.View.GONE:android.view.View.VISIBLE);
   java.util.Set<String> selected=selectedLeagues(app);
   if(selected.isEmpty()){showMessage(view,"اختر الدوريات من الإعدادات");return;}
   String token="";
