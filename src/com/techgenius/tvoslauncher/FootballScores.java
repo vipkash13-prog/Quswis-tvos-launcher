@@ -99,7 +99,7 @@ final class FootballScores {
   panel.setBackground(glass);
   TextView title=new TextView(c);title.setText("المباريات القادمة");title.setTextSize(18);
   title.setTypeface(Typeface.DEFAULT_BOLD);title.setTextColor(Color.WHITE);
-  title.setGravity(Gravity.CENTER);panel.addView(title,new android.widget.LinearLayout.LayoutParams(-1,Ui.px(c,40)));
+  title.setGravity(Gravity.CENTER);panel.addView(title,new android.widget.LinearLayout.LayoutParams(-1,Ui.px(c,34)));
   for(int i=0;i<5;i++){
    android.widget.LinearLayout line=new android.widget.LinearLayout(c);
    line.setOrientation(android.widget.LinearLayout.HORIZONTAL);
@@ -114,15 +114,15 @@ final class FootballScores {
    away.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
    TextView homeName=new TextView(c),awayName=new TextView(c),time=new TextView(c);
    for(TextView t:new TextView[]{homeName,awayName,time}){
-    t.setTextColor(Color.WHITE);t.setTextSize(12);t.setSingleLine(true);
+    t.setTextColor(Color.WHITE);t.setTextSize(11);t.setSingleLine(true);
     t.setEllipsize(android.text.TextUtils.TruncateAt.END);t.setGravity(Gravity.CENTER);
    }
    time.setTypeface(Typeface.DEFAULT_BOLD);time.setTextSize(11);time.setSingleLine(false);time.setMaxLines(2);
-   line.addView(home,new android.widget.LinearLayout.LayoutParams(Ui.px(c,38),Ui.px(c,38)));
+   line.addView(home,new android.widget.LinearLayout.LayoutParams(Ui.px(c,30),Ui.px(c,30)));
    line.addView(homeName,new android.widget.LinearLayout.LayoutParams(0,-2,1));
-   line.addView(time,new android.widget.LinearLayout.LayoutParams(Ui.px(c,165),-2));
+   line.addView(time,new android.widget.LinearLayout.LayoutParams(Ui.px(c,66),-2));
    line.addView(awayName,new android.widget.LinearLayout.LayoutParams(0,-2,1));
-   line.addView(away,new android.widget.LinearLayout.LayoutParams(Ui.px(c,38),Ui.px(c,38)));
+   line.addView(away,new android.widget.LinearLayout.LayoutParams(Ui.px(c,30),Ui.px(c,30)));
    android.widget.LinearLayout.LayoutParams lp=new android.widget.LinearLayout.LayoutParams(-1,0,1);
    lp.bottomMargin=Ui.px(c,5);panel.addView(line,lp);
   }
