@@ -902,7 +902,7 @@ public final class Scenes {
             float rawCapH = Math.max(clockPx * 0.68f, -digitBounds.top);
             float visualCapH = rawCapH * scaleY;
             float minClockTopY = dateBaselineY + (14f * u);
-            float clockVisualTopY = Math.max((sp.clockTopU + topOffsetU) * u, Math.max(minClockTopY, 212f * u));
+            float clockVisualTopY = Math.max(minClockTopY, 260f * u);
             float baselineY = clockVisualTopY + visualCapH;
 
             float textW = measureClockWidth(timeStr, clockFillPaint, u, isDuo || isRounded);
@@ -914,10 +914,15 @@ public final class Scenes {
                 } else if (CLOCK_POS_RIGHT.equals(cPos)) {
                     clockX = w - textW - (48f * u);
                 } else {
-                    clockX = (w - textW) * 0.5f;
+                    clockX = (w - textW) * 0.43f;
                 }
             } else {
                 clockX = sp.leftAlign ? (sp.clockLeftU * u) : ((w - textW) * 0.5f);
+            }
+
+            // 4. Foreground cutout (mountain ridge / volcano / fog hills / rainforest canopy)
+            if (ls.fg != null) {
+                drawCenterCrop(canvas, ls.fg, w, h);
             }
 
             if (ls.glassShader != null && ls.glassBaked != null) {
@@ -971,11 +976,6 @@ public final class Scenes {
             } else {
                 drawStylizedClock(canvas, timeStr, clockX, baselineY, scaleY, rawCapH, clockPx, u,
                         isDuo, isRounded, false, ls, sp.darkClock);
-            }
-
-            // 4. Foreground cutout (mountain ridge / volcano / fog hills / rainforest canopy)
-            if (ls.fg != null) {
-                drawCenterCrop(canvas, ls.fg, w, h);
             }
 
             // 5. Line 1 (Greeting with person name) + Line 2 (Date & Weather) above the clock
