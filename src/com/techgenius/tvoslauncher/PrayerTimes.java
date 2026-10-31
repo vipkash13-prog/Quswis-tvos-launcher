@@ -46,14 +46,14 @@ final class PrayerTimes {
   LinearLayout bar=new LinearLayout(c);bar.setOrientation(LinearLayout.HORIZONTAL);
   bar.setGravity(Gravity.CENTER);bar.setPadding(Ui.px(c,5),Ui.px(c,5),Ui.px(c,5),Ui.px(c,5));
   bar.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-  GradientDrawable bg=new GradientDrawable();bg.setColor(0xE51B2633);
-  bg.setCornerRadius(Ui.px(c,14));bg.setStroke(Ui.px(c,1),0x668FD6C4);bar.setBackground(bg);
+  GradientDrawable bg=new GradientDrawable();bg.setColor(0x00000000);
+  bg.setCornerRadius(Ui.px(c,14));bg.setStroke(0,0x00000000);bar.setBackground(bg);
   String[] names={"الفجر","الظهر","العصر","المغرب","العشاء"};
   for(String name:names){
    TextView cell=new TextView(c);cell.setText(name+"\\n--:--");cell.setTextColor(Color.WHITE);
    cell.setTextSize(12);cell.setGravity(Gravity.CENTER);cell.setMaxLines(2);
    cell.setPadding(Ui.px(c,4),Ui.px(c,7),Ui.px(c,4),Ui.px(c,7));
-   GradientDrawable tile=new GradientDrawable();tile.setColor(0xB211213A);
+   GradientDrawable tile=new GradientDrawable();tile.setColor(0x330A182A);
    tile.setCornerRadius(Ui.px(c,9));tile.setStroke(Ui.px(c,1),0x55487FBC);
    cell.setBackground(tile);
    LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-1,1f);
@@ -67,7 +67,7 @@ final class PrayerTimes {
   JSONObject t=null;try{t=new JSONObject(raw);}catch(Exception ignored){}
   for(int i=0;i<5;i++){
    TextView cell=(TextView)view.getChildAt(i);
-   String time=t==null?"--:--":t.optString(keys[i],"--:--").replaceAll("\\\\s*\\\\(.*?\\\\)","");
+   String time=t==null?"--:--":t.optString(keys[i],"--:--").replaceAll("\\s*\\(.*?\\)","");
    cell.setText(names[i]+"\\n"+time);
   }
  }
