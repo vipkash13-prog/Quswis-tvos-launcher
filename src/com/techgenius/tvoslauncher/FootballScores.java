@@ -203,10 +203,10 @@ final class FootballScores {
     for(String[] league:LEAGUES){
      if(!selected.contains(league[0]))continue;
      int beforeLeague=matches.size();
-     for(int offset=0;offset<1;offset++){
+     for(int offset=0;offset<=7;offset++){
      HttpURLConnection conn=null;
      try{
-      String endpoint="https://site.api.espn.com/apis/site/v2/sports/soccer/"+league[0]+"/scoreboard?dates="+espnDay(0)+"-"+espnDay(7)+"&limit=200";
+      String endpoint="https://site.api.espn.com/apis/site/v2/sports/soccer/"+league[0]+"/scoreboard?dates="+espnDay(offset)+"&limit=100";
       conn=(HttpURLConnection)new URL(endpoint).openConnection();
       conn.setConnectTimeout(8000);conn.setReadTimeout(8000);
       conn.setRequestProperty("User-Agent",Weather.UA);
