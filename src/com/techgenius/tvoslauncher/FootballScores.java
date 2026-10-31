@@ -27,7 +27,7 @@ import java.util.TimeZone;
 final class FootballScores {
  private static final String PREFS="football_scores",K_DATA="data",K_AT="at",K_LEAGUE="league",K_TEAM_ID="team_id",K_TEAM="team";
  private static final long CACHE_MS=600000L;private static volatile boolean busy;
- static final String[][] LEAGUES={{"ksa.1","دوري روشن السعودي"},{"eng.1","الدوري الإنجليزي"},{"esp.1","الدوري الإسباني"},{"ita.1","الدوري الإيطالي"},{"fra.1","الدوري الفرنسي"},{"afc.champions","دوري أبطال آسيا للنخبة"}};
+ static final String[][] LEAGUES={{"ksa.1","دوري روشن السعودي"},{"eng.1","الدوري الإنجليزي"},{"esp.1","الدوري الإسباني"},{"ita.1","الدوري الإيطالي"},{"fra.1","الدوري الفرنسي"},{"afc.champions","دوري أبطال آسيا للنخبة"},{"uefa.champions","دوري أبطال أوروبا"}};
  static final class Team{final String id,name;Team(String i,String n){id=i;name=n;}}
  interface TeamsCallback{void onLoaded(List<Team> teams,String error);}
  private static final class Match{String date,home,away,homeId,awayId,hs,as,status;}
@@ -82,53 +82,69 @@ final class FootballScores {
  static android.widget.LinearLayout createView(Context c){
   android.widget.LinearLayout panel=new android.widget.LinearLayout(c);
   panel.setOrientation(android.widget.LinearLayout.VERTICAL);
-  panel.setPadding(Ui.px(c,6),Ui.px(c,5),Ui.px(c,6),Ui.px(c,5));
-  panel.setBackgroundColor(Color.TRANSPARENT);
+  panel.setPadding(Ui.px(c,14),Ui.px(c,10),Ui.px(c,14),Ui.px(c,12));
+  GradientDrawable glass=new GradientDrawable();glass.setColor(0x884F6770);
+  glass.setCornerRadius(Ui.px(c,22));glass.setStroke(Ui.px(c,1),0xAADDFAFF);
+  panel.setBackground(glass);
+  TextView title=new TextView(c);title.setText("المباريات القادمة");title.setTextSize(22);
+  title.setTypeface(Typeface.DEFAULT_BOLD);title.setTextColor(Color.WHITE);
+  title.setGravity(Gravity.CENTER);panel.addView(title,new android.widget.LinearLayout.LayoutParams(-1,Ui.px(c,48)));
   for(int i=0;i<5;i++){
    android.widget.LinearLayout line=new android.widget.LinearLayout(c);
+   line.setOrientation(android.widget.LinearLayout.HORIZONTAL);
+   line.setLayoutDirection(android.view.View.LAYOUT_DIRECTION_RTL);
    line.setGravity(Gravity.CENTER_VERTICAL);
-   line.setPadding(Ui.px(c,8),Ui.px(c,3),Ui.px(c,8),Ui.px(c,3));
-   GradientDrawable bg=new GradientDrawable();bg.setColor(0x99101F35);
-   bg.setCornerRadius(Ui.px(c,9));bg.setStroke(Ui.px(c,1),0x66447CAA);
+   line.setPadding(Ui.px(c,8),Ui.px(c,4),Ui.px(c,8),Ui.px(c,4));
+   GradientDrawable bg=new GradientDrawable();bg.setColor(0x666E8790);
+   bg.setCornerRadius(Ui.px(c,12));bg.setStroke(Ui.px(c,1),0x77FFFFFF);
    line.setBackground(bg);
    android.widget.ImageView home=new android.widget.ImageView(c),away=new android.widget.ImageView(c);
    home.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
    away.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
-   TextView text=new TextView(c);text.setTextColor(Color.WHITE);text.setTextSize(11);
-   text.setGravity(Gravity.CENTER);text.setMaxLines(2);
-   line.addView(home,new android.widget.LinearLayout.LayoutParams(Ui.px(c,32),Ui.px(c,32)));
-   line.addView(text,new android.widget.LinearLayout.LayoutParams(0,-2,1));
-   line.addView(away,new android.widget.LinearLayout.LayoutParams(Ui.px(c,32),Ui.px(c,32)));
+   TextView homeName=new TextView(c),awayName=new TextView(c),time=new TextView(c);
+   for(TextView t:new TextView[]{homeName,awayName,time}){
+    t.setTextColor(Color.WHITE);t.setTextSize(12);t.setSingleLine(true);
+    t.setEllipsize(android.text.TextUtils.TruncateAt.END);t.setGravity(Gravity.CENTER);
+   }
+   time.setTypeface(Typeface.DEFAULT_BOLD);
+   line.addView(home,new android.widget.LinearLayout.LayoutParams(Ui.px(c,38),Ui.px(c,38)));
+   line.addView(homeName,new android.widget.LinearLayout.LayoutParams(0,-2,1));
+   line.addView(time,new android.widget.LinearLayout.LayoutParams(Ui.px(c,95),-2));
+   line.addView(awayName,new android.widget.LinearLayout.LayoutParams(0,-2,1));
+   line.addView(away,new android.widget.LinearLayout.LayoutParams(Ui.px(c,38),Ui.px(c,38)));
    android.widget.LinearLayout.LayoutParams lp=new android.widget.LinearLayout.LayoutParams(-1,0,1);
-   lp.bottomMargin=Ui.px(c,3);panel.addView(line,lp);
+   lp.bottomMargin=Ui.px(c,5);panel.addView(line,lp);
   }
   showMessage(panel,"جارٍ جلب المباريات...");
   return panel;
  }
  private static void showMessage(android.widget.LinearLayout panel,String msg){
   for(int i=0;i<5;i++){
-   android.widget.LinearLayout line=(android.widget.LinearLayout)panel.getChildAt(i);
+   android.widget.LinearLayout line=(android.widget.LinearLayout)panel.getChildAt(i+1);
    ((android.widget.ImageView)line.getChildAt(0)).setImageDrawable(null);
-   ((android.widget.ImageView)line.getChildAt(2)).setImageDrawable(null);
-   ((TextView)line.getChildAt(1)).setText(i==0?msg:"");
+   ((android.widget.ImageView)line.getChildAt(4)).setImageDrawable(null);
+   ((TextView)line.getChildAt(1)).setText("");
+   ((TextView)line.getChildAt(2)).setText(i==0?msg:"");
+   ((TextView)line.getChildAt(3)).setText("");
    line.setVisibility(i==0?android.view.View.VISIBLE:android.view.View.INVISIBLE);
   }
  }
  private static void showFixtures(android.widget.LinearLayout panel,java.util.List<JSONObject> matches){
   for(int i=0;i<5;i++){
-   android.widget.LinearLayout line=(android.widget.LinearLayout)panel.getChildAt(i);
+   android.widget.LinearLayout line=(android.widget.LinearLayout)panel.getChildAt(i+1);
    if(i>=matches.size()){line.setVisibility(android.view.View.INVISIBLE);continue;}
    line.setVisibility(android.view.View.VISIBLE);
    JSONObject item=matches.get(i);
-   JSONObject teams=item.optJSONObject("teams"),fixture=item.optJSONObject("fixture"),league=item.optJSONObject("league"),goals=item.optJSONObject("goals");
+   JSONObject teams=item.optJSONObject("teams"),fixture=item.optJSONObject("fixture"),goals=item.optJSONObject("goals");
    JSONObject home=teams==null?null:teams.optJSONObject("home"),away=teams==null?null:teams.optJSONObject("away");
    if(home==null||away==null)continue;
    String when=fixture==null?"--:--":fixtureTime(fixture.optString("date",""));
    String score=goals!=null&&!goals.isNull("home")?goals.optString("home")+" - "+goals.optString("away"):when;
-   String label=(league==null?"":league.optString("name",""))+"\n"+home.optString("name","")+"   "+score+"   "+away.optString("name","");
-   ((TextView)line.getChildAt(1)).setText(label);
+   ((TextView)line.getChildAt(1)).setText(home.optString("name",""));
+   ((TextView)line.getChildAt(2)).setText(score);
+   ((TextView)line.getChildAt(3)).setText(away.optString("name",""));
    loadLogo((android.widget.ImageView)line.getChildAt(0),home.optString("logo",""));
-   loadLogo((android.widget.ImageView)line.getChildAt(2),away.optString("logo",""));
+   loadLogo((android.widget.ImageView)line.getChildAt(4),away.optString("logo",""));
   }
  }
  private static void loadLogo(android.widget.ImageView target,String url){
@@ -173,18 +189,18 @@ final class FootballScores {
     int id=apiLeague(league[0]);if(id==0)continue;
     HttpURLConnection conn=null;
     try{
-     String endpoint="https://v3.football.api-sports.io/fixtures?league="+id+"&season="+season(league[0])+"&next=10&timezone=Asia%2FRiyadh";
+     String endpoint="https://v3.football.api-sports.io/fixtures?league="+id+"&season="+season(league[0])+"&from="+apiDay(0)+"&to="+apiDay(30)+"&timezone=Asia%2FRiyadh";
      conn=(HttpURLConnection)new URL(endpoint).openConnection();
      conn.setConnectTimeout(10000);conn.setReadTimeout(10000);
      conn.setRequestProperty("x-apisports-key",token);
      int status=conn.getResponseCode();
-     if(status!=200){error="فشل الاتصال بالخدمة: HTTP "+status;continue;}
+     if(status!=200){error="API-FOOTBALL HTTP "+status+"؛ راجع المفتاح والاشتراك";continue;}
      BufferedReader reader=new BufferedReader(new InputStreamReader(conn.getInputStream(),"UTF-8"));
      StringBuilder body=new StringBuilder();String line;
      while((line=reader.readLine())!=null)body.append(line);reader.close();
      JSONObject root=new JSONObject(body.toString());
      JSONObject errors=root.optJSONObject("errors");
-     if(errors!=null&&errors.length()>0){error="راجع اشتراك API-FOOTBALL وصلاحيات المفتاح";continue;}
+     if(errors!=null&&errors.length()>0){error="API-FOOTBALL: "+errors.toString();if(error.length()>110)error=error.substring(0,110);continue;}
      success=true;
      JSONArray arr=root.optJSONArray("response");
      if(arr!=null)for(int i=0;i<arr.length();i++){JSONObject item=arr.optJSONObject(i);if(item!=null)matches.add(item);}
@@ -207,6 +223,11 @@ final class FootballScores {
    });
   },"football-api-refresh").start();
  }
+ private static String apiDay(int offset){
+  java.text.SimpleDateFormat f=new java.text.SimpleDateFormat("yyyy-MM-dd",Locale.US);
+  f.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));
+  return f.format(new Date(System.currentTimeMillis()+offset*86400000L));
+ }
  private static String fixtureTime(String raw){
   try{
    java.text.SimpleDateFormat iso=new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX",Locale.US);
@@ -217,7 +238,7 @@ final class FootballScores {
  }
  private static int apiLeague(String id){
   switch(id){case "ksa.1":return 307;case "eng.1":return 39;case "esp.1":return 140;
-   case "ita.1":return 135;case "fra.1":return 61;case "afc.champions":return 17;default:return 0;}
+   case "ita.1":return 135;case "fra.1":return 61;case "afc.champions":return 17;case "uefa.champions":return 2;default:return 0;}
  }
  private static int season(String id){
   java.util.Calendar c=java.util.Calendar.getInstance(TimeZone.getTimeZone("Asia/Riyadh"));
