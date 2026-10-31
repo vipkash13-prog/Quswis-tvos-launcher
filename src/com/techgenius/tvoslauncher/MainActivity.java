@@ -819,10 +819,14 @@ public class MainActivity extends Activity {
         root.addView(prayerCard, prayerLp);
 
         footballCard = FootballScores.createView(this);
+        // Compact match panel on the right: leave the center clear for the clock
+        // and keep the Apple TV-style app dock unobstructed.
         FrameLayout.LayoutParams footballLp = new FrameLayout.LayoutParams(
-                dp(450), dp(270), Gravity.TOP | Gravity.LEFT);
+                Math.min(dp(450), screenW * 32 / 100),
+                Math.min(dp(270), screenH * 34 / 100),
+                Gravity.TOP | Gravity.RIGHT);
         footballLp.topMargin = dp(185);
-        footballLp.leftMargin = dp(28);
+        footballLp.rightMargin = dp(28);
         root.addView(footballCard, footballLp);
 
         root.addView(sceneHome.overlay, match());
