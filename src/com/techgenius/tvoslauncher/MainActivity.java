@@ -802,9 +802,9 @@ public class MainActivity extends Activity {
 
         footballCard = FootballScores.createView(this);
         FrameLayout.LayoutParams footballLp = new FrameLayout.LayoutParams(
-                dp(680), dp(170), Gravity.TOP | Gravity.START);
-        footballLp.topMargin = dp(WeatherView.COMPACT_H + 152);
-        footballLp.leftMargin = dockOuter;
+                dp(520), dp(158), Gravity.TOP | Gravity.START);
+        footballLp.topMargin = dp(WeatherView.COMPACT_H + 12);
+        footballLp.leftMargin = dockOuter + dp(278);
         root.addView(footballCard, footballLp);
 
         root.addView(sceneHome.overlay, match());
@@ -860,7 +860,7 @@ public class MainActivity extends Activity {
             weatherCard.setVisibility(scenes ? View.GONE : (Weather.enabled(this) && Weather.cached(this) != null ? View.VISIBLE : View.GONE));
         }
         if (prayerCard != null) prayerCard.setVisibility(PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
-        if (footballCard != null) footballCard.setVisibility(View.VISIBLE);
+        if (footballCard != null) footballCard.setVisibility(FootballScores.enabled(this) ? View.VISIBLE : View.GONE);
         if (weatherCard != null) weatherCard.bringToFront();
         if (prayerCard != null) prayerCard.bringToFront();
         if (footballCard != null) footballCard.bringToFront();
