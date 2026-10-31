@@ -26,7 +26,7 @@ import java.util.TimeZone;
 /** Football scores filtered by the selected league and team. */
 final class FootballScores {
  private static final String PREFS="football_scores",K_DATA="data",K_AT="at",K_LEAGUE="league",K_TEAM_ID="team_id",K_TEAM="team";
- private static final long CACHE_MS=120000L;private static volatile boolean busy;
+ private static final long CACHE_MS=60000L;private static volatile boolean busy;
  static final String[][] LEAGUES={{"ksa.1","دوري روشن السعودي"},{"eng.1","الدوري الإنجليزي"},{"esp.1","الدوري الإسباني"},{"ita.1","الدوري الإيطالي"},{"fra.1","الدوري الفرنسي"},{"ger.1","الدوري الألماني"},{"afc.champions","دوري أبطال آسيا للنخبة"},{"uefa.champions","دوري أبطال أوروبا"}};
  static final class Team{final String id,name;Team(String i,String n){id=i;name=n;}}
  interface TeamsCallback{void onLoaded(List<Team> teams,String error);}
@@ -150,7 +150,8 @@ final class FootballScores {
    JSONObject home=teams==null?null:teams.optJSONObject("home"),away=teams==null?null:teams.optJSONObject("away");
    if(home==null||away==null)continue;
    String when=fixture==null?"--:--":fixtureTime(fixture.optString("date",""));
-   String score=goals!=null&&!goals.isNull("home")?goals.optString("home")+" - "+goals.optString("away"):when;
+   String state=fixture==null?"pre":fixture.optString("state","pre");
+   String score="in".equals(state)&&goals!=null&&!goals.isNull("home")?"🔴 مباشر "+goals.optString("home")+" - "+goals.optString("away"):when;
    JSONObject lg=item.optJSONObject("league");
    String leagueLabel=lg==null?"":lg.optString("name","");
    if(!leagueLabel.isEmpty())score=leagueLabel+"\n"+score;
@@ -239,6 +240,12 @@ final class FootballScores {
        if(!wanted.isEmpty()&&(ht==null||!wanted.contains(ht.optString("id")))&&(awayTeam==null||!wanted.contains(awayTeam.optString("id"))))continue;
        JSONObject item=new JSONObject(),fixture=new JSONObject(),teams=new JSONObject(),leagueObj=new JSONObject();
        fixture.put("date",date);fixture.put("leagueId",league[0]);
+       String matchState=type==null?"pre":type.optString("state","pre");
+       fixture.put("state",matchState);
+       fixture.put("minute",status==null?0:status.optInt("displayClock",0));
+       JSONObject goals=new JSONObject();
+       if("in".equals(matchState)){goals.put("home",home.optInt("score",0));goals.put("away",away.optInt("score",0));}
+       item.put("goals",goals);
        teams.put("home",espnTeam(home));teams.put("away",espnTeam(away));
        leagueObj.put("name",league[1]);
        item.put("fixture",fixture);item.put("teams",teams);item.put("league",leagueObj);
@@ -263,7 +270,7 @@ final class FootballScores {
     String leagueId=f==null?"":f.optString("leagueId","");
     if(!selected.contains(leagueId))continue;
     Date kickoff=parseMatchDate(d);
-    if(kickoff==null || kickoff.getTime()<System.currentTimeMillis()-10800000L)continue;
+    if(kickoff==null || (kickoff.getTime()<System.currentTimeMillis()-10800000L && !"in".equals(f.optString("state"))))continue;
     JSONObject ts=m.optJSONObject("teams");
     JSONObject h=ts==null?null:ts.optJSONObject("home"),a=ts==null?null:ts.optJSONObject("away");
     String unique=leagueId+"|"+d+"|"+(h==null?"":h.optString("name"))+"|"+(a==null?"":a.optString("name"));
