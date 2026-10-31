@@ -44,7 +44,7 @@ final class PrayerTimes {
  static TextView createView(Context c){
   TextView v=new TextView(c);v.setTextColor(Color.WHITE);v.setTextSize(13);v.setGravity(Gravity.CENTER_VERTICAL);
   v.setPadding(Ui.px(c,15),Ui.px(c,10),Ui.px(c,15),Ui.px(c,10));
-  v.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));v.setMaxLines(5);
+  v.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));v.setMaxLines(7);
   v.setLineSpacing(Ui.px(c,3),1f);
   GradientDrawable bg=new GradientDrawable();bg.setColor(0xE51B2633);bg.setCornerRadius(Ui.px(c,17));
   bg.setStroke(Ui.px(c,1),0x668FD6C4);v.setBackground(bg);v.setFocusable(false);v.setClickable(false);return v;
@@ -82,9 +82,12 @@ final class PrayerTimes {
   try{
    JSONObject t=new JSONObject(raw);String[] k={"Fajr","Dhuhr","Asr","Maghrib","Isha"};
    String[] n={"الفجر","الظهر","العصر","المغرب","العشاء"};
-   StringBuilder s=new StringBuilder("مواقيت الصلاة • ").append(city(c)).append("\n");
-   for(int i=0;i<5;i++){if(i==2)s.append("\n");else if(i>0)s.append("    ");
-    s.append(n[i]).append(" ").append(t.optString(k[i],"--").replaceAll("\\s*\\(.*?\\)",""));}
+   StringBuilder s=new StringBuilder("مواقيت الصلاة • ").append(city(c)).append("\\n");
+   for(int i=0;i<5;i++){
+    if(i>0)s.append("\\n");
+    String value=t.optString(k[i],"--").replaceAll("\\\\s*\\\\(.*?\\\\)","");
+    s.append(n[i]).append("     ").append(value);
+   }
    return s.toString();
   }catch(Exception e){return "مواقيت الصلاة\nتعذر قراءة المواقيت";}
  }
