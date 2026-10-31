@@ -1000,6 +1000,19 @@ public class MainActivity extends Activity {
         ringLp.leftMargin = -dp(4);
         ringLp.topMargin = -dp(4);
         focusHolder.addView(silverFocus, ringLp);
+        // A narrow silver reflection sweeps across the selected icon's outer glass rim.
+        View focusGlint = new View(this);
+        GradientDrawable glintPaint = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{0x00FFFFFF, 0xB8FFFFFF, 0x00FFFFFF});
+        glintPaint.setCornerRadius(dp(4));
+        focusGlint.setBackground(glintPaint);
+        focusGlint.setAlpha(0f);
+        focusGlint.setFocusable(false);
+        focusGlint.setClickable(false);
+        FrameLayout.LayoutParams glintLp = new FrameLayout.LayoutParams(dp(16), tileH);
+        glintLp.leftMargin = 0;
+        focusHolder.addView(focusGlint, glintLp);
+
 
         TextView label = text(15, Ui.font(this, "medium"), 0f);
         label.setText(a.label);
@@ -1026,6 +1039,10 @@ public class MainActivity extends Activity {
                     label.animate().alpha(1f).translationY(tileH * (FOCUS_SCALE - 1f) / 2f).setDuration(160).start();
                 }
                 topSheen.setAlpha(0f);
+                focusGlint.animate().cancel();
+                focusGlint.setTranslationX(0f);
+                focusGlint.setAlpha(0.8f);
+                focusGlint.animate().translationX(tileW - dp(16)).alpha(0f).setDuration(420).start();
                 silverFocus.animate().cancel();
                 silverFocus.animate().alpha(1f).setDuration(160).setInterpolator(EASE).start();
                 onTileFocused(index);
@@ -1036,6 +1053,8 @@ public class MainActivity extends Activity {
                 label.animate().alpha(0f).translationY(0).setDuration(120).start();
                 topSheen.setAlpha(0f);
                 silverFocus.animate().cancel();
+                focusGlint.animate().cancel();
+                focusGlint.setAlpha(0f);
                 silverFocus.animate().alpha(0f).setDuration(110).setInterpolator(EASE).start();
             }
         });
