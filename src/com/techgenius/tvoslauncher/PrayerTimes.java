@@ -45,7 +45,7 @@ final class PrayerTimes {
  static LinearLayout createView(Context c){
   LinearLayout bar=new LinearLayout(c);bar.setOrientation(LinearLayout.HORIZONTAL);
   bar.setGravity(Gravity.CENTER);bar.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
-  bar.setPadding(Ui.px(c,10),Ui.px(c,9),Ui.px(c,10),Ui.px(c,9));
+  bar.setPadding(Ui.px(c,8),Ui.px(c,7),Ui.px(c,8),Ui.px(c,7));
   GradientDrawable bg=new GradientDrawable();
   bg.setColor(0x663F6A7A);bg.setCornerRadius(Ui.px(c,22));
   bg.setStroke(Ui.px(c,1),0xAAE4FAFF);bar.setBackground(bg);
@@ -54,14 +54,14 @@ final class PrayerTimes {
   for(int i=0;i<5;i++){
    LinearLayout tile=new LinearLayout(c);tile.setOrientation(LinearLayout.VERTICAL);
    tile.setGravity(Gravity.CENTER);
-   tile.setPadding(Ui.px(c,4),Ui.px(c,3),Ui.px(c,4),Ui.px(c,3));
+   tile.setPadding(Ui.px(c,3),Ui.px(c,3),Ui.px(c,3),Ui.px(c,3));
    GradientDrawable tileBg=new GradientDrawable();tileBg.setColor(0x66B5D6DF);
    tileBg.setCornerRadius(Ui.px(c,17));tileBg.setStroke(Ui.px(c,1),0x88FFFFFF);
    tile.setBackground(tileBg);
    TextView label=new TextView(c);label.setText(icons[i]+"  "+names[i]);label.setTextColor(Color.WHITE);
-   label.setGravity(Gravity.CENTER);label.setSingleLine(true);label.setTextSize(12);
+   label.setGravity(Gravity.CENTER);label.setSingleLine(true);label.setTextSize(11);
    TextView time=new TextView(c);time.setText("--:--");time.setTextColor(Color.WHITE);
-   time.setTypeface(Typeface.DEFAULT_BOLD);time.setTextSize(15);time.setGravity(Gravity.CENTER);
+   time.setTypeface(Typeface.DEFAULT_BOLD);time.setTextSize(14);time.setGravity(Gravity.CENTER);
    tile.addView(label,new LinearLayout.LayoutParams(-1,0,1));
    tile.addView(time,new LinearLayout.LayoutParams(-1,0,1));
    LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-1,1);
