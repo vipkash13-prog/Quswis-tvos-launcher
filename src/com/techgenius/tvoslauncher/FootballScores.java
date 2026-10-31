@@ -100,7 +100,7 @@ final class FootballScores {
   TextView title=new TextView(c);title.setText("المباريات القادمة");title.setTextSize(18);
   title.setTypeface(Typeface.DEFAULT_BOLD);title.setTextColor(Color.WHITE);
   title.setGravity(Gravity.CENTER);panel.addView(title,new android.widget.LinearLayout.LayoutParams(-1,Ui.px(c,34)));
-  for(int i=0;i<5;i++){
+  for(int i=0;i<7;i++){
    android.widget.LinearLayout line=new android.widget.LinearLayout(c);
    line.setOrientation(android.widget.LinearLayout.HORIZONTAL);
    line.setLayoutDirection(android.view.View.LAYOUT_DIRECTION_RTL);
@@ -169,7 +169,7 @@ final class FootballScores {
   },"matchgrind-diagnostic").start();
  }
  private static void showMessage(android.widget.LinearLayout panel,String msg){
-  for(int i=0;i<5;i++){
+  for(int i=0;i<7;i++){
    android.widget.LinearLayout line=(android.widget.LinearLayout)panel.getChildAt(i+1);
    ((android.widget.ImageView)line.getChildAt(0)).setImageDrawable(null);
    ((android.widget.ImageView)line.getChildAt(4)).setImageDrawable(null);
@@ -180,7 +180,7 @@ final class FootballScores {
   }
  }
  private static void showFixtures(android.widget.LinearLayout panel,java.util.List<JSONObject> matches){
-  for(int i=0;i<5;i++){
+  for(int i=0;i<7;i++){
    android.widget.LinearLayout line=(android.widget.LinearLayout)panel.getChildAt(i+1);
    if(i>=matches.size()){line.setVisibility(android.view.View.INVISIBLE);continue;}
    line.setVisibility(android.view.View.VISIBLE);
@@ -193,7 +193,7 @@ final class FootballScores {
    String score="in".equals(state)&&goals!=null&&!goals.isNull("home")?"🔴 مباشر "+goals.optString("home")+" - "+goals.optString("away")+(fixture.optString("clock","").isEmpty()?"":"  "+fixture.optString("clock","")):when;
    JSONObject lg=item.optJSONObject("league");
    String leagueLabel=lg==null?"":lg.optString("name","");
-   if(!leagueLabel.isEmpty())score=score+" • "+leagueLabel;
+   
    ((TextView)line.getChildAt(1)).setText(arabicTeam(home.optString("name","")));
    ((TextView)line.getChildAt(2)).setText(score);
    ((TextView)line.getChildAt(3)).setText(arabicTeam(away.optString("name","")));
@@ -383,7 +383,7 @@ final class FootballScores {
    added=true;
    while(added){added=false;for(java.util.List<JSONObject> group:byLeague.values())if(!group.isEmpty()){ordered.add(group.remove(0));added=true;}}
    ordered.addAll(0,live);
-   final java.util.List<JSONObject> top=new java.util.ArrayList<>(ordered.subList(0,Math.min(5,ordered.size())));
+   final java.util.List<JSONObject> top=new java.util.ArrayList<>(ordered.subList(0,Math.min(7,ordered.size())));
    if(success&&!top.isEmpty()){
     JSONArray saved=new JSONArray();for(JSONObject m:top)saved.put(m);
     p.edit().putString("fixtures_json",saved.toString()).putString("cache_key",key).putLong(K_AT,System.currentTimeMillis()).apply();
