@@ -180,7 +180,7 @@ final class FootballScores {
   Context app=c.getApplicationContext();
   if(!enabled(app)){view.setVisibility(android.view.View.GONE);return;}
   MainActivity active=MainActivity.activeInstance;
-  view.setVisibility(active!=null&&active.folderMode?android.view.View.GONE:android.view.View.VISIBLE);
+  view.setVisibility(active!=null&&!active.shouldShowFootball()?android.view.View.GONE:android.view.View.VISIBLE);
   java.util.Set<String> selected=selectedLeagues(app);
   if(selected.isEmpty()){showMessage(view,"اختر الدوريات من الإعدادات");return;}
   String token="";
@@ -262,6 +262,8 @@ final class FootballScores {
     String d=f==null?"":f.optString("date","");
     String leagueId=f==null?"":f.optString("leagueId","");
     if(!selected.contains(leagueId))continue;
+    Date kickoff=parseMatchDate(d);
+    if(kickoff==null || kickoff.getTime()<System.currentTimeMillis()-10800000L)continue;
     JSONObject ts=m.optJSONObject("teams");
     JSONObject h=ts==null?null:ts.optJSONObject("home"),a=ts==null?null:ts.optJSONObject("away");
     String unique=leagueId+"|"+d+"|"+(h==null?"":h.optString("name"))+"|"+(a==null?"":a.optString("name"));
