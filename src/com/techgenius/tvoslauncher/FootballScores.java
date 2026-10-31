@@ -83,19 +83,19 @@ final class FootballScores {
   android.widget.LinearLayout panel=new android.widget.LinearLayout(c);
   panel.setOrientation(android.widget.LinearLayout.VERTICAL);
   panel.setPadding(Ui.px(c,14),Ui.px(c,10),Ui.px(c,14),Ui.px(c,12));
-  GradientDrawable glass=new GradientDrawable();glass.setColor(0x884F6770);
+  GradientDrawable glass=new GradientDrawable();glass.setColor(0xE51B2633);
   glass.setCornerRadius(Ui.px(c,22));glass.setStroke(Ui.px(c,1),0xAADDFAFF);
   panel.setBackground(glass);
-  TextView title=new TextView(c);title.setText("المباريات القادمة");title.setTextSize(22);
+  TextView title=new TextView(c);title.setText("المباريات القادمة");title.setTextSize(18);
   title.setTypeface(Typeface.DEFAULT_BOLD);title.setTextColor(Color.WHITE);
-  title.setGravity(Gravity.CENTER);panel.addView(title,new android.widget.LinearLayout.LayoutParams(-1,Ui.px(c,48)));
+  title.setGravity(Gravity.CENTER);panel.addView(title,new android.widget.LinearLayout.LayoutParams(-1,Ui.px(c,40)));
   for(int i=0;i<5;i++){
    android.widget.LinearLayout line=new android.widget.LinearLayout(c);
    line.setOrientation(android.widget.LinearLayout.HORIZONTAL);
    line.setLayoutDirection(android.view.View.LAYOUT_DIRECTION_RTL);
    line.setGravity(Gravity.CENTER_VERTICAL);
    line.setPadding(Ui.px(c,8),Ui.px(c,4),Ui.px(c,8),Ui.px(c,4));
-   GradientDrawable bg=new GradientDrawable();bg.setColor(0x666E8790);
+   GradientDrawable bg=new GradientDrawable();bg.setColor(0xD22D4052);
    bg.setCornerRadius(Ui.px(c,12));bg.setStroke(Ui.px(c,1),0x77FFFFFF);
    line.setBackground(bg);
    android.widget.ImageView home=new android.widget.ImageView(c),away=new android.widget.ImageView(c);
@@ -169,7 +169,6 @@ final class FootballScores {
   java.util.Set<String> selected=selectedLeagues(app);
   if(selected.isEmpty()){showMessage(view,"اختر الدوريات من الإعدادات");return;}
   String token=apiKey(app);
-  if(token.isEmpty()){showMessage(view,"أدخل مفتاح API-FOOTBALL من الإعدادات");return;}
   SharedPreferences p=prefs(app);
   String key=android.text.TextUtils.join("|",new java.util.TreeSet<>(selected));
   String cached=p.getString("fixtures_json",null);
@@ -185,6 +184,7 @@ final class FootballScores {
    java.util.List<JSONObject> matches=new java.util.ArrayList<>();
    String error=null;boolean success=false;
    for(String[] league:LEAGUES){
+    if(token.isEmpty())break;
     if(!selected.contains(league[0]))continue;
     int id=apiLeague(league[0]);if(id==0)continue;
     HttpURLConnection conn=null;
@@ -206,6 +206,50 @@ final class FootballScores {
      if(arr!=null)for(int i=0;i<arr.length();i++){JSONObject item=arr.optJSONObject(i);if(item!=null)matches.add(item);}
     }catch(Exception ex){error="تعذر الاتصال بموقع API-FOOTBALL";}finally{if(conn!=null)conn.disconnect();}
    }
+   // Public ESPN scoreboard fallback, without API key. It includes team logos.
+   if(matches.isEmpty()){
+    for(String[] league:LEAGUES){
+     if(!selected.contains(league[0]))continue;
+     HttpURLConnection conn=null;
+     try{
+      String endpoint="https://site.api.espn.com/apis/site/v2/sports/soccer/"+league[0]+"/scoreboard?limit=100";
+      conn=(HttpURLConnection)new URL(endpoint).openConnection();
+      conn.setConnectTimeout(8000);conn.setReadTimeout(8000);
+      conn.setRequestProperty("User-Agent",Weather.UA);
+      if(conn.getResponseCode()!=200)continue;
+      BufferedReader reader=new BufferedReader(new InputStreamReader(conn.getInputStream(),"UTF-8"));
+      StringBuilder body=new StringBuilder();String line;
+      while((line=reader.readLine())!=null)body.append(line);reader.close();
+      JSONArray events=new JSONObject(body.toString()).optJSONArray("events");
+      if(events==null)continue;
+      success=true;
+      for(int i=0;i<events.length();i++){
+       JSONObject event=events.optJSONObject(i);if(event==null)continue;
+       String date=event.optString("date","");
+       if(date.isEmpty())continue;
+       JSONArray competitions=event.optJSONArray("competitions");
+       JSONObject competition=competitions==null?null:competitions.optJSONObject(0);
+       JSONArray competitors=competition==null?null:competition.optJSONArray("competitors");
+       if(competitors==null||competitors.length()<2)continue;
+       JSONObject home=null,away=null;
+       for(int j=0;j<competitors.length();j++){
+        JSONObject t=competitors.optJSONObject(j);if(t==null)continue;
+        if("home".equals(t.optString("homeAway")))home=t;else away=t;
+       }
+       if(home==null||away==null)continue;
+       JSONObject status=event.optJSONObject("status");
+       JSONObject type=status==null?null:status.optJSONObject("type");
+       if(type!=null&&"post".equals(type.optString("state")))continue;
+       JSONObject item=new JSONObject(),fixture=new JSONObject(),teams=new JSONObject(),leagueObj=new JSONObject();
+       fixture.put("date",date);
+       teams.put("home",espnTeam(home));teams.put("away",espnTeam(away));
+       leagueObj.put("name",league[1]);
+       item.put("fixture",fixture);item.put("teams",teams);item.put("league",leagueObj);
+       matches.add(item);
+      }
+     }catch(Exception ignored){}finally{if(conn!=null)conn.disconnect();}
+    }
+   }
    java.util.Collections.sort(matches,(a,b)->{
     JSONObject af=a.optJSONObject("fixture"),bf=b.optJSONObject("fixture");
     return (af==null?"":af.optString("date","")).compareTo(bf==null?"":bf.optString("date",""));
@@ -222,6 +266,17 @@ final class FootballScores {
     else showMessage(view,message);
    });
   },"football-api-refresh").start();
+ }
+ private static JSONObject espnTeam(JSONObject competitor) throws Exception{
+  JSONObject t=competitor.optJSONObject("team");
+  JSONObject out=new JSONObject();
+  out.put("name",t==null?"فريق":t.optString("displayName","فريق"));
+  String logo=t==null?"":t.optString("logo","");
+  if(logo.isEmpty()&&t!=null){
+   JSONArray logos=t.optJSONArray("logos");
+   if(logos!=null&&logos.length()>0){JSONObject first=logos.optJSONObject(0);if(first!=null)logo=first.optString("href","");}
+  }
+  out.put("logo",logo);return out;
  }
  private static String apiDay(int offset){
   java.text.SimpleDateFormat f=new java.text.SimpleDateFormat("yyyy-MM-dd",Locale.US);
