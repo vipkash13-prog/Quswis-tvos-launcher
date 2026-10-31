@@ -9,6 +9,7 @@ import android.os.Looper;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.TextView;
+import android.widget.LinearLayout;
 import org.json.JSONObject;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -41,20 +42,41 @@ final class PrayerTimes {
  static void setLocation(Context c,String city,String country,String countryApi){
   prefs(c).edit().putString(K_CITY,city).putString(K_COUNTRY,country).putString("country_api",countryApi).remove(K_AT).apply();
  }
- static TextView createView(Context c){
-  TextView v=new TextView(c);v.setTextColor(Color.WHITE);v.setTextSize(13);v.setGravity(Gravity.CENTER_VERTICAL);
-  v.setPadding(Ui.px(c,15),Ui.px(c,10),Ui.px(c,15),Ui.px(c,10));
-  v.setTypeface(Typeface.create("sans-serif-medium",Typeface.NORMAL));v.setMaxLines(7);
-  v.setLineSpacing(Ui.px(c,3),1f);
-  GradientDrawable bg=new GradientDrawable();bg.setColor(0xE51B2633);bg.setCornerRadius(Ui.px(c,17));
-  bg.setStroke(Ui.px(c,1),0x668FD6C4);v.setBackground(bg);v.setFocusable(false);v.setClickable(false);return v;
+ static LinearLayout createView(Context c){
+  LinearLayout bar=new LinearLayout(c);bar.setOrientation(LinearLayout.HORIZONTAL);
+  bar.setGravity(Gravity.CENTER);bar.setPadding(Ui.px(c,5),Ui.px(c,5),Ui.px(c,5),Ui.px(c,5));
+  bar.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+  GradientDrawable bg=new GradientDrawable();bg.setColor(0xE51B2633);
+  bg.setCornerRadius(Ui.px(c,14));bg.setStroke(Ui.px(c,1),0x668FD6C4);bar.setBackground(bg);
+  String[] names={"الفجر","الظهر","العصر","المغرب","العشاء"};
+  for(String name:names){
+   TextView cell=new TextView(c);cell.setText(name+"\\n--:--");cell.setTextColor(Color.WHITE);
+   cell.setTextSize(12);cell.setGravity(Gravity.CENTER);cell.setMaxLines(2);
+   cell.setPadding(Ui.px(c,4),Ui.px(c,7),Ui.px(c,4),Ui.px(c,7));
+   GradientDrawable tile=new GradientDrawable();tile.setColor(0xB211213A);
+   tile.setCornerRadius(Ui.px(c,9));tile.setStroke(Ui.px(c,1),0x55487FBC);
+   cell.setBackground(tile);
+   LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-1,1f);
+   lp.setMargins(Ui.px(c,2),0,Ui.px(c,2),0);bar.addView(cell,lp);
+  }
+  return bar;
  }
- static void refresh(Context context,TextView view,boolean force){
+ private static void show(LinearLayout view,String raw){
+  String[] names={"الفجر","الظهر","العصر","المغرب","العشاء"};
+  String[] keys={"Fajr","Dhuhr","Asr","Maghrib","Isha"};
+  JSONObject t=null;try{t=new JSONObject(raw);}catch(Exception ignored){}
+  for(int i=0;i<5;i++){
+   TextView cell=(TextView)view.getChildAt(i);
+   String time=t==null?"--:--":t.optString(keys[i],"--:--").replaceAll("\\\\s*\\\\(.*?\\\\)","");
+   cell.setText(names[i]+"\\n"+time);
+  }
+ }
+ static void refresh(Context context,LinearLayout view,boolean force){
   if(view==null)return;if(!enabled(context)){view.setVisibility(View.GONE);return;}view.setVisibility(View.VISIBLE);
   SharedPreferences p=prefs(context);String key=city(context)+"|"+countryApi(context);
   String cached=p.getString(K_DATA,null);long at=p.getLong(K_AT,0);
-  if(cached!=null&&key.equals(p.getString(K_KEY,"")))view.setText(format(context,cached));
-  else view.setText("مواقيت الصلاة\n"+city(context)+" • جارٍ جلب المواقيت…");
+  if(cached!=null&&key.equals(p.getString(K_KEY,"")))show(view,cached);
+  else show(view,"{}");
   if(busy||(!force&&key.equals(p.getString(K_KEY,""))&&System.currentTimeMillis()-at<3600000L))return;
   busy=true;Context app=context.getApplicationContext();
   new Thread(()->{
@@ -74,7 +96,7 @@ final class PrayerTimes {
    }catch(Exception ignored){}finally{if(conn!=null)conn.disconnect();}
    final String shown=data!=null?data:(key.equals(p.getString(K_KEY,""))?p.getString(K_DATA,null):null);
    new Handler(Looper.getMainLooper()).post(()->{busy=false;if(view!=null&&enabled(view.getContext())){
-    view.setVisibility(View.VISIBLE);view.setText(shown==null?"مواقيت الصلاة\nتعذر جلب المواقيت • تحقق من المدينة والإنترنت":format(view.getContext(),shown));
+    view.setVisibility(View.VISIBLE);show(view,shown==null?"{}":shown);
    }});
   },"prayer-times-refresh").start();
  }
