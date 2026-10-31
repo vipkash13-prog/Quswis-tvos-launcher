@@ -26,8 +26,8 @@ import java.util.TimeZone;
 /** Football scores filtered by the selected league and team. */
 final class FootballScores {
  private static final String PREFS="football_scores",K_DATA="data",K_AT="at",K_LEAGUE="league",K_TEAM_ID="team_id",K_TEAM="team";
- private static final long CACHE_MS=600000L;private static volatile boolean busy;
- static final String[][] LEAGUES={{"ksa.1","دوري روشن السعودي"},{"eng.1","الدوري الإنجليزي"},{"esp.1","الدوري الإسباني"},{"ita.1","الدوري الإيطالي"},{"fra.1","الدوري الفرنسي"},{"afc.champions","دوري أبطال آسيا للنخبة"},{"uefa.champions","دوري أبطال أوروبا"}};
+ private static final long CACHE_MS=120000L;private static volatile boolean busy;
+ static final String[][] LEAGUES={{"ksa.1","دوري روشن السعودي"},{"eng.1","الدوري الإنجليزي"},{"esp.1","الدوري الإسباني"},{"ita.1","الدوري الإيطالي"},{"fra.1","الدوري الفرنسي"},{"ger.1","الدوري الألماني"},{"afc.champions","دوري أبطال آسيا للنخبة"},{"uefa.champions","دوري أبطال أوروبا"}};
  static final class Team{final String id,name;Team(String i,String n){id=i;name=n;}}
  interface TeamsCallback{void onLoaded(List<Team> teams,String error);}
  private static final class Match{String date,home,away,homeId,awayId,hs,as,status;}
@@ -45,6 +45,15 @@ final class FootballScores {
   java.util.List<String> names=new java.util.ArrayList<>();
   for(String[] l:LEAGUES)if(isLeagueSelected(c,l[0]))names.add(l[1]);
   return names.isEmpty()?"لم يتم اختيار دوريات":android.text.TextUtils.join("، ",names);
+ }
+ static java.util.Set<String> selectedTeams(Context c,String league){return new java.util.HashSet<>(prefs(c).getStringSet("teams_"+league,java.util.Collections.emptySet()));}
+ static void setSelectedTeams(Context c,String league,java.util.Set<String> ids){prefs(c).edit().putStringSet("teams_"+league,new java.util.HashSet<>(ids)).remove("fixtures_json").remove(K_AT).apply();}
+ static String arabicTeam(String name){
+  if(name==null)return "";
+  String n=name.toLowerCase(Locale.US).replaceAll("[^a-z0-9]","");
+  String[][] pairs=[["Al Hilal","الهلال"],["Al Nassr","النصر"],["Al Ahli","الأهلي"],["Al Ittihad","الاتحاد"],["Al Fateh","الفتح"],["Al Taawoun","التعاون"],["Al Ettifaq","الاتفاق"],["Al Fayha","الفيحاء"],["Al Khaleej","الخليج"],["Al Kholood","الخلود"],["Al Shabab","الشباب"],["Al Qadsiah","القادسية"],["Al Riyadh","الرياض"],["Al Hazem","الحزم"],["Al Okhdood","الأخدود"],["Damac","ضمك"],["Abha","أبها"],["Manchester United","مانشستر يونايتد"],["Manchester City","مانشستر سيتي"],["Liverpool","ليفربول"],["Arsenal","أرسنال"],["Chelsea","تشيلسي"],["Tottenham","توتنهام"],["Newcastle","نيوكاسل"],["Everton","إيفرتون"],["Aston Villa","أستون فيلا"],["West Ham","وست هام"],["Brighton","برايتون"],["Brentford","برينتفورد"],["Fulham","فولهام"],["Wolverhampton","وولفرهامبتون"],["Crystal Palace","كريستال بالاس"],["Nottingham Forest","نوتنغهام فورست"],["Bournemouth","بورنموث"],["Leeds United","ليدز يونايتد"],["Sunderland","سندرلاند"],["Burnley","بيرنلي"],["Real Madrid","ريال مدريد"],["Barcelona","برشلونة"],["Atletico Madrid","أتلتيكو مدريد"],["Bayern Munich","بايرن ميونخ"],["Borussia Dortmund","بوروسيا دورتموند"],["Inter Milan","إنتر ميلان"],["AC Milan","ميلان"],["Juventus","يوفنتوس"],["Paris Saint-Germain","باريس سان جيرمان"]];
+  for(String[] x:pairs)if(n.equals(x[0].toLowerCase(Locale.US).replaceAll("[^a-z0-9]","")))return x[1];
+  return name;
  }
  static String apiKey(Context c){return prefs(c).getString("api_football_key","");}
  static void setApiKey(Context c,String key){prefs(c).edit().putString("api_football_key",key).remove(K_AT).apply();}
@@ -68,11 +77,11 @@ final class FootballScores {
     if(sports!=null)for(int i=0;i<sports.length();i++){JSONArray leagues=sports.optJSONObject(i).optJSONArray("leagues");if(leagues==null)continue;
      for(int j=0;j<leagues.length();j++){JSONArray teams=leagues.optJSONObject(j).optJSONArray("teams");if(teams==null)continue;
       for(int k=0;k<teams.length();k++){JSONObject e=teams.optJSONObject(k);JSONObject t=e==null?null:e.optJSONObject("team");if(t==null)t=e;
-       if(t!=null){String id=t.optString("id",""),name=t.optString("displayName","");if(!id.isEmpty()&&!name.isEmpty())out.add(new Team(id,name));}}
+       if(t!=null){String id=t.optString("id",""),name=t.optString("displayName","");if(!id.isEmpty()&&!name.isEmpty())out.add(new Team(id,arabicTeam(name)));}}
      }}
     JSONArray direct=root.optJSONArray("teams");
     if(out.isEmpty()&&direct!=null)for(int i=0;i<direct.length();i++){JSONObject e=direct.optJSONObject(i);JSONObject t=e==null?null:e.optJSONObject("team");if(t==null)t=e;
-     if(t!=null){String id=t.optString("id",""),name=t.optString("displayName","");if(!id.isEmpty()&&!name.isEmpty())out.add(new Team(id,name));}}
+     if(t!=null){String id=t.optString("id",""),name=t.optString("displayName","");if(!id.isEmpty()&&!name.isEmpty())out.add(new Team(id,arabicTeam(name)));}}
     if(out.isEmpty())error="لم تصل قائمة الفرق من مزود البيانات";
     Collections.sort(out,Comparator.comparing(t->t.name));
    }catch(Exception e){error="تعذر تحميل الفرق • تحقق من الإنترنت";}finally{if(conn!=null)conn.disconnect();}
@@ -140,9 +149,9 @@ final class FootballScores {
    if(home==null||away==null)continue;
    String when=fixture==null?"--:--":fixtureTime(fixture.optString("date",""));
    String score=goals!=null&&!goals.isNull("home")?goals.optString("home")+" - "+goals.optString("away"):when;
-   ((TextView)line.getChildAt(1)).setText(home.optString("name",""));
+   ((TextView)line.getChildAt(1)).setText(arabicTeam(home.optString("name","")));
    ((TextView)line.getChildAt(2)).setText(score);
-   ((TextView)line.getChildAt(3)).setText(away.optString("name",""));
+   ((TextView)line.getChildAt(3)).setText(arabicTeam(away.optString("name","")));
    loadLogo((android.widget.ImageView)line.getChildAt(0),home.optString("logo",""));
    loadLogo((android.widget.ImageView)line.getChildAt(4),away.optString("logo",""));
   }
@@ -168,9 +177,9 @@ final class FootballScores {
   view.setVisibility(android.view.View.VISIBLE);
   java.util.Set<String> selected=selectedLeagues(app);
   if(selected.isEmpty()){showMessage(view,"اختر الدوريات من الإعدادات");return;}
-  String token=apiKey(app);
+  String token="";
   SharedPreferences p=prefs(app);
-  String key=android.text.TextUtils.join("|",new java.util.TreeSet<>(selected));
+  String key=android.text.TextUtils.join("|",new java.util.TreeSet<>(selected))+"|"+apiDay(0)+"|"+selectedTeamCacheKey(app,selected);
   String cached=p.getString("fixtures_json",null);
   long at=p.getLong(K_AT,0);
   if(cached!=null&&key.equals(p.getString("cache_key",""))){
@@ -210,7 +219,8 @@ final class FootballScores {
    if(matches.isEmpty()){
     for(String[] league:LEAGUES){
      if(!selected.contains(league[0]))continue;
-     for(int offset=0;offset<=14;offset++){
+     int beforeLeague=matches.size();
+     for(int offset=0;offset<=7;offset++){
      HttpURLConnection conn=null;
      try{
       String endpoint="https://site.api.espn.com/apis/site/v2/sports/soccer/"+league[0]+"/scoreboard?dates="+espnDay(offset)+"&limit=100";
@@ -241,6 +251,9 @@ final class FootballScores {
        JSONObject status=event.optJSONObject("status");
        JSONObject type=status==null?null:status.optJSONObject("type");
        if(type!=null&&"post".equals(type.optString("state"))&&offset>0)continue;
+       java.util.Set<String> wanted=selectedTeams(app,league[0]);
+       JSONObject ht=home.optJSONObject("team"),at=away.optJSONObject("team");
+       if(!wanted.isEmpty()&&(ht==null||!wanted.contains(ht.optString("id")))&&(at==null||!wanted.contains(at.optString("id"))))continue;
        JSONObject item=new JSONObject(),fixture=new JSONObject(),teams=new JSONObject(),leagueObj=new JSONObject();
        fixture.put("date",date);
        teams.put("home",espnTeam(home));teams.put("away",espnTeam(away));
@@ -249,7 +262,7 @@ final class FootballScores {
        matches.add(item);
       }
      }catch(Exception ignored){}finally{if(conn!=null)conn.disconnect();}
-     if(matches.size()>=12)break;
+     if(matches.size()-beforeLeague>=12)break;
      }
     }
    }
@@ -278,6 +291,11 @@ final class FootballScores {
     else showMessage(view,message);
    });
   },"football-api-refresh").start();
+ }
+ private static String selectedTeamCacheKey(Context c,java.util.Set<String> leagues){
+  StringBuilder b=new StringBuilder();
+  for(String l:new java.util.TreeSet<>(leagues))b.append(l).append(":").append(new java.util.TreeSet<>(selectedTeams(c,l))).append(";");
+  return b.toString();
  }
  private static JSONObject espnTeam(JSONObject competitor) throws Exception{
   JSONObject t=competitor.optJSONObject("team");
