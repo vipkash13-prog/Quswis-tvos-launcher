@@ -169,6 +169,19 @@ public class MainActivity extends Activity {
     final List<AppEntry> shown = new ArrayList<>();
     final List<View> tiles = new ArrayList<>();
     final Handler handler = new Handler(Looper.getMainLooper());
+    final Runnable footballTick = new Runnable() {
+        @Override public void run() {
+            if (!resumed) return;
+            if (footballCard != null) FootballScores.refresh(MainActivity.this, footballCard, false);
+            handler.postDelayed(this, 120000L);
+        }
+    };
+    boolean shouldShowFootball() {
+        return FootballScores.enabled(this) && !folderMode && (scroll == null || scroll.getScrollY() < dp(65));
+    }
+    void syncFootballVisibility() {
+        if (footballCard != null) footballCard.setVisibility(shouldShowFootball() ? View.VISIBLE : View.GONE);
+    }
 
     FrameLayout root;
     ImageView wallView;
@@ -371,7 +384,7 @@ public class MainActivity extends Activity {
         if (moveIndex >= 0) endMove();
         if (folderMode) {
             folderMode = false;
-            if (footballCard != null) footballCard.setVisibility(FootballScores.enabled(this) && !folderMode ? View.VISIBLE : View.GONE);
+            syncFootballVisibility();
             switcher.setAlpha(1f);
             weatherCard.setAlpha(weatherAlpha());
             launchTile = null;
@@ -451,6 +464,8 @@ public class MainActivity extends Activity {
         updateWeather();
         if (prayerCard != null) PrayerTimes.refresh(this, prayerCard, false);
         if (footballCard != null) FootballScores.refresh(this, footballCard, false);
+        handler.removeCallbacks(footballTick);
+        handler.postDelayed(footballTick, 120000L);
         refreshAvatar();
         applyTabs();
         resetIdle();
@@ -484,6 +499,7 @@ public class MainActivity extends Activity {
         if (sceneHome != null && !ambientShowcase) sceneHome.sceneView.stop();
         handler.removeCallbacks(heroAdvance);
         handler.removeCallbacks(weatherTick);
+        handler.removeCallbacks(footballTick);
         handler.removeCallbacks(idleRunnable);
         if (idle) exitIdle();
     }
@@ -566,6 +582,7 @@ public class MainActivity extends Activity {
         scroll.setFillViewport(true);
         scroll.setOnScrollChangeListener((v, x, y, ox, oy) -> {
             if (y == oy) return;
+            syncFootballVisibility();
             float ca = clockAlpha();
             if (launchOverlay == null && !statusFocused() && Math.abs(clockBox.getAlpha() - ca) > 0.005f) {
                 clockBox.setAlpha(ca);
@@ -861,7 +878,7 @@ public class MainActivity extends Activity {
             weatherCard.setVisibility(scenes ? View.GONE : (Weather.enabled(this) && Weather.cached(this) != null ? View.VISIBLE : View.GONE));
         }
         if (prayerCard != null) prayerCard.setVisibility(PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
-        if (footballCard != null) footballCard.setVisibility(FootballScores.enabled(this) ? View.VISIBLE : View.GONE);
+        syncFootballVisibility();
         if (weatherCard != null) weatherCard.bringToFront();
         if (prayerCard != null) prayerCard.bringToFront();
         if (footballCard != null) footballCard.bringToFront();
@@ -875,7 +892,7 @@ public class MainActivity extends Activity {
     }
 
     void buildGrid() {
-        if (footballCard != null) footballCard.setVisibility(FootballScores.enabled(this) && !folderMode ? View.VISIBLE : View.GONE);
+        syncFootballVisibility();
         stopWiggle();
         shown.clear();
         if (folderMode) {
@@ -3036,7 +3053,7 @@ public class MainActivity extends Activity {
     void exitFolder() {
         animateGridSwap(() -> {
             folderMode = false;
-            if (footballCard != null) footballCard.setVisibility(FootballScores.enabled(this) ? View.VISIBLE : View.GONE);
+            syncFootballVisibility();
             switcher.animate().alpha(1f).setDuration(250).start();
             weatherCard.animate().alpha(weatherAlpha()).setDuration(250).start();
             buildGrid();
