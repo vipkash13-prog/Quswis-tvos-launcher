@@ -95,6 +95,8 @@ public final class Scenes {
         }
 
         public String title(Context c) {
+            if ("iphone_desert_day".equals(id)) return "صحراء آيفون – النهار";
+            if ("iphone_desert_night".equals(id)) return "صحراء آيفون – الليل";
             return I18n.s(c, nameEn, nameTr);
         }
     }
@@ -124,7 +126,17 @@ public final class Scenes {
                 "backgrounds/scene-dawn.jpg", "backgrounds/scene-dawn-glass.jpg", "backgrounds/scene-dawn-fg.webp",
                 false, false, false,
                 115f, 200f, 0f,
-                88f, 0f, false)
+                88f, 0f, false),
+        new Spec("iphone_desert_day", "iPhone Desert – Day", "iPhone Desert – Day",
+                "backgrounds/iPhone_Desert_1_TV_4K.jpg", "backgrounds/iPhone_Desert_1_TV_4K.jpg", null,
+                false, false, false,
+                68f, 190f, 0f,
+                45f, 0f, false),
+        new Spec("iphone_desert_night", "iPhone Desert – Night", "iPhone Desert – Night",
+                "backgrounds/iPhone_Desert_2_TV_4K.jpg", "backgrounds/iPhone_Desert_2_TV_4K.jpg", null,
+                false, false, false,
+                68f, 190f, 0f,
+                45f, 0f, false)
     };
 
     public static final Spec CUSTOM_SPEC = new Spec(
