@@ -448,6 +448,8 @@ public class MainActivity extends Activity {
             getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
         updateWeather();
+        if (prayerCard != null) PrayerTimes.refresh(this, prayerCard, false);
+        if (footballCard != null) FootballScores.refresh(this, footballCard, false);
         refreshAvatar();
         applyTabs();
         resetIdle();
@@ -790,8 +792,25 @@ public class MainActivity extends Activity {
         wlp.topMargin = dp(24);
         wlp.leftMargin = dockOuter;
         root.addView(weatherCard, wlp);
+
+        prayerCard = PrayerTimes.createView(this);
+        FrameLayout.LayoutParams prayerLp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, dp(48), Gravity.TOP | Gravity.START);
+        prayerLp.topMargin = dp(WeatherView.COMPACT_H + 34);
+        prayerLp.leftMargin = dockOuter;
+        root.addView(prayerCard, prayerLp);
+
+        footballCard = FootballScores.createView(this);
+        FrameLayout.LayoutParams footballLp = new FrameLayout.LayoutParams(
+                dp(620), dp(112), Gravity.TOP | Gravity.START);
+        footballLp.topMargin = dp(WeatherView.COMPACT_H + 92);
+        footballLp.leftMargin = dockOuter;
+        root.addView(footballCard, footballLp);
+
         root.addView(sceneHome.overlay, match());
         updateWeather();
+        PrayerTimes.refresh(this, prayerCard, true);
+        FootballScores.refresh(this, footballCard, true);
 
         setContentView(root);
     }
@@ -836,6 +855,8 @@ public class MainActivity extends Activity {
         if (weatherCard != null) {
             weatherCard.setVisibility(scenes ? View.GONE : (Weather.enabled(this) && Weather.cached(this) != null ? View.VISIBLE : View.GONE));
         }
+        if (prayerCard != null) prayerCard.setVisibility(scenes || !PrayerTimes.enabled(this) ? View.GONE : View.VISIBLE);
+        if (footballCard != null) footballCard.setVisibility(scenes ? View.GONE : View.VISIBLE);
         if (scenes && sceneHome != null) {
             Bitmap bg = sceneHome.sceneView.getCurrentBgBitmap();
             if (bg != null) glassBg = Ui.glassBackdrop(bg, 192, 108);
@@ -2258,6 +2279,8 @@ public class MainActivity extends Activity {
     SearchPanel search;
     android.net.ConnectivityManager.NetworkCallback netCallback;
     WeatherView weatherCard;
+    TextView prayerCard;
+    TextView footballCard;
     LiquidGlass weatherGlass;
     int avatarSize;
     FrameLayout pickerLayer;
