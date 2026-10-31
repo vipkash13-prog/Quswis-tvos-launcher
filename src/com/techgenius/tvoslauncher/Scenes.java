@@ -902,7 +902,7 @@ public final class Scenes {
             float rawCapH = Math.max(clockPx * 0.68f, -digitBounds.top);
             float visualCapH = rawCapH * scaleY;
             float minClockTopY = dateBaselineY + (14f * u);
-            float clockVisualTopY = Math.max((sp.clockTopU + topOffsetU) * u, minClockTopY);
+            float clockVisualTopY = Math.max((sp.clockTopU + topOffsetU) * u, Math.max(minClockTopY, 160f * u));
             float baselineY = clockVisualTopY + visualCapH;
 
             float textW = measureClockWidth(timeStr, clockFillPaint, u, isDuo || isRounded);
