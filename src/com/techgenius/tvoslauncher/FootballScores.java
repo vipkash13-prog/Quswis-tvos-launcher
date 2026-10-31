@@ -117,10 +117,10 @@ final class FootballScores {
     t.setTextColor(Color.WHITE);t.setTextSize(11);t.setSingleLine(true);
     t.setEllipsize(android.text.TextUtils.TruncateAt.END);t.setGravity(Gravity.CENTER);
    }
-   time.setTypeface(Typeface.DEFAULT_BOLD);time.setTextSize(11);time.setSingleLine(false);time.setMaxLines(2);
+   time.setTypeface(Typeface.DEFAULT_BOLD);time.setTextSize(12);time.setSingleLine(false);time.setMaxLines(2);time.setEllipsize(null);time.setGravity(Gravity.CENTER);
    line.addView(home,new android.widget.LinearLayout.LayoutParams(Ui.px(c,30),Ui.px(c,30)));
    line.addView(homeName,new android.widget.LinearLayout.LayoutParams(0,-2,1));
-   line.addView(time,new android.widget.LinearLayout.LayoutParams(Ui.px(c,66),-2));
+   line.addView(time,new android.widget.LinearLayout.LayoutParams(Ui.px(c,112),-2));
    line.addView(awayName,new android.widget.LinearLayout.LayoutParams(0,-2,1));
    line.addView(away,new android.widget.LinearLayout.LayoutParams(Ui.px(c,30),Ui.px(c,30)));
    android.widget.LinearLayout.LayoutParams lp=new android.widget.LinearLayout.LayoutParams(-1,0,1);
