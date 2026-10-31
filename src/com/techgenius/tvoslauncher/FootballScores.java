@@ -244,6 +244,7 @@ final class FootballScores {
     if(!selected.contains(league[0]))continue;
     int compId="ksa.1".equals(league[0])?649:("afc.champions".equals(league[0])?623:0);
     if(compId==0)continue;
+    int countBefore365=matches.size();
     try{
      String base="https://webws.365scores.com/web/games/";
      String common="appTypeId=5&langId=1&timezoneName=Asia%2FRiyadh&sports=1&showOdds=false";
@@ -283,7 +284,7 @@ final class FootballScores {
        }
       }finally{if(conn!=null)conn.disconnect();}
      }
-     if(!matches.isEmpty())from365.add(league[0]);
+     if(matches.size()>countBefore365)from365.add(league[0]);
     }catch(Exception ignored){}
    }
    // Public ESPN scoreboard fallback, without API key. It includes team logos.
