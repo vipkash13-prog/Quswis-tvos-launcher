@@ -371,6 +371,7 @@ public class MainActivity extends Activity {
         if (moveIndex >= 0) endMove();
         if (folderMode) {
             folderMode = false;
+            if (footballCard != null) footballCard.setVisibility(FootballScores.enabled(this) && !folderMode ? View.VISIBLE : View.GONE);
             switcher.setAlpha(1f);
             weatherCard.setAlpha(weatherAlpha());
             launchTile = null;
@@ -802,9 +803,9 @@ public class MainActivity extends Activity {
 
         footballCard = FootballScores.createView(this);
         FrameLayout.LayoutParams footballLp = new FrameLayout.LayoutParams(
-                dp(620), dp(300), Gravity.TOP | Gravity.CENTER_HORIZONTAL);
-        footballLp.topMargin = dp(183);
-        footballLp.leftMargin = 0;
+                dp(450), dp(270), Gravity.TOP | Gravity.LEFT);
+        footballLp.topMargin = dp(185);
+        footballLp.leftMargin = dp(28);
         root.addView(footballCard, footballLp);
 
         root.addView(sceneHome.overlay, match());
@@ -3018,6 +3019,7 @@ public class MainActivity extends Activity {
         if (otherApps.isEmpty()) return;
         animateGridSwap(() -> {
             folderMode = true;
+            if (footballCard != null) footballCard.setVisibility(View.GONE);
             setHeroShown(false);
             switcher.setAlpha(0f);
             weatherCard.setAlpha(0f);
@@ -3032,6 +3034,7 @@ public class MainActivity extends Activity {
     void exitFolder() {
         animateGridSwap(() -> {
             folderMode = false;
+            if (footballCard != null) footballCard.setVisibility(FootballScores.enabled(this) ? View.VISIBLE : View.GONE);
             switcher.animate().alpha(1f).setDuration(250).start();
             weatherCard.animate().alpha(weatherAlpha()).setDuration(250).start();
             buildGrid();
