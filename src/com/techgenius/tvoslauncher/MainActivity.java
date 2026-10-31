@@ -173,7 +173,7 @@ public class MainActivity extends Activity {
         @Override public void run() {
             if (!resumed) return;
             if (footballCard != null) FootballScores.refresh(MainActivity.this, footballCard, false);
-            handler.postDelayed(this, 120000L);
+            handler.postDelayed(this, 60000L);
         }
     };
     boolean shouldShowFootball() {
