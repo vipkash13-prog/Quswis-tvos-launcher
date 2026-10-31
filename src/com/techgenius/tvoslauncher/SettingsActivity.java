@@ -743,8 +743,36 @@ public class SettingsActivity extends Activity {
         row("الدوريات المختارة",
                 () -> FootballScores.selectedLeagueNames(this),
                 this::chooseFootballLeagues);
-        row("مفتاح API-FOOTBALL", () -> FootballScores.apiKey(this).isEmpty() ? "غير مضاف" : "تم الحفظ", this::promptFootballApiKey);
-        infoNote("اختر دوريًا أو عدة دوريات. تظهر المباريات تلقائيًا دون اختيار الفرق.");
+        row("اختيار الأندية", () -> "كل الأندية أو الأندية المفضلة", this::chooseFootballTeamLeague);
+        infoNote("تتحدث المباريات تلقائيًا. اختر الدوريات، ويمكنك تخصيص الأندية لكل دوري. لا يلزم مفتاح API.");
+    }
+
+    private void chooseFootballTeamLeague(){
+        java.util.List<String[]> leagues=new java.util.ArrayList<>();
+        for(String[] l:FootballScores.LEAGUES)if(FootballScores.isLeagueSelected(this,l[0]))leagues.add(l);
+        if(leagues.isEmpty()){showStatusMsg("اختر دوريًا أولاً");return;}
+        String[] labels=new String[leagues.size()];
+        for(int i=0;i<labels.length;i++)labels[i]=leagues.get(i)[1];
+        dialog("اختر الدوري لتحديد أنديته").setItems(labels,(d,w)->chooseFootballTeams(leagues.get(w)[0],leagues.get(w)[1])).setNegativeButton("إلغاء",null).show();
+    }
+    private void chooseFootballTeams(String league,String title){
+        showStatusMsg("جارٍ تحميل أندية "+title+"...");
+        FootballScores.loadTeams(this,league,(teams,error)->{
+            showStatusMsg(null);
+            if(teams==null||teams.isEmpty()){showStatusMsg(error==null?"لم تتوفر قائمة الأندية":error);return;}
+            String[] names=new String[teams.size()];
+            boolean[] checked=new boolean[teams.size()];
+            java.util.Set<String> current=FootballScores.selectedTeams(this,league);
+            for(int i=0;i<teams.size();i++){names[i]=teams.get(i).name;checked[i]=current.contains(teams.get(i).id);}
+            dialog("أندية "+title+" — بدون تحديد = جميع الأندية")
+              .setMultiChoiceItems(names,checked,(d,w,on)->checked[w]=on)
+              .setNeutralButton("كل الأندية",(d,w)->{FootballScores.setSelectedTeams(this,league,new java.util.HashSet<>());rebuildMainRows();})
+              .setPositiveButton("حفظ",(d,w)->{
+                  java.util.Set<String> chosen=new java.util.HashSet<>();
+                  for(int i=0;i<checked.length;i++)if(checked[i])chosen.add(teams.get(i).id);
+                  FootballScores.setSelectedTeams(this,league,chosen);rebuildMainRows();
+              }).setNegativeButton("إلغاء",null).show();
+        });
     }
 
     private void promptFootballApiKey() {
