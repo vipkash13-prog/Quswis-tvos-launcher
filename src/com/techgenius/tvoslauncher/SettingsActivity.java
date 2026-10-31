@@ -743,12 +743,6 @@ public class SettingsActivity extends Activity {
                     Weather.prefs(this).edit().putBoolean(Weather.K_ENABLED, !Weather.enabled(this)).apply();
                     Weather.changed(this);
                 });
-        row(tr("Prayer times on the home screen", "Namaz vakitleri ana ekranda"),
-                () -> PrayerTimes.enabled(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
-                () -> {
-                    PrayerTimes.setEnabled(this, !PrayerTimes.enabled(this));
-                    rebuildMainRows();
-                });
         row(tr("Temperature", "Sıcaklık birimi"), () -> {
             String u = Weather.prefs(this).getString(Weather.K_UNITS, "c");
             return u.equals("f") ? "°F (Fahrenheit)" : "°C (Celsius)";
