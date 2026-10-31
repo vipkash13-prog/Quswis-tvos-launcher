@@ -210,9 +210,10 @@ final class FootballScores {
    if(matches.isEmpty()){
     for(String[] league:LEAGUES){
      if(!selected.contains(league[0]))continue;
+     for(int offset=0;offset<=14;offset++){
      HttpURLConnection conn=null;
      try{
-      String endpoint="https://site.api.espn.com/apis/site/v2/sports/soccer/"+league[0]+"/scoreboard?dates="+espnDay(0)+"-"+espnDay(14)+"&limit=200";
+      String endpoint="https://site.api.espn.com/apis/site/v2/sports/soccer/"+league[0]+"/scoreboard?dates="+espnDay(offset)+"&limit=100";
       conn=(HttpURLConnection)new URL(endpoint).openConnection();
       conn.setConnectTimeout(8000);conn.setReadTimeout(8000);
       conn.setRequestProperty("User-Agent",Weather.UA);
@@ -239,7 +240,7 @@ final class FootballScores {
        if(home==null||away==null)continue;
        JSONObject status=event.optJSONObject("status");
        JSONObject type=status==null?null:status.optJSONObject("type");
-       if(type!=null&&"post".equals(type.optString("state")))continue;
+       if(type!=null&&"post".equals(type.optString("state"))&&offset>0)continue;
        JSONObject item=new JSONObject(),fixture=new JSONObject(),teams=new JSONObject(),leagueObj=new JSONObject();
        fixture.put("date",date);
        teams.put("home",espnTeam(home));teams.put("away",espnTeam(away));
@@ -248,6 +249,8 @@ final class FootballScores {
        matches.add(item);
       }
      }catch(Exception ignored){}finally{if(conn!=null)conn.disconnect();}
+     if(matches.size()>=5)break;
+     }
     }
    }
    java.util.Collections.sort(matches,(a,b)->{
@@ -255,7 +258,7 @@ final class FootballScores {
     return (af==null?"":af.optString("date","")).compareTo(bf==null?"":bf.optString("date",""));
    });
    final java.util.List<JSONObject> top=new java.util.ArrayList<>(matches.subList(0,Math.min(5,matches.size())));
-   if(success){
+   if(success&&!top.isEmpty()){
     JSONArray saved=new JSONArray();for(JSONObject m:top)saved.put(m);
     p.edit().putString("fixtures_json",saved.toString()).putString("cache_key",key).putLong(K_AT,System.currentTimeMillis()).apply();
    }
