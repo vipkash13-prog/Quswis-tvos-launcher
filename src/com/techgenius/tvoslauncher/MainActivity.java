@@ -823,7 +823,7 @@ public class MainActivity extends Activity {
         // and keep the Apple TV-style app dock unobstructed.
         FrameLayout.LayoutParams footballLp = new FrameLayout.LayoutParams(
                 Math.min(dp(450), screenW * 32 / 100),
-                Math.min(dp(325), screenH * 43 / 100),
+                Math.min(dp(355), screenH * 49 / 100),
                 Gravity.TOP | Gravity.RIGHT);
         footballLp.topMargin = dp(150);
         footballLp.rightMargin = dp(28);
