@@ -252,8 +252,8 @@ final class FootballScores {
        JSONObject type=status==null?null:status.optJSONObject("type");
        if(type!=null&&"post".equals(type.optString("state"))&&offset>0)continue;
        java.util.Set<String> wanted=selectedTeams(app,league[0]);
-       JSONObject ht=home.optJSONObject("team"),at=away.optJSONObject("team");
-       if(!wanted.isEmpty()&&(ht==null||!wanted.contains(ht.optString("id")))&&(at==null||!wanted.contains(at.optString("id"))))continue;
+       JSONObject ht=home.optJSONObject("team"),awayTeam=away.optJSONObject("team");
+       if(!wanted.isEmpty()&&(ht==null||!wanted.contains(ht.optString("id")))&&(awayTeam==null||!wanted.contains(awayTeam.optString("id"))))continue;
        JSONObject item=new JSONObject(),fixture=new JSONObject(),teams=new JSONObject(),leagueObj=new JSONObject();
        fixture.put("date",date);
        teams.put("home",espnTeam(home));teams.put("away",espnTeam(away));
