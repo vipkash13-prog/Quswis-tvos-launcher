@@ -978,22 +978,9 @@ public class MainActivity extends Activity {
         // tvOS focus has no outline ring: a soft top sheen on the hardware-cached tile.
         View topSheen = new View(this);
         topSheen.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0xA8FFFFFF, 0x28FFFFFF, 0x00FFFFFF}));
+                new int[]{0x22FFFFFF, 0x00FFFFFF}));
         topSheen.setAlpha(0f);
         tile.addView(topSheen, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, tileH / 2, Gravity.TOP));
-
-        // Moving glass-focus highlight: a translucent luminous rim over the selected app.
-        GradientDrawable glassFocusBg = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{0x5AFFFFFF, 0x10FFFFFF, 0x36A7DFFF});
-        glassFocusBg.setCornerRadius(radius);
-        glassFocusBg.setStroke(dp(2), 0xFFF0FAFF);
-        View glassFocus = new View(this);
-        glassFocus.setBackground(glassFocusBg);
-        glassFocus.setAlpha(0f);
-        glassFocus.setClickable(false);
-        glassFocus.setFocusable(false);
-        tile.addView(glassFocus, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         TextView label = text(15, Ui.font(this, "medium"), 0f);
         label.setText(a.label);
@@ -1009,33 +996,28 @@ public class MainActivity extends Activity {
                 cell.setTranslationZ(dp(10));
                 if (moveIndex >= 0) {
                     // Rebuilt while moving: appear already lifted, or every step would "pop".
-                    v.setScaleX(FOCUS_SCALE);
-                    v.setScaleY(FOCUS_SCALE);
+                    v.setScaleX(1.035f);
+                    v.setScaleY(1.035f);
                     v.setTranslationZ(dp(18));
                     label.setAlpha(1f);
                     label.setTranslationY(tileH * (FOCUS_SCALE - 1f) / 2f);
                 } else {
-                    v.animate().scaleX(FOCUS_SCALE).scaleY(FOCUS_SCALE).translationZ(dp(18)).setDuration(180)
+                    v.animate().scaleX(1.035f).scaleY(1.035f).translationZ(dp(18)).setDuration(110)
                             .setInterpolator(LIFT).start();
                     label.animate().alpha(1f).translationY(tileH * (FOCUS_SCALE - 1f) / 2f).setDuration(160).start();
                 }
-                topSheen.animate().cancel();
-                topSheen.setTranslationX(-tileW * 0.35f);
                 topSheen.setAlpha(0f);
-                topSheen.animate().alpha(1f).translationX(tileW * 0.18f)
-                        .setDuration(360).setInterpolator(EASE).start();
-                glassFocus.animate().cancel();
-                glassFocus.animate().alpha(1f).setDuration(190).setInterpolator(EASE).start();
+                bg.setColor(a.banner != null ? 0xFF454957 : a.color);
+                bg.setStroke(dp(2), 0xF5FFFFFF);
                 onTileFocused(index);
             } else {
                 cell.setTranslationZ(0);
                 stopSway(v);
                 v.animate().scaleX(1f).scaleY(1f).translationZ(0).setDuration(140).setInterpolator(EASE).start();
                 label.animate().alpha(0f).translationY(0).setDuration(120).start();
-                topSheen.animate().cancel();
-                topSheen.animate().alpha(0f).translationX(0f).setDuration(130).start();
-                glassFocus.animate().cancel();
-                glassFocus.animate().alpha(0f).setDuration(140).setInterpolator(EASE).start();
+                topSheen.setAlpha(0f);
+                bg.setColor(a.banner != null ? 0xFF1C1C1E : a.color);
+                bg.setStroke(0, 0x00000000);
             }
         });
         tile.setCameraDistance(9000 * unit);
