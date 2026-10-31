@@ -930,10 +930,28 @@ final class SceneHome {
         focusRing.setColor(Color.TRANSPARENT);
         focusRing.setStroke(dp(2.2f), Color.WHITE);
 
+        // Silver glass focus on the ACTUAL Night Scenes app dock (not the hidden classic grid).
+        // Keep the highlight above the app image so it remains visible on all icon types.
+        GradientDrawable glassShape = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{0x75FFFFFF, 0x16FFFFFF, 0x40B9D7EC});
+        glassShape.setCornerRadius(rad);
+        glassShape.setStroke(dp(2.5f), 0xFFF5F9FF);
+        View glassOverlay = new View(host);
+        glassOverlay.setBackground(glassShape);
+        glassOverlay.setAlpha(0f);
+        glassOverlay.setFocusable(false);
+        glassOverlay.setClickable(false);
+        if (!isGear && !isMore) tile.addView(glassOverlay,
+                new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT));
+
         tile.setOnFocusChangeListener((v, has) -> {
             v.setPivotX(v.getWidth() > 0 ? v.getWidth() / 2f : size / 2f);
             v.setPivotY(v.getHeight() > 0 ? v.getHeight() / 2f : size / 2f);
-            v.setForeground(has ? focusRing : null);
+            v.setForeground((isGear || isMore) && has ? focusRing : null);
+            glassOverlay.animate().cancel();
+            if (!isGear && !isMore) glassOverlay.animate().alpha(has ? 1f : 0f)
+                    .setDuration(140).setInterpolator(MainActivity.EASE).start();
             if (has) {
                 focusedDockIdx = index;
                 host.prefs.edit().putInt("last_dock_idx", index).apply();
