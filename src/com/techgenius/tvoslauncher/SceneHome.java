@@ -1019,6 +1019,7 @@ final class SceneHome {
 
     private void toggleMoreApps() {
         moreExpanded = !moreExpanded;
+        host.syncFootballVisibility();
         if (shelfBox != null) {
             shelfBox.setVisibility(moreExpanded || !host.cwEnabled() ? View.GONE : View.VISIBLE);
         }
