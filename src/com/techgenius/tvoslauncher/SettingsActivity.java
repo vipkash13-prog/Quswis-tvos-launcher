@@ -743,7 +743,21 @@ public class SettingsActivity extends Activity {
         row("الدوريات المختارة",
                 () -> FootballScores.selectedLeagueNames(this),
                 this::chooseFootballLeagues);
+        row("مفتاح API-FOOTBALL", () -> FootballScores.apiKey(this).isEmpty() ? "غير مضاف" : "تم الحفظ", this::promptFootballApiKey);
         infoNote("اختر دوريًا أو عدة دوريات. تظهر المباريات تلقائيًا دون اختيار الفرق.");
+    }
+
+    private void promptFootballApiKey() {
+        android.widget.EditText field = new android.widget.EditText(this);
+        field.setSingleLine(true);
+        field.setHint("x-apisports-key");
+        field.setText(FootballScores.apiKey(this));
+        field.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        new android.app.AlertDialog.Builder(this).setTitle("مفتاح API-FOOTBALL")
+            .setView(field).setPositiveButton("حفظ",(d,w)->{
+                FootballScores.setApiKey(this,field.getText().toString().trim());
+                rebuildMainRows();
+            }).setNegativeButton("إلغاء",null).show();
     }
 
     private void chooseFootballLeagues() {
