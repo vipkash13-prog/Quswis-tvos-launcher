@@ -1058,7 +1058,7 @@ public final class Scenes {
                 Profiles.Profile cur = Profiles.current(c);
                 if (cur != null && cur.name != null) {
                     String name = I18n.profileName(c, cur.name).trim();
-                    if (!name.isEmpty()) {
+                    if (!name.isEmpty() && !name.matches("(?i)person\\s*\\d+|guest|default")) {
                         return greet + "، " + name;
                     }
                 }
