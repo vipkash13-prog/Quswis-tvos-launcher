@@ -72,11 +72,11 @@ final class FootballScores {
                     String hs = home.optString("score","-"), as = away.optString("score","-");
                     JSONObject status = event.optJSONObject("status");
                     String detail = status == null ? "" : status.optJSONObject("type") == null ? "" : status.getJSONObject("type").optString("shortDetail","");
-                    out.append("\\n").append(h).append("  ").append(hs).append(" - ").append(as).append("  ").append(a);
+                    out.append("\n").append(h).append("  ").append(hs).append(" - ").append(as).append("  ").append(a);
                     if (!detail.isEmpty()) out.append("   ").append(detail);
                     shown++;
                 }
-                if (shown==0) out.append("\\nلا توجد مباريات مجدولة خلال الأيام القادمة");
+                if (shown==0) out.append("\nلا توجد مباريات مجدولة خلال الأيام القادمة");
                 result = out.toString();
                 app.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString(K_DATA,result).putLong(K_AT,System.currentTimeMillis()).apply();
             } catch (Exception ignored) {
