@@ -895,7 +895,7 @@ public final class Scenes {
             float datePx = 13.5f * u;
             boolean isCustomRight = isCustomId(sp.id) && CLOCK_POS_RIGHT.equals(getCustomClockPos(ctx));
             float topOffsetU = isCustomRight ? 62f : 19f;
-            float dateBaselineY = isCustomRight ? Math.max((46f + topOffsetU) * u, (sp.dateTopU + topOffsetU) * u) : 80f * u;
+            float dateBaselineY = isCustomRight ? Math.max((46f + topOffsetU) * u, (sp.dateTopU + topOffsetU) * u) : 124f * u;
             float greetBaselineY = dateBaselineY - (18.5f * u);
 
             clockFillPaint.getTextBounds("0847", 0, 4, digitBounds);
