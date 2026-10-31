@@ -83,7 +83,7 @@ final class FootballScores {
   android.widget.LinearLayout panel=new android.widget.LinearLayout(c);
   panel.setOrientation(android.widget.LinearLayout.VERTICAL);
   panel.setPadding(Ui.px(c,14),Ui.px(c,10),Ui.px(c,14),Ui.px(c,12));
-  GradientDrawable glass=new GradientDrawable();glass.setColor(0xE51B2633);
+  GradientDrawable glass=new GradientDrawable();glass.setColor(0x554C7B91);
   glass.setCornerRadius(Ui.px(c,22));glass.setStroke(Ui.px(c,1),0xAADDFAFF);
   panel.setBackground(glass);
   TextView title=new TextView(c);title.setText("المباريات القادمة");title.setTextSize(18);
@@ -95,7 +95,7 @@ final class FootballScores {
    line.setLayoutDirection(android.view.View.LAYOUT_DIRECTION_RTL);
    line.setGravity(Gravity.CENTER_VERTICAL);
    line.setPadding(Ui.px(c,8),Ui.px(c,4),Ui.px(c,8),Ui.px(c,4));
-   GradientDrawable bg=new GradientDrawable();bg.setColor(0xD22D4052);
+   GradientDrawable bg=new GradientDrawable();bg.setColor(0x66557E94);
    bg.setCornerRadius(Ui.px(c,12));bg.setStroke(Ui.px(c,1),0x77FFFFFF);
    line.setBackground(bg);
    android.widget.ImageView home=new android.widget.ImageView(c),away=new android.widget.ImageView(c);
@@ -212,7 +212,7 @@ final class FootballScores {
      if(!selected.contains(league[0]))continue;
      HttpURLConnection conn=null;
      try{
-      String endpoint="https://site.api.espn.com/apis/site/v2/sports/soccer/"+league[0]+"/scoreboard?limit=100";
+      String endpoint="https://site.api.espn.com/apis/site/v2/sports/soccer/"+league[0]+"/scoreboard?dates="+espnDay(0)+"-"+espnDay(14)+"&limit=200";
       conn=(HttpURLConnection)new URL(endpoint).openConnection();
       conn.setConnectTimeout(8000);conn.setReadTimeout(8000);
       conn.setRequestProperty("User-Agent",Weather.UA);
@@ -277,6 +277,11 @@ final class FootballScores {
    if(logos!=null&&logos.length()>0){JSONObject first=logos.optJSONObject(0);if(first!=null)logo=first.optString("href","");}
   }
   out.put("logo",logo);return out;
+ }
+ private static String espnDay(int offset){
+  java.text.SimpleDateFormat f=new java.text.SimpleDateFormat("yyyyMMdd",Locale.US);
+  f.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));
+  return f.format(new Date(System.currentTimeMillis()+offset*86400000L));
  }
  private static String apiDay(int offset){
   java.text.SimpleDateFormat f=new java.text.SimpleDateFormat("yyyy-MM-dd",Locale.US);
