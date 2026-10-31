@@ -1044,7 +1044,8 @@ public class MainActivity extends Activity {
                 focusGlint.setAlpha(0.8f);
                 focusGlint.animate().translationX(tileW - dp(16)).alpha(0f).setDuration(420).start();
                 silverFocus.animate().cancel();
-                silverFocus.animate().alpha(1f).setDuration(160).setInterpolator(EASE).start();
+                silverFocus.setAlpha(0f);
+                moveAppHalo(v, radius);
                 onTileFocused(index);
             } else {
                 cell.setTranslationZ(0);
@@ -1055,7 +1056,8 @@ public class MainActivity extends Activity {
                 silverFocus.animate().cancel();
                 focusGlint.animate().cancel();
                 focusGlint.setAlpha(0f);
-                silverFocus.animate().alpha(0f).setDuration(110).setInterpolator(EASE).start();
+                silverFocus.setAlpha(0f);
+                releaseAppHalo(v);
             }
         });
         tile.setCameraDistance(9000 * unit);
@@ -2993,6 +2995,55 @@ public class MainActivity extends Activity {
 
     void updateShelf(AppEntry a) {
         shelfEntry = a;
+    }
+
+    // A single floating glass halo shared by both the classic grid and Night Scenes dock.
+    View slidingAppHalo;
+    View lastHaloTarget;
+    void moveAppHalo(View target, int corner) {
+        if (root == null || target == null) return;
+        lastHaloTarget = target;
+        target.post(() -> {
+            if (lastHaloTarget != target || !target.isFocused() || root == null) return;
+            int[] at = new int[2], base = new int[2];
+            target.getLocationOnScreen(at);
+            root.getLocationOnScreen(base);
+            int w = target.getWidth() + dp(8), h = target.getHeight() + dp(8);
+            float x = at[0] - base[0] - dp(4), y = at[1] - base[1] - dp(4);
+            if (slidingAppHalo == null) {
+                GradientDrawable glass = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                        new int[]{0x55FFFFFF, 0x0CFFFFFF, 0x4ABCDCF4});
+                glass.setCornerRadius(corner + dp(4));
+                glass.setStroke(dp(3), 0xFFF8FBFF);
+                slidingAppHalo = new View(this);
+                slidingAppHalo.setBackground(glass);
+                slidingAppHalo.setFocusable(false);
+                slidingAppHalo.setClickable(false);
+                slidingAppHalo.setElevation(dp(25));
+                root.addView(slidingAppHalo, new FrameLayout.LayoutParams(w, h));
+                slidingAppHalo.setX(x);
+                slidingAppHalo.setY(y);
+            } else {
+                ViewGroup.LayoutParams lp = slidingAppHalo.getLayoutParams();
+                lp.width = w;
+                lp.height = h;
+                slidingAppHalo.setLayoutParams(lp);
+                slidingAppHalo.animate().cancel();
+                slidingAppHalo.animate().x(x).y(y).alpha(1f).setDuration(220)
+                        .setInterpolator(EASE).start();
+            }
+            slidingAppHalo.setVisibility(View.VISIBLE);
+            slidingAppHalo.bringToFront();
+        });
+    }
+    void releaseAppHalo(View target) {
+        if (lastHaloTarget != target) return;
+        handler.postDelayed(() -> {
+            if (lastHaloTarget == target && slidingAppHalo != null && !target.isFocused()) {
+                slidingAppHalo.animate().alpha(0f).setDuration(130).start();
+                lastHaloTarget = null;
+            }
+        }, 70);
     }
 
     void focusIndex(int i) {
