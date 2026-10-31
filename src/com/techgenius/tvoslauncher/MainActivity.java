@@ -982,6 +982,19 @@ public class MainActivity extends Activity {
         topSheen.setAlpha(0f);
         tile.addView(topSheen, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, tileH / 2, Gravity.TOP));
 
+        // Secreto-inspired silver glass selection, drawn above the app artwork.
+        GradientDrawable silverGlass = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{0x54FFFFFF, 0x16FFFFFF, 0x28D8E8F8});
+        silverGlass.setCornerRadius(radius);
+        silverGlass.setStroke(dp(3), 0xFFF1F5FA);
+        View silverFocus = new View(this);
+        silverFocus.setBackground(silverGlass);
+        silverFocus.setAlpha(0f);
+        silverFocus.setFocusable(false);
+        silverFocus.setClickable(false);
+        tile.addView(silverFocus, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
         TextView label = text(15, Ui.font(this, "medium"), 0f);
         label.setText(a.label);
         label.setSingleLine(true);
@@ -1007,8 +1020,8 @@ public class MainActivity extends Activity {
                     label.animate().alpha(1f).translationY(tileH * (FOCUS_SCALE - 1f) / 2f).setDuration(160).start();
                 }
                 topSheen.setAlpha(0f);
-                bg.setColor(a.banner != null ? 0xFF454957 : a.color);
-                bg.setStroke(dp(2), 0xF5FFFFFF);
+                silverFocus.animate().cancel();
+                silverFocus.animate().alpha(1f).setDuration(110).setInterpolator(EASE).start();
                 onTileFocused(index);
             } else {
                 cell.setTranslationZ(0);
@@ -1016,8 +1029,8 @@ public class MainActivity extends Activity {
                 v.animate().scaleX(1f).scaleY(1f).translationZ(0).setDuration(140).setInterpolator(EASE).start();
                 label.animate().alpha(0f).translationY(0).setDuration(120).start();
                 topSheen.setAlpha(0f);
-                bg.setColor(a.banner != null ? 0xFF1C1C1E : a.color);
-                bg.setStroke(0, 0x00000000);
+                silverFocus.animate().cancel();
+                silverFocus.animate().alpha(0f).setDuration(110).setInterpolator(EASE).start();
             }
         });
         tile.setCameraDistance(9000 * unit);
