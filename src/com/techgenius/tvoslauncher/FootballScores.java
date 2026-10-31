@@ -117,7 +117,7 @@ final class FootballScores {
     t.setTextColor(Color.WHITE);t.setTextSize(11);t.setSingleLine(true);
     t.setEllipsize(android.text.TextUtils.TruncateAt.END);t.setGravity(Gravity.CENTER);
    }
-   time.setTypeface(Typeface.DEFAULT_BOLD);time.setTextSize(12);time.setSingleLine(false);time.setMaxLines(2);time.setEllipsize(null);time.setGravity(Gravity.CENTER);
+   time.setTypeface(Typeface.DEFAULT_BOLD);time.setTextSize(12);time.setSingleLine(true);time.setEllipsize(android.text.TextUtils.TruncateAt.END);time.setGravity(Gravity.CENTER);
    line.addView(home,new android.widget.LinearLayout.LayoutParams(Ui.px(c,30),Ui.px(c,30)));
    line.addView(homeName,new android.widget.LinearLayout.LayoutParams(0,-2,1));
    line.addView(time,new android.widget.LinearLayout.LayoutParams(Ui.px(c,112),-2));
@@ -193,7 +193,7 @@ final class FootballScores {
    String score="in".equals(state)&&goals!=null&&!goals.isNull("home")?"🔴 مباشر "+goals.optString("home")+" - "+goals.optString("away")+(fixture.optString("clock","").isEmpty()?"":"  "+fixture.optString("clock","")):when;
    JSONObject lg=item.optJSONObject("league");
    String leagueLabel=lg==null?"":lg.optString("name","");
-   if(!leagueLabel.isEmpty())score=leagueLabel+"\n"+score;
+   if(!leagueLabel.isEmpty())score=score+" • "+leagueLabel;
    ((TextView)line.getChildAt(1)).setText(arabicTeam(home.optString("name","")));
    ((TextView)line.getChildAt(2)).setText(score);
    ((TextView)line.getChildAt(3)).setText(arabicTeam(away.optString("name","")));
@@ -358,7 +358,7 @@ final class FootballScores {
     String leagueId=f==null?"":f.optString("leagueId","");
     if(!selected.contains(leagueId))continue;
     Date kickoff=parseMatchDate(d);
-    if(kickoff==null || (kickoff.getTime()<System.currentTimeMillis()-10800000L && !"in".equals(f.optString("state"))))continue;
+    if(kickoff==null || (kickoff.getTime()<System.currentTimeMillis()-10800000L && !"in".equals(f.optString("state"))) || kickoff.getTime()>System.currentTimeMillis()+8L*86400000L)continue;
     JSONObject ts=m.optJSONObject("teams");
     JSONObject h=ts==null?null:ts.optJSONObject("home"),a=ts==null?null:ts.optJSONObject("away");
     String unique=leagueId+"|"+d+"|"+(h==null?"":h.optString("name"))+"|"+(a==null?"":a.optString("name"));
