@@ -973,8 +973,11 @@ final class SceneHome {
                 focusGlint.animate().translationX(size - dp(16)).alpha(0f).setDuration(420).start();
             } else focusGlint.setAlpha(0f);
             glassOverlay.animate().cancel();
-            if (!isGear && !isMore) glassOverlay.animate().alpha(has ? 1f : 0f)
-                    .setDuration(140).setInterpolator(MainActivity.EASE).start();
+            glassOverlay.setAlpha(0f);
+            if (!isGear && !isMore) {
+                if (has) host.moveAppHalo(v, (int) rad);
+                else host.releaseAppHalo(v);
+            }
             if (has) {
                 focusedDockIdx = index;
                 host.prefs.edit().putInt("last_dock_idx", index).apply();
