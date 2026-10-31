@@ -736,30 +736,30 @@ public class SettingsActivity extends Activity {
     }
 
     void pageFootball() {
-        section("متابعة المباريات");
-        row("الدوري",
-                () -> FootballScores.leagueName(this),
-                this::chooseFootballLeague);
-        row("الفريق",
-                () -> FootballScores.teamName(this).isEmpty() ? "اختر الفريق" : FootballScores.teamName(this),
-                () -> loadFootballTeams(FootballScores.league(this)));
-        infoNote("اختر الدوري ثم الفريق الذي تريد متابعته. ستظهر مباريات هذا الفريق ونتائجه فقط، وتتحدث تلقائياً.");
+        section("المباريات القادمة");
+        row("إظهار المباريات على الشاشة الرئيسية",
+                () -> FootballScores.enabled(this) ? "مفعّل" : "متوقف",
+                () -> { FootballScores.setEnabled(this, !FootballScores.enabled(this)); rebuildMainRows(); });
+        row("الدوريات المختارة",
+                () -> FootballScores.selectedLeagueNames(this),
+                this::chooseFootballLeagues);
+        infoNote("اختر دوريًا أو عدة دوريات. تظهر المباريات تلقائيًا دون اختيار الفرق.");
     }
 
-    private void chooseFootballLeague() {
+    private void chooseFootballLeagues() {
         String[] labels = new String[FootballScores.LEAGUES.length];
-        for (int i = 0; i < labels.length; i++) labels[i] = FootballScores.LEAGUES[i][1];
-        int selected = 0;
-        for (int i = 0; i < FootballScores.LEAGUES.length; i++) {
-            if (FootballScores.LEAGUES[i][0].equals(FootballScores.league(this))) selected = i;
+        boolean[] checked = new boolean[labels.length];
+        for (int i=0;i<labels.length;i++) {
+            labels[i]=FootballScores.LEAGUES[i][1];
+            checked[i]=FootballScores.isLeagueSelected(this,FootballScores.LEAGUES[i][0]);
         }
-        dialog("اختر الدوري").setSingleChoiceItems(labels, selected, (d, which) -> {
-            String league = FootballScores.LEAGUES[which][0];
-            FootballScores.setLeague(this, league);
-            d.dismiss();
-            rebuildMainRows();
-            loadFootballTeams(league);
-        }).show();
+        dialog("اختر الدوريات").setMultiChoiceItems(labels,checked,(d,which,isChecked)->checked[which]=isChecked)
+                .setPositiveButton("حفظ",(d,w)->{
+                    java.util.Set<String> ids=new java.util.HashSet<>();
+                    for(int i=0;i<checked.length;i++)if(checked[i])ids.add(FootballScores.LEAGUES[i][0]);
+                    FootballScores.setLeagues(this,ids);
+                    rebuildMainRows();
+                }).setNegativeButton("إلغاء",null).show();
     }
 
     private void loadFootballTeams(String league) {
