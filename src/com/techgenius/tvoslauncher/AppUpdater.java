@@ -31,14 +31,14 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Checks GitHub Releases (https://api.github.com/repos/techgenius1/tvOS-Launcher/releases/latest)
+ * Checks GitHub Releases (https://api.github.com/repos/vipkash13-prog/Quswis-tvos-launcher/releases/latest)
  * and downloads/installs the latest APK either automatically or manually from Settings -> Updates.
  */
 public final class AppUpdater {
     public static final String GITHUB_API_LATEST =
-            "https://api.github.com/repos/techgenius1/tvOS-Launcher/releases/latest";
+            "https://api.github.com/repos/vipkash13-prog/Quswis-tvos-launcher/releases/latest";
     public static final String GITHUB_FALLBACK_APK =
-            "https://github.com/techgenius1/tvOS-Launcher/releases/latest/download/tvos-home.apk";
+            "https://github.com/vipkash13-prog/Quswis-tvos-launcher/releases/latest/download/Quswis-tvOS-Launcher.apk";
 
     private static final String PREF_NAME = "updates";
     private static final String KEY_AUTO_UPDATE = "auto_update";
@@ -69,7 +69,7 @@ public final class AppUpdater {
     }
 
     public static String getCurrentVersion(Context c) {
-        if (c == null) return "2.0.3";
+        if (c == null) return "1.0.0";
         try {
             PackageInfo pi = c.getPackageManager().getPackageInfo(c.getPackageName(), 0);
             if (pi != null && pi.versionName != null && !pi.versionName.isEmpty()) {
@@ -137,6 +137,7 @@ public final class AppUpdater {
      */
     public static void checkForUpdates(Context c, CheckCallback cb) {
         if (c == null) return;
+        prefs(c).edit().remove(KEY_LATEST_VER).remove(KEY_LATEST_URL).apply();
         final Context appCtx = c.getApplicationContext();
         checking = true;
         new Thread(() -> {
@@ -148,7 +149,7 @@ public final class AppUpdater {
                 conn.setConnectTimeout(10000);
                 conn.setReadTimeout(10000);
                 conn.setRequestProperty("Accept", "application/vnd.github+json");
-                conn.setRequestProperty("User-Agent", "tvOS-Launcher-Updater");
+                conn.setRequestProperty("User-Agent", "Quswis-tvOS-Updater");
 
                 int code = conn.getResponseCode();
                 if (code != 200) {
@@ -168,7 +169,7 @@ public final class AppUpdater {
                     tag = json.optString("name", "").trim();
                 }
                 String cleanTag = cleanVersion(tag);
-                String apkUrl = GITHUB_FALLBACK_APK;
+                String apkUrl = "";
                 JSONArray assets = json.optJSONArray("assets");
                 if (assets != null) {
                     for (int i = 0; i < assets.length(); i++) {
@@ -182,6 +183,7 @@ public final class AppUpdater {
                         }
                     }
                 }
+                if (apkUrl.isEmpty()) throw new Exception("Release has no APK asset");
                 prefs(appCtx).edit()
                         .putString(KEY_LATEST_VER, cleanTag)
                         .putString(KEY_LATEST_URL, apkUrl)
@@ -223,7 +225,7 @@ public final class AppUpdater {
             if (success && updateAvailable && !activity.isFinishing()) {
                 Toast.makeText(activity,
                         I18n.s(activity,
-                                "Updating tvOS Launcher to v" + latestVersion + "…",
+                                "Updating Quswis tvOS Launcher to v" + latestVersion + "…",
                                 "tvOS Launcher v" + latestVersion + " sürümüne güncelleniyor…"),
                         Toast.LENGTH_SHORT).show();
                 downloadAndInstall(activity, downloadUrl, latestVersion, true, null);
@@ -252,7 +254,7 @@ public final class AppUpdater {
                 new AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                         .setTitle(I18n.s(activity, "Update Available", "Güncelleme Mevcut") + " (v" + latestVersion + ")")
                         .setMessage(I18n.s(activity,
-                                "A new version of tvOS Launcher (v" + latestVersion + ") is available on GitHub.\nCurrent version: v" + cur,
+                                "A new version of Quswis tvOS Launcher (v" + latestVersion + ") is available on GitHub.\nCurrent version: v" + cur,
                                 "GitHub'da yeni bir tvOS Launcher sürümü (v" + latestVersion + ") mevcut.\nMevcut sürüm: v" + cur))
                         .setPositiveButton(I18n.s(activity, "Update Now", "Şimdi Güncelle"), (d, w) -> {
                             downloadAndInstall(activity, downloadUrl, latestVersion, false, onUiRefresh);
