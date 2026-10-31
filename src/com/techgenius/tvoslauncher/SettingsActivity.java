@@ -55,6 +55,7 @@ public class SettingsActivity extends Activity {
             LANGUAGE = "Language",
             LOCATION = "Location",
             WEATHER = "Weather",
+            PRAYER = "Prayer times",
             LOOK_SCENES = "Look and scenes",
             APPS = "Apps",
             PROFILES = "Profiles",
@@ -74,6 +75,7 @@ public class SettingsActivity extends Activity {
     private static final String[][] SIDEBAR_SECTIONS = {
         {LOOK_SCENES, "scene"},
         {WEATHER, "cloud"},
+        {PRAYER, "clock"},
         {APPS, "apps"},
         {PROFILES, "person"},
         {CONTROL_PANEL, "sliders"},
@@ -146,6 +148,7 @@ public class SettingsActivity extends Activity {
             case LOOK_SCENES: return tr("Appearance and scenes", "Görünüm ve sahneler");
             case LOCATION:
             case WEATHER: return tr("Weather and location", "Hava durumu ve konum");
+            case PRAYER: return tr("Prayer times", "Namaz vakitleri");
             case APPS: return tr("Apps", "Uygulamalar");
             case PROFILES: return tr("People", "Kişiler");
             case CONTROL_PANEL: return tr("Control Panel", "Denetim Paneli");
@@ -555,6 +558,9 @@ public class SettingsActivity extends Activity {
                 case WEATHER:
                     pageWeather();
                     break;
+                case PRAYER:
+                    pagePrayer();
+                    break;
                 case LOOK_SCENES:
                     pageLookAndScenes();
                     break;
@@ -621,6 +627,17 @@ public class SettingsActivity extends Activity {
         }
         infoNote(tr("Changes the words on the home screen, date, weather and settings.",
                 "Ana ekrandaki, tarihteki, hava durumundaki ve ayarlardaki dili değiştirir."));
+    }
+
+    void pagePrayer() {
+        section("مواقيت الصلاة");
+        row("إظهار مواقيت الصلاة على الشاشة الرئيسية",
+                () -> PrayerTimes.enabled(this) ? "مفعّل" : "متوقف",
+                () -> {
+                    PrayerTimes.setEnabled(this, !PrayerTimes.enabled(this));
+                    rebuildMainRows();
+                });
+        infoNote("تظهر مواقيت الفجر والظهر والعصر والمغرب والعشاء أسفل بطاقة الطقس. يتم تحديثها تلقائياً عند توفر الإنترنت.");
     }
 
     void pageWeather() {
