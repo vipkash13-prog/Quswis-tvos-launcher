@@ -55,7 +55,8 @@ public class SettingsActivity extends Activity {
             LANGUAGE = "Language",
             LOCATION = "Location",
             WEATHER = "Weather",
-            PRAYER = "Prayer times",
+            PRAYER = "مواقيت الصلاة",
+            FOOTBALL = "المباريات",
             LOOK_SCENES = "Look and scenes",
             APPS = "Apps",
             PROFILES = "Profiles",
@@ -76,6 +77,7 @@ public class SettingsActivity extends Activity {
         {LOOK_SCENES, "scene"},
         {WEATHER, "cloud"},
         {PRAYER, "clock"},
+        {FOOTBALL, "trophy"},
         {APPS, "apps"},
         {PROFILES, "person"},
         {CONTROL_PANEL, "sliders"},
@@ -123,6 +125,10 @@ public class SettingsActivity extends Activity {
         if (pg != null && !pg.isEmpty()) {
             if (INPUTS.equals(pg)) {
                 currentSection = CONTROL_PANEL;
+            } else if (FOOTBALL.equals(pg)) {
+                currentSection = FOOTBALL;
+            } else if (PRAYER.equals(pg)) {
+                currentSection = PRAYER;
             } else if (LOCATION.equals(pg) || WEATHER.equals(pg)) {
                 currentSection = WEATHER;
             } else if (SHELF.equals(pg) || PRESENT.equals(pg) || WATCHING.equals(pg) || HOME.equals(pg) || PERMS.equals(pg)) {
@@ -148,7 +154,8 @@ public class SettingsActivity extends Activity {
             case LOOK_SCENES: return tr("Appearance and scenes", "Görünüm ve sahneler");
             case LOCATION:
             case WEATHER: return tr("Weather and location", "Hava durumu ve konum");
-            case PRAYER: return tr("Prayer times", "Namaz vakitleri");
+            case PRAYER: return "مواقيت الصلاة";
+            case FOOTBALL: return "المباريات";
             case APPS: return tr("Apps", "Uygulamalar");
             case PROFILES: return tr("People", "Kişiler");
             case CONTROL_PANEL: return tr("Control Panel", "Denetim Paneli");
@@ -561,6 +568,9 @@ public class SettingsActivity extends Activity {
                 case PRAYER:
                     pagePrayer();
                     break;
+                case FOOTBALL:
+                    pageFootball();
+                    break;
                 case LOOK_SCENES:
                     pageLookAndScenes();
                     break;
@@ -637,7 +647,92 @@ public class SettingsActivity extends Activity {
                     PrayerTimes.setEnabled(this, !PrayerTimes.enabled(this));
                     rebuildMainRows();
                 });
-        infoNote("تظهر مواقيت الفجر والظهر والعصر والمغرب والعشاء أسفل بطاقة الطقس. يتم تحديثها تلقائياً عند توفر الإنترنت.");
+        row("الدولة",
+                () -> PrayerTimes.country(this),
+                this::choosePrayerCountry);
+        row("المدينة",
+                () -> PrayerTimes.city(this),
+                this::promptPrayerCity);
+        infoNote("اختر الدولة أولاً ثم اكتب اسم المدينة. ستظهر المواقيت في مربع مستقل على يسار الشاشة الرئيسية.");
+    }
+
+    private void choosePrayerCountry() {
+        final String[] names = {"السعودية", "الإمارات", "الكويت", "قطر", "البحرين", "عُمان",
+                "مصر", "الأردن", "تركيا", "المغرب", "الجزائر", "تونس", "المملكة المتحدة", "الولايات المتحدة"};
+        final String[] codes = {"Saudi Arabia", "United Arab Emirates", "Kuwait", "Qatar", "Bahrain", "Oman",
+                "Egypt", "Jordan", "Turkey", "Morocco", "Algeria", "Tunisia", "United Kingdom", "United States"};
+        dialog("اختر الدولة").setItems(names, (d, which) -> {
+            String currentCity = PrayerTimes.city(this);
+            PrayerTimes.setLocation(this, currentCity, names[which], codes[which]);
+            rebuildMainRows();
+            promptPrayerCity();
+        }).show();
+    }
+
+    private void promptPrayerCity() {
+        android.widget.EditText input = new android.widget.EditText(this);
+        input.setSingleLine(true);
+        input.setText(PrayerTimes.city(this));
+        input.setHint("مثال: الرياض أو جدة");
+        input.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        FrameLayout box = new FrameLayout(this);
+        box.setPadding(u(14), u(8), u(14), 0);
+        box.addView(input);
+        AlertDialog dlg = dialog("اكتب اسم المدينة").setView(box)
+                .setPositiveButton("حفظ", (d, w) -> {
+                    String city = input.getText().toString().trim();
+                    if (city.isEmpty()) return;
+                    PrayerTimes.setLocation(this, city, PrayerTimes.country(this), PrayerTimes.countryApi(this));
+                    rebuildMainRows();
+                    showStatusMsg("تم حفظ المدينة: " + city);
+                }).setNegativeButton("إلغاء", null).show();
+        Ui.setupDialogEditText(input, dlg);
+        input.requestFocus();
+    }
+
+    void pageFootball() {
+        section("متابعة المباريات");
+        row("الدوري",
+                () -> FootballScores.leagueName(this),
+                this::chooseFootballLeague);
+        row("الفريق",
+                () -> FootballScores.teamName(this).isEmpty() ? "اختر الفريق" : FootballScores.teamName(this),
+                () -> loadFootballTeams(FootballScores.league(this)));
+        infoNote("اختر الدوري ثم الفريق الذي تريد متابعته. ستظهر مباريات هذا الفريق ونتائجه فقط، وتتحدث تلقائياً.");
+    }
+
+    private void chooseFootballLeague() {
+        String[] labels = new String[FootballScores.LEAGUES.length];
+        for (int i = 0; i < labels.length; i++) labels[i] = FootballScores.LEAGUES[i][1];
+        int selected = 0;
+        for (int i = 0; i < FootballScores.LEAGUES.length; i++) {
+            if (FootballScores.LEAGUES[i][0].equals(FootballScores.league(this))) selected = i;
+        }
+        dialog("اختر الدوري").setSingleChoiceItems(labels, selected, (d, which) -> {
+            String league = FootballScores.LEAGUES[which][0];
+            FootballScores.setLeague(this, league);
+            d.dismiss();
+            rebuildMainRows();
+            loadFootballTeams(league);
+        }).show();
+    }
+
+    private void loadFootballTeams(String league) {
+        showStatusMsg("جارٍ تحميل قائمة الفرق…");
+        FootballScores.loadTeams(this, league, (teams, error) -> {
+            showStatusMsg(null);
+            if (teams == null || teams.isEmpty()) {
+                showStatusMsg(error == null ? "تعذر تحميل الفرق" : error);
+                return;
+            }
+            String[] names = new String[teams.size()];
+            for (int i = 0; i < teams.size(); i++) names[i] = teams.get(i).name;
+            dialog("اختر الفريق").setItems(names, (d, which) -> {
+                FootballScores.setTeam(this, teams.get(which));
+                rebuildMainRows();
+                showStatusMsg("تم اختيار " + teams.get(which).name);
+            }).setNegativeButton("إلغاء", null).show();
+        });
     }
 
     void pageWeather() {
