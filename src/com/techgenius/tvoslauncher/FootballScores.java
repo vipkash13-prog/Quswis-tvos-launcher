@@ -249,7 +249,7 @@ final class FootballScores {
        matches.add(item);
       }
      }catch(Exception ignored){}finally{if(conn!=null)conn.disconnect();}
-     if(matches.size()>=5)break;
+     if(matches.size()>=12)break;
      }
     }
    }
@@ -257,7 +257,16 @@ final class FootballScores {
     JSONObject af=a.optJSONObject("fixture"),bf=b.optJSONObject("fixture");
     return (af==null?"":af.optString("date","")).compareTo(bf==null?"":bf.optString("date",""));
    });
-   final java.util.List<JSONObject> top=new java.util.ArrayList<>(matches.subList(0,Math.min(5,matches.size())));
+   // Prioritize today's fixtures from all selected leagues, then upcoming games.
+   java.util.List<JSONObject> todays=new java.util.ArrayList<>(),upcoming=new java.util.ArrayList<>();
+   String today=apiDay(0);
+   for(JSONObject m:matches){
+    JSONObject f=m.optJSONObject("fixture");
+    String d=f==null?"":f.optString("date","");
+    if(d.startsWith(today))todays.add(m);else upcoming.add(m);
+   }
+   java.util.List<JSONObject> ordered=new java.util.ArrayList<>(todays);ordered.addAll(upcoming);
+   final java.util.List<JSONObject> top=new java.util.ArrayList<>(ordered.subList(0,Math.min(5,ordered.size())));
    if(success&&!top.isEmpty()){
     JSONArray saved=new JSONArray();for(JSONObject m:top)saved.put(m);
     p.edit().putString("fixtures_json",saved.toString()).putString("cache_key",key).putLong(K_AT,System.currentTimeMillis()).apply();
@@ -293,11 +302,21 @@ final class FootballScores {
  }
  private static String fixtureTime(String raw){
   try{
-   java.text.SimpleDateFormat iso=new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX",Locale.US);
-   Date parsed=iso.parse(raw);
-   java.text.SimpleDateFormat out=new java.text.SimpleDateFormat("EEE HH:mm",new Locale("ar"));
-   out.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));return out.format(parsed);
-  }catch(Exception e){return raw.length()>=16?raw.substring(11,16):"--:--";}
+   String value=raw.trim();
+   java.text.SimpleDateFormat input;
+   if(value.endsWith("Z")){
+    input=new java.text.SimpleDateFormat(value.contains(".")?"yyyy-MM-dd'T'HH:mm:ss.SSSX":"yyyy-MM-dd'T'HH:mm:ssX",Locale.US);
+   }else if(value.matches(".*[+-][0-9]{2}:[0-9]{2}$")){
+    input=new java.text.SimpleDateFormat(value.contains(".")?"yyyy-MM-dd'T'HH:mm:ss.SSSXXX":"yyyy-MM-dd'T'HH:mm:ssXXX",Locale.US);
+   }else{
+    input=new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss",Locale.US);
+    input.setTimeZone(TimeZone.getTimeZone("UTC"));
+   }
+   Date parsed=input.parse(value);
+   java.text.SimpleDateFormat out=new java.text.SimpleDateFormat("HH:mm",Locale.US);
+   out.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));
+   return out.format(parsed);
+  }catch(Exception e){return "--:--";}
  }
  private static int apiLeague(String id){
   switch(id){case "ksa.1":return 307;case "eng.1":return 39;case "esp.1":return 140;
