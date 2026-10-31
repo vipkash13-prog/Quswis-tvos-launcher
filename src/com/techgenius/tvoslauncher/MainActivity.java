@@ -875,6 +875,7 @@ public class MainActivity extends Activity {
     }
 
     void buildGrid() {
+        if (footballCard != null) footballCard.setVisibility(FootballScores.enabled(this) && !folderMode ? View.VISIBLE : View.GONE);
         stopWiggle();
         shown.clear();
         if (folderMode) {
@@ -3017,6 +3018,7 @@ public class MainActivity extends Activity {
 
     void enterFolder() {
         if (otherApps.isEmpty()) return;
+        if (footballCard != null) footballCard.setVisibility(View.GONE);
         animateGridSwap(() -> {
             folderMode = true;
             if (footballCard != null) footballCard.setVisibility(View.GONE);
