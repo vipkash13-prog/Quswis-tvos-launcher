@@ -129,7 +129,7 @@ final class FootballScores {
     StringBuilder out=new StringBuilder("المباريات القادمة");
     for(int i=0;i<Math.min(3,lines.size());i++){
      String entry=lines.get(i);int separator=entry.indexOf('|');
-     out.append("\\n").append(entry.substring(separator+1));
+     out.append("\\n──────────────\\n").append(entry.substring(separator+1));
     }
     if(lines.isEmpty())out.append("\\nلا توجد مباريات متاحة حاليًا للدوريات المختارة");
     result=out.toString();
@@ -139,5 +139,5 @@ final class FootballScores {
   },"football-score-refresh").start();
  }
  private static String name(JSONObject c){JSONObject t=c.optJSONObject("team");return t==null?"فريق":t.optString("displayName","فريق");}
- private static String date(String raw){try{SimpleDateFormat in=new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'",Locale.US);in.setTimeZone(TimeZone.getTimeZone("UTC"));Date d=in.parse(raw.substring(0,16)+"Z");SimpleDateFormat out=new SimpleDateFormat("EEE h:mm a",new Locale("ar"));out.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));return out.format(d);}catch(Exception e){return "";}}
+ private static String date(String raw){try{SimpleDateFormat in=new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'",Locale.US);in.setTimeZone(TimeZone.getTimeZone("UTC"));Date d=in.parse(raw.substring(0,16)+"Z");SimpleDateFormat out=new SimpleDateFormat("EEE HH:mm",new Locale("ar"));out.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));return out.format(d);}catch(Exception e){return "";}}
 }
