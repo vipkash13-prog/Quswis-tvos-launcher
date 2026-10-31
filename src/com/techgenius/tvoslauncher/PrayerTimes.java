@@ -28,6 +28,16 @@ final class PrayerTimes {
  static String country(Context c){return prefs(c).getString(K_COUNTRY,"السعودية");}
  static String countryApi(Context c){return prefs(c).getString("country_api","Saudi Arabia");}
  static String city(Context c){return prefs(c).getString(K_CITY,"جدة");}
+ private static String cityApi(Context c) {
+  String value=city(c);
+  String[][] map={{"جدة","Jeddah"},{"الرياض","Riyadh"},{"مكة","Mecca"},{"مكة المكرمة","Mecca"},
+   {"المدينة","Medina"},{"المدينة المنورة","Medina"},{"الدمام","Dammam"},{"الخبر","Khobar"},
+   {"الطائف","Taif"},{"أبها","Abha"},{"تبوك","Tabuk"},{"بريدة","Buraidah"},{"حائل","Hail"},
+   {"دبي","Dubai"},{"أبوظبي","Abu Dhabi"},{"الشارقة","Sharjah"},{"الكويت","Kuwait City"},
+   {"الدوحة","Doha"},{"المنامة","Manama"},{"مسقط","Muscat"},{"القاهرة","Cairo"},{"عمّان","Amman"}};
+  for(String[] item:map)if(item[0].equals(value))return item[1];
+  return value;
+ }
  static void setLocation(Context c,String city,String country,String countryApi){
   prefs(c).edit().putString(K_CITY,city).putString(K_COUNTRY,country).putString("country_api",countryApi).remove(K_AT).apply();
  }
@@ -50,7 +60,7 @@ final class PrayerTimes {
   new Thread(()->{
    String data=null;HttpURLConnection conn=null;
    try{
-    String url="https://api.aladhan.com/v1/timingsByCity?city="+URLEncoder.encode(city(app),"UTF-8")+
+    String url="https://api.aladhan.com/v1/timingsByCity?city="+URLEncoder.encode(cityApi(app),"UTF-8")+
       "&country="+URLEncoder.encode(countryApi(app),"UTF-8")+"&method=4";
     conn=(HttpURLConnection)new URL(url).openConnection();conn.setConnectTimeout(10000);conn.setReadTimeout(10000);
     conn.setRequestProperty("User-Agent",Weather.UA);
