@@ -948,11 +948,30 @@ final class SceneHome {
         rimLp.leftMargin = -dp(4);
         rimLp.topMargin = -dp(4);
         if (!isGear && !isMore) focusHolder.addView(glassOverlay, rimLp);
+        // A narrow silver reflection sweeps across the selected icon's outer glass rim.
+        View focusGlint = new View(host);
+        GradientDrawable glintPaint = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{0x00FFFFFF, 0xB8FFFFFF, 0x00FFFFFF});
+        glintPaint.setCornerRadius(dp(4));
+        focusGlint.setBackground(glintPaint);
+        focusGlint.setAlpha(0f);
+        focusGlint.setFocusable(false);
+        focusGlint.setClickable(false);
+        FrameLayout.LayoutParams glintLp = new FrameLayout.LayoutParams(dp(16), size);
+        glintLp.leftMargin = 0;
+        if (!isGear && !isMore) focusHolder.addView(focusGlint, glintLp);
+
 
         tile.setOnFocusChangeListener((v, has) -> {
             v.setPivotX(v.getWidth() > 0 ? v.getWidth() / 2f : size / 2f);
             v.setPivotY(v.getHeight() > 0 ? v.getHeight() / 2f : size / 2f);
             v.setForeground((isGear || isMore) && has ? focusRing : null);
+            focusGlint.animate().cancel();
+            if (has && !isGear && !isMore) {
+                focusGlint.setTranslationX(0f);
+                focusGlint.setAlpha(0.8f);
+                focusGlint.animate().translationX(size - dp(16)).alpha(0f).setDuration(420).start();
+            } else focusGlint.setAlpha(0f);
             glassOverlay.animate().cancel();
             if (!isGear && !isMore) glassOverlay.animate().alpha(has ? 1f : 0f)
                     .setDuration(140).setInterpolator(MainActivity.EASE).start();
