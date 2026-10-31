@@ -802,12 +802,16 @@ public class MainActivity extends Activity {
 
         footballCard = FootballScores.createView(this);
         FrameLayout.LayoutParams footballLp = new FrameLayout.LayoutParams(
-                dp(620), dp(112), Gravity.TOP | Gravity.START);
-        footballLp.topMargin = dp(WeatherView.COMPACT_H + 92);
+                dp(760), dp(184), Gravity.TOP | Gravity.START);
+        footballLp.topMargin = dp(WeatherView.COMPACT_H + 88);
         footballLp.leftMargin = dockOuter;
         root.addView(footballCard, footballLp);
 
         root.addView(sceneHome.overlay, match());
+        // Keep the information cards above full-screen scene overlays on every TV layout.
+        weatherCard.bringToFront();
+        prayerCard.bringToFront();
+        footballCard.bringToFront();
         updateWeather();
         PrayerTimes.refresh(this, prayerCard, true);
         FootballScores.refresh(this, footballCard, true);
@@ -855,8 +859,11 @@ public class MainActivity extends Activity {
         if (weatherCard != null) {
             weatherCard.setVisibility(scenes ? View.GONE : (Weather.enabled(this) && Weather.cached(this) != null ? View.VISIBLE : View.GONE));
         }
-        if (prayerCard != null) prayerCard.setVisibility(scenes || !PrayerTimes.enabled(this) ? View.GONE : View.VISIBLE);
-        if (footballCard != null) footballCard.setVisibility(scenes ? View.GONE : View.VISIBLE);
+        if (prayerCard != null) prayerCard.setVisibility(PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
+        if (footballCard != null) footballCard.setVisibility(View.VISIBLE);
+        if (weatherCard != null) weatherCard.bringToFront();
+        if (prayerCard != null) prayerCard.bringToFront();
+        if (footballCard != null) footballCard.bringToFront();
         if (scenes && sceneHome != null) {
             Bitmap bg = sceneHome.sceneView.getCurrentBgBitmap();
             if (bg != null) glassBg = Ui.glassBackdrop(bg, 192, 108);
