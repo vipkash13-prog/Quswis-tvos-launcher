@@ -982,18 +982,24 @@ public class MainActivity extends Activity {
         topSheen.setAlpha(0f);
         tile.addView(topSheen, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, tileH / 2, Gravity.TOP));
 
-        // Secreto-inspired silver glass selection, drawn above the app artwork.
+        // Floating outer silver ring: a sibling of the clipped artwork, not an overlay inside it.
+        FrameLayout focusHolder = new FrameLayout(this);
+        focusHolder.setClipChildren(false);
+        focusHolder.setClipToPadding(false);
+        focusHolder.addView(tile, new FrameLayout.LayoutParams(tileW, tileH));
         GradientDrawable silverGlass = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{0x54FFFFFF, 0x16FFFFFF, 0x28D8E8F8});
-        silverGlass.setCornerRadius(radius);
-        silverGlass.setStroke(dp(3), 0xFFF1F5FA);
+                new int[]{0x35FFFFFF, 0x09FFFFFF, 0x32C6E3FF});
+        silverGlass.setCornerRadius(radius + dp(4));
+        silverGlass.setStroke(dp(3), 0xFFF7FAFF);
         View silverFocus = new View(this);
         silverFocus.setBackground(silverGlass);
         silverFocus.setAlpha(0f);
         silverFocus.setFocusable(false);
         silverFocus.setClickable(false);
-        tile.addView(silverFocus, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        FrameLayout.LayoutParams ringLp = new FrameLayout.LayoutParams(tileW + dp(8), tileH + dp(8));
+        ringLp.leftMargin = -dp(4);
+        ringLp.topMargin = -dp(4);
+        focusHolder.addView(silverFocus, ringLp);
 
         TextView label = text(15, Ui.font(this, "medium"), 0f);
         label.setText(a.label);
@@ -1001,7 +1007,7 @@ public class MainActivity extends Activity {
         label.setEllipsize(TextUtils.TruncateAt.END);
         label.setGravity(Gravity.CENTER);
 
-        cell.addView(tile, new LinearLayout.LayoutParams(tileW, tileH));
+        cell.addView(focusHolder, new LinearLayout.LayoutParams(tileW, tileH));
         if (!inDock) cell.addView(label, new LinearLayout.LayoutParams(tileW, labelH));
 
         tile.setOnFocusChangeListener((v, has) -> {
@@ -1021,7 +1027,7 @@ public class MainActivity extends Activity {
                 }
                 topSheen.setAlpha(0f);
                 silverFocus.animate().cancel();
-                silverFocus.animate().alpha(1f).setDuration(110).setInterpolator(EASE).start();
+                silverFocus.animate().alpha(1f).setDuration(160).setInterpolator(EASE).start();
                 onTileFocused(index);
             } else {
                 cell.setTranslationZ(0);
