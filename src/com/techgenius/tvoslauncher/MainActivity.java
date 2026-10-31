@@ -982,6 +982,19 @@ public class MainActivity extends Activity {
         topSheen.setAlpha(0f);
         tile.addView(topSheen, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, tileH / 2, Gravity.TOP));
 
+        // Moving glass-focus highlight: a translucent luminous rim over the selected app.
+        GradientDrawable glassFocusBg = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{0x48FFFFFF, 0x0AFFFFFF, 0x24B7E8FF});
+        glassFocusBg.setCornerRadius(radius);
+        glassFocusBg.setStroke(dp(2), 0xC8DDF5FF);
+        View glassFocus = new View(this);
+        glassFocus.setBackground(glassFocusBg);
+        glassFocus.setAlpha(0f);
+        glassFocus.setClickable(false);
+        glassFocus.setFocusable(false);
+        tile.addView(glassFocus, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
         TextView label = text(15, Ui.font(this, "medium"), 0f);
         label.setText(a.label);
         label.setSingleLine(true);
@@ -1007,6 +1020,8 @@ public class MainActivity extends Activity {
                     label.animate().alpha(1f).translationY(tileH * (FOCUS_SCALE - 1f) / 2f).setDuration(160).start();
                 }
                 topSheen.setAlpha(1f);
+                glassFocus.animate().cancel();
+                glassFocus.animate().alpha(1f).setDuration(190).setInterpolator(EASE).start();
                 onTileFocused(index);
             } else {
                 cell.setTranslationZ(0);
@@ -1014,6 +1029,8 @@ public class MainActivity extends Activity {
                 v.animate().scaleX(1f).scaleY(1f).translationZ(0).setDuration(140).setInterpolator(EASE).start();
                 label.animate().alpha(0f).translationY(0).setDuration(120).start();
                 topSheen.setAlpha(0f);
+                glassFocus.animate().cancel();
+                glassFocus.animate().alpha(0f).setDuration(140).setInterpolator(EASE).start();
             }
         });
         tile.setCameraDistance(9000 * unit);
