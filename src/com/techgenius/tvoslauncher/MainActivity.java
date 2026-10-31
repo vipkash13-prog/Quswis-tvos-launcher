@@ -802,9 +802,9 @@ public class MainActivity extends Activity {
 
         footballCard = FootballScores.createView(this);
         FrameLayout.LayoutParams footballLp = new FrameLayout.LayoutParams(
-                dp(520), dp(158), Gravity.TOP | Gravity.START);
-        footballLp.topMargin = dp(WeatherView.COMPACT_H + 16);
-        footballLp.leftMargin = dockOuter + dp(278);
+                dp(430), dp(345), Gravity.TOP | Gravity.START);
+        footballLp.topMargin = dp(96);
+        footballLp.leftMargin = dockOuter + dp(290);
         root.addView(footballCard, footballLp);
 
         root.addView(sceneHome.overlay, match());
@@ -2287,7 +2287,7 @@ public class MainActivity extends Activity {
     android.net.ConnectivityManager.NetworkCallback netCallback;
     WeatherView weatherCard;
     LinearLayout prayerCard;
-    TextView footballCard;
+    LinearLayout footballCard;
     LiquidGlass weatherGlass;
     int avatarSize;
     FrameLayout pickerLayer;
