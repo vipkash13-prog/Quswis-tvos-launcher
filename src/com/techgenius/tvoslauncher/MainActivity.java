@@ -813,8 +813,8 @@ public class MainActivity extends Activity {
 
         prayerCard = PrayerTimes.createView(this);
         FrameLayout.LayoutParams prayerLp = new FrameLayout.LayoutParams(
-                Math.min(dp(700), screenW * 66 / 100), dp(70), Gravity.TOP | Gravity.CENTER_HORIZONTAL);
-        prayerLp.topMargin = dp(86);
+                Math.min(dp(630), screenW * 54 / 100), dp(76), Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+        prayerLp.topMargin = dp(24);
         prayerLp.leftMargin = 0;
         root.addView(prayerCard, prayerLp);
 
@@ -825,7 +825,7 @@ public class MainActivity extends Activity {
                 Math.min(dp(450), screenW * 32 / 100),
                 Math.min(dp(325), screenH * 43 / 100),
                 Gravity.TOP | Gravity.RIGHT);
-        footballLp.topMargin = dp(175);
+        footballLp.topMargin = dp(150);
         footballLp.rightMargin = dp(28);
         root.addView(footballCard, footballLp);
 
