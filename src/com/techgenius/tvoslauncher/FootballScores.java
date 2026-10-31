@@ -134,7 +134,7 @@ final class FootballScores {
        if(fixture==null||teams==null)continue;
        JSONObject home=teams.optJSONObject("home"),away=teams.optJSONObject("away");
        if(home==null||away==null)continue;
-       String when=date(fixture.optString("date",""));
+       String when=fixtureTime(fixture.optString("date",""));
        String score=goals!=null&&!goals.isNull("home")?goals.optString("home")+" - "+goals.optString("away"):when;
        lines.add(fixture.optString("date","")+"|"+league[1]+" • "+score+"\\n"+home.optString("name")+"  ×  "+away.optString("name"));
       }
@@ -151,6 +151,14 @@ final class FootballScores {
    }
    final String display=result;new Handler(Looper.getMainLooper()).post(()->{busy=false;if(view!=null)view.setText(display);});
   },"football-score-refresh").start();
+ }
+ private static String fixtureTime(String raw){
+  try{
+   java.text.SimpleDateFormat iso=new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX",Locale.US);
+   Date parsed=iso.parse(raw);
+   java.text.SimpleDateFormat out=new java.text.SimpleDateFormat("EEE HH:mm",new Locale("ar"));
+   out.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));return out.format(parsed);
+  }catch(Exception e){return raw.length()>=16?raw.substring(11,16):"--:--";}
  }
  private static int apiLeague(String id){
   switch(id){case "ksa.1":return 307;case "eng.1":return 39;case "esp.1":return 140;
