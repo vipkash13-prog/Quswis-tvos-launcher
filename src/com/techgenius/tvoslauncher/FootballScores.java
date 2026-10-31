@@ -151,7 +151,7 @@ final class FootballScores {
    if(home==null||away==null)continue;
    String when=fixture==null?"--:--":fixtureTime(fixture.optString("date",""));
    String state=fixture==null?"pre":fixture.optString("state","pre");
-   String score="in".equals(state)&&goals!=null&&!goals.isNull("home")?"🔴 مباشر "+goals.optString("home")+" - "+goals.optString("away"):when;
+   String score="in".equals(state)&&goals!=null&&!goals.isNull("home")?"🔴 مباشر "+goals.optString("home")+" - "+goals.optString("away")+(fixture.optString("clock","").isEmpty()?"":"  "+fixture.optString("clock","")):when;
    JSONObject lg=item.optJSONObject("league");
    String leagueLabel=lg==null?"":lg.optString("name","");
    if(!leagueLabel.isEmpty())score=leagueLabel+"\n"+score;
@@ -242,9 +242,9 @@ final class FootballScores {
        fixture.put("date",date);fixture.put("leagueId",league[0]);
        String matchState=type==null?"pre":type.optString("state","pre");
        fixture.put("state",matchState);
-       fixture.put("minute",status==null?0:status.optInt("displayClock",0));
+       fixture.put("clock",status==null?"":status.optString("displayClock",""));
        JSONObject goals=new JSONObject();
-       if("in".equals(matchState)){goals.put("home",home.optInt("score",0));goals.put("away",away.optInt("score",0));}
+       if("in".equals(matchState)){goals.put("home",home.optString("score","0"));goals.put("away",away.optString("score","0"));}
        item.put("goals",goals);
        teams.put("home",espnTeam(home));teams.put("away",espnTeam(away));
        leagueObj.put("name",league[1]);
@@ -278,6 +278,10 @@ final class FootballScores {
     String localDay=riyadhDay(d);
     if(today.equals(localDay))todays.add(m);else upcoming.add(m);
    }
+   // Live games take priority over upcoming fixtures; retain league rotation for the rest.
+   java.util.List<JSONObject> live=new java.util.ArrayList<>();
+   for(JSONObject m:todays){JSONObject f=m.optJSONObject("fixture");if(f!=null&&"in".equals(f.optString("state")))live.add(m);}
+   todays.removeAll(live);
    // Fair rotation: when multiple leagues are selected, show matches from each.
    java.util.List<JSONObject> ordered=new java.util.ArrayList<>();
    java.util.Map<String,java.util.List<JSONObject>> byLeague=new java.util.LinkedHashMap<>();
@@ -290,6 +294,7 @@ final class FootballScores {
    for(JSONObject m:upcoming){JSONObject f=m.optJSONObject("fixture");String id=f==null?"":f.optString("leagueId","");if(byLeague.containsKey(id))byLeague.get(id).add(m);}
    added=true;
    while(added){added=false;for(java.util.List<JSONObject> group:byLeague.values())if(!group.isEmpty()){ordered.add(group.remove(0));added=true;}}
+   ordered.addAll(0,live);
    final java.util.List<JSONObject> top=new java.util.ArrayList<>(ordered.subList(0,Math.min(5,ordered.size())));
    if(success&&!top.isEmpty()){
     JSONArray saved=new JSONArray();for(JSONObject m:top)saved.put(m);
