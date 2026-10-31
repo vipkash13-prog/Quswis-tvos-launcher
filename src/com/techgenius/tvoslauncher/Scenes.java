@@ -1046,20 +1046,20 @@ public final class Scenes {
             int hr = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
             String greet;
             if (hr >= 5 && hr < 12) {
-                greet = I18n.s(c, "Good morning", "Günaydın");
+                greet = "صباح الخير";
             } else if (hr >= 12 && hr < 18) {
-                greet = I18n.s(c, "Good afternoon", "İyi günler");
+                greet = "مساء الخير";
             } else if (hr >= 18 && hr < 22) {
-                greet = I18n.s(c, "Good evening", "İyi akşamlar");
+                greet = "مساء الخير";
             } else {
-                greet = I18n.s(c, "Good night", "İyi geceler");
+                greet = "تصبح على خير";
             }
             try {
                 Profiles.Profile cur = Profiles.current(c);
                 if (cur != null && cur.name != null) {
                     String name = I18n.profileName(c, cur.name).trim();
                     if (!name.isEmpty()) {
-                        return greet + ", " + name;
+                        return greet + "، " + name;
                     }
                 }
             } catch (Exception ignored) { }
