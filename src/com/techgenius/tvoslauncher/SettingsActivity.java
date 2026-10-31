@@ -743,7 +743,7 @@ public class SettingsActivity extends Activity {
         row("الدوريات المختارة",
                 () -> FootballScores.selectedLeagueNames(this),
                 this::chooseFootballLeagues);
-        row("اختيار الأندية", () -> "كل الأندية أو الأندية المفضلة", this::chooseFootballTeamLeague);
+        row("اختيار الأندية", () -> "تخصيص الأندية لكل دوري", this::chooseFootballTeamLeague);
         infoNote("تتحدث المباريات تلقائيًا. اختر الدوريات، ويمكنك تخصيص الأندية لكل دوري. لا يلزم مفتاح API.");
     }
 
@@ -766,11 +766,11 @@ public class SettingsActivity extends Activity {
             for(int i=0;i<teams.size();i++){names[i]=teams.get(i).name;checked[i]=current.contains(teams.get(i).id);}
             dialog("أندية "+title+" — بدون تحديد = جميع الأندية")
               .setMultiChoiceItems(names,checked,(d,w,on)->checked[w]=on)
-              .setNeutralButton("كل الأندية",(d,w)->{FootballScores.setSelectedTeams(this,league,new java.util.HashSet<>());rebuildMainRows();})
+              .setNeutralButton("عرض كل الأندية",(d,w)->{FootballScores.setSelectedTeams(this,league,new java.util.HashSet<>());rebuildMainRows();showStatusMsg("سيتم عرض جميع أندية "+title);})
               .setPositiveButton("حفظ",(d,w)->{
                   java.util.Set<String> chosen=new java.util.HashSet<>();
                   for(int i=0;i<checked.length;i++)if(checked[i])chosen.add(teams.get(i).id);
-                  FootballScores.setSelectedTeams(this,league,chosen);rebuildMainRows();
+                  FootballScores.setSelectedTeams(this,league,chosen);rebuildMainRows();showStatusMsg(chosen.isEmpty()?"تم تفعيل كل الأندية":"تم اختيار "+chosen.size()+" أندية");
               }).setNegativeButton("إلغاء",null).show();
         });
     }
