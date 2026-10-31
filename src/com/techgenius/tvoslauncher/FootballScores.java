@@ -53,6 +53,8 @@ final class FootballScores {
   String n=name.toLowerCase(Locale.US).replaceAll("[^a-z0-9]","");
   String[][] pairs={{"Al Hilal","الهلال"},{"Al Nassr","النصر"},{"Al Ahli","الأهلي"},{"Al Ittihad","الاتحاد"},{"Al Fateh","الفتح"},{"Al Taawoun","التعاون"},{"Al Ettifaq","الاتفاق"},{"Al Fayha","الفيحاء"},{"Al Khaleej","الخليج"},{"Al Kholood","الخلود"},{"Al Shabab","الشباب"},{"Al Qadsiah","القادسية"},{"Al Riyadh","الرياض"},{"Al Hazem","الحزم"},{"Al Okhdood","الأخدود"},{"Damac","ضمك"},{"Abha","أبها"},{"Manchester United","مانشستر يونايتد"},{"Manchester City","مانشستر سيتي"},{"Liverpool","ليفربول"},{"Arsenal","أرسنال"},{"Chelsea","تشيلسي"},{"Tottenham","توتنهام"},{"Newcastle","نيوكاسل"},{"Everton","إيفرتون"},{"Aston Villa","أستون فيلا"},{"West Ham","وست هام"},{"Brighton","برايتون"},{"Brentford","برينتفورد"},{"Fulham","فولهام"},{"Wolverhampton","وولفرهامبتون"},{"Crystal Palace","كريستال بالاس"},{"Nottingham Forest","نوتنغهام فورست"},{"Bournemouth","بورنموث"},{"Leeds United","ليدز يونايتد"},{"Sunderland","سندرلاند"},{"Burnley","بيرنلي"},{"Real Madrid","ريال مدريد"},{"Barcelona","برشلونة"},{"Atletico Madrid","أتلتيكو مدريد"},{"Bayern Munich","بايرن ميونخ"},{"Borussia Dortmund","بوروسيا دورتموند"},{"Inter Milan","إنتر ميلان"},{"AC Milan","ميلان"},{"Juventus","يوفنتوس"},{"Paris Saint-Germain","باريس سان جيرمان"}};
   for(String[] x:pairs)if(n.equals(x[0].toLowerCase(Locale.US).replaceAll("[^a-z0-9]","")))return x[1];
+  String[][] extra={{"Bologna","بولونيا"},{"Monza","مونزا"},{"VfB Stuttgart","شتوتغارت"},{"Bayer Leverkusen","باير ليفركوزن"},{"SC Paderborn 07","بادربورن"},{"Borussia Monchengladbach","بوروسيا مونشنغلادباخ"},{"Borussia Mönchengladbach","بوروسيا مونشنغلادباخ"},{"SC Freiburg","فرايبورغ"},{"FC Augsburg","أوغسبورغ"},{"Al Taawoun","التعاون"},{"Al Ettifaq","الاتفاق"},{"Al Feiha","الفيحاء"},{"Al Fayha","الفيحاء"},{"Al Fateh","الفتح"},{"Al Fath","الفتح"},{"Al Khaleej","الخليج"},{"Al Kholood","الخلود"},{"Al Shabab","الشباب"},{"Al Faisaly","الفيصلي"},{"Al Hilal","الهلال"},{"Al Nassr","النصر"},{"Al Ahly","الأهلي"},{"Al Ahli","الأهلي"},{"Al Ittihad","الاتحاد"},{"Al Qadsiah","القادسية"},{"Al Akhdoud","الأخدود"},{"Al Okhdood","الأخدود"},{"Al Raed","الرائد"},{"Al Wehda","الوحدة"},{"Al Riyadh","الرياض"},{"Al Hazm","الحزم"},{"Al Hazem","الحزم"},{"Damac FC","ضمك"},{"Ipswich Town","إيبسويتش تاون"},{"Hull City","هال سيتي"},{"Coventry City","كوفنتري سيتي"}};
+  for(String[] x:extra)if(n.equals(x[0].toLowerCase(Locale.US).replaceAll("[^a-z0-9]","")))return x[1];
   return name;
  }
  static String apiKey(Context c){return prefs(c).getString("api_football_key","");}
@@ -115,10 +117,10 @@ final class FootballScores {
     t.setTextColor(Color.WHITE);t.setTextSize(12);t.setSingleLine(true);
     t.setEllipsize(android.text.TextUtils.TruncateAt.END);t.setGravity(Gravity.CENTER);
    }
-   time.setTypeface(Typeface.DEFAULT_BOLD);
+   time.setTypeface(Typeface.DEFAULT_BOLD);time.setTextSize(10);
    line.addView(home,new android.widget.LinearLayout.LayoutParams(Ui.px(c,38),Ui.px(c,38)));
    line.addView(homeName,new android.widget.LinearLayout.LayoutParams(0,-2,1));
-   line.addView(time,new android.widget.LinearLayout.LayoutParams(Ui.px(c,95),-2));
+   line.addView(time,new android.widget.LinearLayout.LayoutParams(Ui.px(c,165),-2));
    line.addView(awayName,new android.widget.LinearLayout.LayoutParams(0,-2,1));
    line.addView(away,new android.widget.LinearLayout.LayoutParams(Ui.px(c,38),Ui.px(c,38)));
    android.widget.LinearLayout.LayoutParams lp=new android.widget.LinearLayout.LayoutParams(-1,0,1);
@@ -149,6 +151,9 @@ final class FootballScores {
    if(home==null||away==null)continue;
    String when=fixture==null?"--:--":fixtureTime(fixture.optString("date",""));
    String score=goals!=null&&!goals.isNull("home")?goals.optString("home")+" - "+goals.optString("away"):when;
+   JSONObject lg=item.optJSONObject("league");
+   String leagueLabel=lg==null?"":lg.optString("name","");
+   if(!leagueLabel.isEmpty())score=leagueLabel+"  •  "+score;
    ((TextView)line.getChildAt(1)).setText(arabicTeam(home.optString("name","")));
    ((TextView)line.getChildAt(2)).setText(score);
    ((TextView)line.getChildAt(3)).setText(arabicTeam(away.optString("name","")));
