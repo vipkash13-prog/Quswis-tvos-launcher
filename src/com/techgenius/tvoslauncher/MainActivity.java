@@ -795,15 +795,15 @@ public class MainActivity extends Activity {
 
         prayerCard = PrayerTimes.createView(this);
         FrameLayout.LayoutParams prayerLp = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, dp(48), Gravity.TOP | Gravity.START);
-        prayerLp.topMargin = dp(WeatherView.COMPACT_H + 34);
+                dp(300), dp(132), Gravity.TOP | Gravity.START);
+        prayerLp.topMargin = dp(WeatherView.COMPACT_H + 12);
         prayerLp.leftMargin = dockOuter;
         root.addView(prayerCard, prayerLp);
 
         footballCard = FootballScores.createView(this);
         FrameLayout.LayoutParams footballLp = new FrameLayout.LayoutParams(
-                dp(760), dp(184), Gravity.TOP | Gravity.START);
-        footballLp.topMargin = dp(WeatherView.COMPACT_H + 88);
+                dp(680), dp(170), Gravity.TOP | Gravity.START);
+        footballLp.topMargin = dp(WeatherView.COMPACT_H + 152);
         footballLp.leftMargin = dockOuter;
         root.addView(footballCard, footballLp);
 
