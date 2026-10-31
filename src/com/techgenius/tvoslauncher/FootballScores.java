@@ -126,8 +126,47 @@ final class FootballScores {
    android.widget.LinearLayout.LayoutParams lp=new android.widget.LinearLayout.LayoutParams(-1,0,1);
    lp.bottomMargin=Ui.px(c,5);panel.addView(line,lp);
   }
+  // Hold OK on the match panel to run a read-only provider connectivity test.
+  panel.setFocusable(true);
+  panel.setOnLongClickListener(v->{probeMatchGrind(c);return true;});
   showMessage(panel,"جارٍ جلب المباريات...");
   return panel;
+ }
+ private static void probeMatchGrind(Context c){
+  android.widget.Toast.makeText(c,"جارٍ فحص مصدر المباريات البديل...",android.widget.Toast.LENGTH_SHORT).show();
+  new Thread(()->{
+   StringBuilder report=new StringBuilder("اختبار MatchGrind (بدون تغيير المصدر الحالي)\\n");
+   for(String league:new String[]{"ksa.1","eng.1"}){
+    HttpURLConnection conn=null;
+    try{
+     String day=espnDay(0);
+     String endpoint="https://api.matchgrind.space/get/soccer/"+league+"/scoreboard?dates="+day;
+     conn=(HttpURLConnection)new URL(endpoint).openConnection();
+     conn.setConnectTimeout(7000);conn.setReadTimeout(7000);
+     conn.setRequestProperty("Accept","application/json");
+     int code=conn.getResponseCode();
+     String body="";
+     if(code==200){
+      BufferedReader reader=new BufferedReader(new InputStreamReader(conn.getInputStream(),"UTF-8"));
+      StringBuilder b=new StringBuilder();String line;
+      while((line=reader.readLine())!=null&&b.length()<200000)b.append(line);
+      reader.close();body=b.toString();
+     }
+     if(code!=200){report.append(league).append(": HTTP ").append(code).append("\\n");continue;}
+     JSONObject json=new JSONObject(body);
+     JSONArray events=json.optJSONArray("events");
+     if(events==null){JSONObject data=json.optJSONObject("data");if(data!=null)events=data.optJSONArray("events");}
+     report.append(league).append(": HTTP 200، مباريات: ").append(events==null?"تنسيق غير معروف":events.length()).append("\\n");
+     if(events!=null&&events.length()>0){JSONObject event=events.optJSONObject(0);if(event!=null)report.append("حالة أول مباراة: ").append(event.optJSONObject("status")).append("\\n");}
+    }catch(Exception e){report.append(league).append(": ").append(e.getClass().getSimpleName()).append(" - ").append(e.getMessage()).append("\\n");}
+    finally{if(conn!=null)conn.disconnect();}
+   }
+   String result=report.toString();
+   new Handler(Looper.getMainLooper()).post(()->{
+    if(c instanceof android.app.Activity && !((android.app.Activity)c).isFinishing())
+     new android.app.AlertDialog.Builder(c).setTitle("فحص مصدر المباريات").setMessage(result).setPositiveButton("موافق",null).show();
+   });
+  },"matchgrind-diagnostic").start();
  }
  private static void showMessage(android.widget.LinearLayout panel,String msg){
   for(int i=0;i<5;i++){
