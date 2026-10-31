@@ -895,14 +895,14 @@ public final class Scenes {
             float datePx = 13.5f * u;
             boolean isCustomRight = isCustomId(sp.id) && CLOCK_POS_RIGHT.equals(getCustomClockPos(ctx));
             float topOffsetU = isCustomRight ? 62f : 19f;
-            float dateBaselineY = Math.max((46f + topOffsetU) * u, (sp.dateTopU + topOffsetU) * u);
+            float dateBaselineY = isCustomRight ? Math.max((46f + topOffsetU) * u, (sp.dateTopU + topOffsetU) * u) : 80f * u;
             float greetBaselineY = dateBaselineY - (18.5f * u);
 
             clockFillPaint.getTextBounds("0847", 0, 4, digitBounds);
             float rawCapH = Math.max(clockPx * 0.68f, -digitBounds.top);
             float visualCapH = rawCapH * scaleY;
             float minClockTopY = dateBaselineY + (14f * u);
-            float clockVisualTopY = Math.max((sp.clockTopU + topOffsetU) * u, Math.max(minClockTopY, 160f * u));
+            float clockVisualTopY = Math.max((sp.clockTopU + topOffsetU) * u, Math.max(minClockTopY, 212f * u));
             float baselineY = clockVisualTopY + visualCapH;
 
             float textW = measureClockWidth(timeStr, clockFillPaint, u, isDuo || isRounded);
@@ -1001,7 +1001,7 @@ public final class Scenes {
                     greetX = (w - greetW) * 0.5f;
                 }
             } else {
-                greetX = sp.leftAlign ? (sp.dateLeftU * u) : ((w - greetW) * 0.5f);
+                greetX = sp.leftAlign ? (sp.dateLeftU * u) : (w - greetW - 65f * u);
             }
             canvas.drawText(greeting, greetX, greetBaselineY, greetPaint);
 
@@ -1033,7 +1033,7 @@ public final class Scenes {
                     dateX = (w - dateW) * 0.5f;
                 }
             } else {
-                dateX = sp.leftAlign ? (sp.dateLeftU * u) : ((w - dateW) * 0.5f);
+                dateX = sp.leftAlign ? (sp.dateLeftU * u) : (w - dateW - 65f * u);
             }
             canvas.drawText(fullHeader, dateX, dateBaselineY, datePaint);
 
