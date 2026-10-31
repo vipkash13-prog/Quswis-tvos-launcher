@@ -117,7 +117,7 @@ final class FootballScores {
     t.setTextColor(Color.WHITE);t.setTextSize(12);t.setSingleLine(true);
     t.setEllipsize(android.text.TextUtils.TruncateAt.END);t.setGravity(Gravity.CENTER);
    }
-   time.setTypeface(Typeface.DEFAULT_BOLD);time.setTextSize(10);
+   time.setTypeface(Typeface.DEFAULT_BOLD);time.setTextSize(11);time.setSingleLine(false);time.setMaxLines(2);
    line.addView(home,new android.widget.LinearLayout.LayoutParams(Ui.px(c,38),Ui.px(c,38)));
    line.addView(homeName,new android.widget.LinearLayout.LayoutParams(0,-2,1));
    line.addView(time,new android.widget.LinearLayout.LayoutParams(Ui.px(c,165),-2));
@@ -153,7 +153,7 @@ final class FootballScores {
    String score=goals!=null&&!goals.isNull("home")?goals.optString("home")+" - "+goals.optString("away"):when;
    JSONObject lg=item.optJSONObject("league");
    String leagueLabel=lg==null?"":lg.optString("name","");
-   if(!leagueLabel.isEmpty())score=leagueLabel+"  •  "+score;
+   if(!leagueLabel.isEmpty())score=leagueLabel+"\n"+score;
    ((TextView)line.getChildAt(1)).setText(arabicTeam(home.optString("name","")));
    ((TextView)line.getChildAt(2)).setText(score);
    ((TextView)line.getChildAt(3)).setText(arabicTeam(away.optString("name","")));
@@ -268,7 +268,18 @@ final class FootballScores {
     String localDay=riyadhDay(d);
     if(today.equals(localDay))todays.add(m);else upcoming.add(m);
    }
-   java.util.List<JSONObject> ordered=new java.util.ArrayList<>(todays);ordered.addAll(upcoming);
+   // Fair rotation: when multiple leagues are selected, show matches from each.
+   java.util.List<JSONObject> ordered=new java.util.ArrayList<>();
+   java.util.Map<String,java.util.List<JSONObject>> byLeague=new java.util.LinkedHashMap<>();
+   for(String[] league:LEAGUES)if(selected.contains(league[0]))byLeague.put(league[0],new java.util.ArrayList<>());
+   for(JSONObject m:todays){JSONObject f=m.optJSONObject("fixture");String id=f==null?"":f.optString("leagueId","");if(byLeague.containsKey(id))byLeague.get(id).add(m);}
+   boolean added=true;
+   while(added){added=false;for(java.util.List<JSONObject> group:byLeague.values())if(!group.isEmpty()){ordered.add(group.remove(0));added=true;}}
+   byLeague.clear();
+   for(String[] league:LEAGUES)if(selected.contains(league[0]))byLeague.put(league[0],new java.util.ArrayList<>());
+   for(JSONObject m:upcoming){JSONObject f=m.optJSONObject("fixture");String id=f==null?"":f.optString("leagueId","");if(byLeague.containsKey(id))byLeague.get(id).add(m);}
+   added=true;
+   while(added){added=false;for(java.util.List<JSONObject> group:byLeague.values())if(!group.isEmpty()){ordered.add(group.remove(0));added=true;}}
    final java.util.List<JSONObject> top=new java.util.ArrayList<>(ordered.subList(0,Math.min(5,ordered.size())));
    if(success&&!top.isEmpty()){
     JSONArray saved=new JSONArray();for(JSONObject m:top)saved.put(m);
@@ -309,15 +320,16 @@ final class FootballScores {
   return f.format(new Date(System.currentTimeMillis()+offset*86400000L));
  }
  private static Date parseMatchDate(String raw){
+  if(raw==null||raw.trim().isEmpty())return null;
+  try{return Date.from(java.time.Instant.parse(raw.trim()));}catch(Exception ignored){}
+  try{return Date.from(java.time.OffsetDateTime.parse(raw.trim()).toInstant());}catch(Exception ignored){}
+  try{return Date.from(java.time.LocalDateTime.parse(raw.trim()).toInstant(java.time.ZoneOffset.UTC));}catch(Exception ignored){}
   try{
-   String value=raw.trim();
-   java.text.SimpleDateFormat input;
-   if(value.endsWith("Z"))input=new java.text.SimpleDateFormat(value.contains(".")?"yyyy-MM-dd'T'HH:mm:ss.SSSX":"yyyy-MM-dd'T'HH:mm:ssX",Locale.US);
-   else if(value.matches(".*[+-][0-9]{2}:[0-9]{2}$"))input=new java.text.SimpleDateFormat(value.contains(".")?"yyyy-MM-dd'T'HH:mm:ss.SSSXXX":"yyyy-MM-dd'T'HH:mm:ssXXX",Locale.US);
-   else if(value.matches(".*[+-][0-9]{4}$"))input=new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ",Locale.US);
-   else {input=new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss",Locale.US);input.setTimeZone(TimeZone.getTimeZone("UTC"));}
-   return input.parse(value);
-  }catch(Exception e){return null;}
+   String v=raw.trim().replace(" ","T");
+   if(v.endsWith("Z")&&v.length()==17)v=v.substring(0,v.length()-1)+":00Z";
+   return Date.from(java.time.Instant.parse(v));
+  }catch(Exception ignored){}
+  return null;
  }
  private static String riyadhDay(String raw){
   Date d=parseMatchDate(raw);if(d==null)return "";
