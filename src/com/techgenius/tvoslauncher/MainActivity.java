@@ -978,15 +978,15 @@ public class MainActivity extends Activity {
         // tvOS focus has no outline ring: a soft top sheen on the hardware-cached tile.
         View topSheen = new View(this);
         topSheen.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0x1AFFFFFF, 0x00FFFFFF}));
+                new int[]{0xA8FFFFFF, 0x28FFFFFF, 0x00FFFFFF}));
         topSheen.setAlpha(0f);
         tile.addView(topSheen, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, tileH / 2, Gravity.TOP));
 
         // Moving glass-focus highlight: a translucent luminous rim over the selected app.
         GradientDrawable glassFocusBg = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{0x48FFFFFF, 0x0AFFFFFF, 0x24B7E8FF});
+                new int[]{0x5AFFFFFF, 0x10FFFFFF, 0x36A7DFFF});
         glassFocusBg.setCornerRadius(radius);
-        glassFocusBg.setStroke(dp(2), 0xC8DDF5FF);
+        glassFocusBg.setStroke(dp(2), 0xFFF0FAFF);
         View glassFocus = new View(this);
         glassFocus.setBackground(glassFocusBg);
         glassFocus.setAlpha(0f);
@@ -1019,7 +1019,11 @@ public class MainActivity extends Activity {
                             .setInterpolator(LIFT).start();
                     label.animate().alpha(1f).translationY(tileH * (FOCUS_SCALE - 1f) / 2f).setDuration(160).start();
                 }
-                topSheen.setAlpha(1f);
+                topSheen.animate().cancel();
+                topSheen.setTranslationX(-tileW * 0.35f);
+                topSheen.setAlpha(0f);
+                topSheen.animate().alpha(1f).translationX(tileW * 0.18f)
+                        .setDuration(360).setInterpolator(EASE).start();
                 glassFocus.animate().cancel();
                 glassFocus.animate().alpha(1f).setDuration(190).setInterpolator(EASE).start();
                 onTileFocused(index);
@@ -1028,7 +1032,8 @@ public class MainActivity extends Activity {
                 stopSway(v);
                 v.animate().scaleX(1f).scaleY(1f).translationZ(0).setDuration(140).setInterpolator(EASE).start();
                 label.animate().alpha(0f).translationY(0).setDuration(120).start();
-                topSheen.setAlpha(0f);
+                topSheen.animate().cancel();
+                topSheen.animate().alpha(0f).translationX(0f).setDuration(130).start();
                 glassFocus.animate().cancel();
                 glassFocus.animate().alpha(0f).setDuration(140).setInterpolator(EASE).start();
             }
