@@ -39,7 +39,7 @@ final class FootballScores {
  }
  static boolean isLeagueSelected(Context c,String id){return selectedLeagues(c).contains(id);}
  static void setLeagues(Context c,java.util.Set<String> ids){
-  prefs(c).edit().putStringSet("selected_leagues",new java.util.HashSet<>(ids)).remove(K_AT).apply();
+  prefs(c).edit().putStringSet("selected_leagues",new java.util.HashSet<>(ids)).remove("fixtures_json").remove("cache_key").remove(K_AT).apply();
  }
  static String selectedLeagueNames(Context c){
   java.util.List<String> names=new java.util.ArrayList<>();
@@ -192,31 +192,8 @@ final class FootballScores {
   new Thread(()->{
    java.util.List<JSONObject> matches=new java.util.ArrayList<>();
    String error=null;boolean success=false;
-   for(String[] league:LEAGUES){
-    if(token.isEmpty())break;
-    if(!selected.contains(league[0]))continue;
-    int id=apiLeague(league[0]);if(id==0)continue;
-    HttpURLConnection conn=null;
-    try{
-     String endpoint="https://v3.football.api-sports.io/fixtures?league="+id+"&season="+season(league[0])+"&from="+apiDay(0)+"&to="+apiDay(30)+"&timezone=Asia%2FRiyadh";
-     conn=(HttpURLConnection)new URL(endpoint).openConnection();
-     conn.setConnectTimeout(10000);conn.setReadTimeout(10000);
-     conn.setRequestProperty("x-apisports-key",token);
-     int status=conn.getResponseCode();
-     if(status!=200){error="API-FOOTBALL HTTP "+status+"؛ راجع المفتاح والاشتراك";continue;}
-     BufferedReader reader=new BufferedReader(new InputStreamReader(conn.getInputStream(),"UTF-8"));
-     StringBuilder body=new StringBuilder();String line;
-     while((line=reader.readLine())!=null)body.append(line);reader.close();
-     JSONObject root=new JSONObject(body.toString());
-     JSONObject errors=root.optJSONObject("errors");
-     if(errors!=null&&errors.length()>0){error="API-FOOTBALL: "+errors.toString();if(error.length()>110)error=error.substring(0,110);continue;}
-     success=true;
-     JSONArray arr=root.optJSONArray("response");
-     if(arr!=null)for(int i=0;i<arr.length();i++){JSONObject item=arr.optJSONObject(i);if(item!=null)matches.add(item);}
-    }catch(Exception ex){error="تعذر الاتصال بموقع API-FOOTBALL";}finally{if(conn!=null)conn.disconnect();}
-   }
    // Public ESPN scoreboard fallback, without API key. It includes team logos.
-   if(matches.isEmpty()){
+   {
     for(String[] league:LEAGUES){
      if(!selected.contains(league[0]))continue;
      int beforeLeague=matches.size();
@@ -250,12 +227,12 @@ final class FootballScores {
        if(home==null||away==null)continue;
        JSONObject status=event.optJSONObject("status");
        JSONObject type=status==null?null:status.optJSONObject("type");
-       if(type!=null&&"post".equals(type.optString("state"))&&offset>0)continue;
+       if(type!=null&&"post".equals(type.optString("state")))continue;
        java.util.Set<String> wanted=selectedTeams(app,league[0]);
        JSONObject ht=home.optJSONObject("team"),awayTeam=away.optJSONObject("team");
        if(!wanted.isEmpty()&&(ht==null||!wanted.contains(ht.optString("id")))&&(awayTeam==null||!wanted.contains(awayTeam.optString("id"))))continue;
        JSONObject item=new JSONObject(),fixture=new JSONObject(),teams=new JSONObject(),leagueObj=new JSONObject();
-       fixture.put("date",date);
+       fixture.put("date",date);fixture.put("leagueId",league[0]);
        teams.put("home",espnTeam(home));teams.put("away",espnTeam(away));
        leagueObj.put("name",league[1]);
        item.put("fixture",fixture);item.put("teams",teams);item.put("league",leagueObj);
@@ -273,10 +250,18 @@ final class FootballScores {
    // Prioritize today's fixtures from all selected leagues, then upcoming games.
    java.util.List<JSONObject> todays=new java.util.ArrayList<>(),upcoming=new java.util.ArrayList<>();
    String today=apiDay(0);
+   java.util.Set<String> seen=new java.util.HashSet<>();
    for(JSONObject m:matches){
     JSONObject f=m.optJSONObject("fixture");
     String d=f==null?"":f.optString("date","");
-    if(d.startsWith(today))todays.add(m);else upcoming.add(m);
+    String leagueId=f==null?"":f.optString("leagueId","");
+    if(!selected.contains(leagueId))continue;
+    JSONObject ts=m.optJSONObject("teams");
+    JSONObject h=ts==null?null:ts.optJSONObject("home"),a=ts==null?null:ts.optJSONObject("away");
+    String unique=leagueId+"|"+d+"|"+(h==null?"":h.optString("name"))+"|"+(a==null?"":a.optString("name"));
+    if(!seen.add(unique))continue;
+    String localDay=riyadhDay(d);
+    if(today.equals(localDay))todays.add(m);else upcoming.add(m);
    }
    java.util.List<JSONObject> ordered=new java.util.ArrayList<>(todays);ordered.addAll(upcoming);
    final java.util.List<JSONObject> top=new java.util.ArrayList<>(ordered.subList(0,Math.min(5,ordered.size())));
@@ -318,23 +303,24 @@ final class FootballScores {
   f.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));
   return f.format(new Date(System.currentTimeMillis()+offset*86400000L));
  }
- private static String fixtureTime(String raw){
+ private static Date parseMatchDate(String raw){
   try{
    String value=raw.trim();
    java.text.SimpleDateFormat input;
-   if(value.endsWith("Z")){
-    input=new java.text.SimpleDateFormat(value.contains(".")?"yyyy-MM-dd'T'HH:mm:ss.SSSX":"yyyy-MM-dd'T'HH:mm:ssX",Locale.US);
-   }else if(value.matches(".*[+-][0-9]{2}:[0-9]{2}$")){
-    input=new java.text.SimpleDateFormat(value.contains(".")?"yyyy-MM-dd'T'HH:mm:ss.SSSXXX":"yyyy-MM-dd'T'HH:mm:ssXXX",Locale.US);
-   }else{
-    input=new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss",Locale.US);
-    input.setTimeZone(TimeZone.getTimeZone("UTC"));
-   }
-   Date parsed=input.parse(value);
-   java.text.SimpleDateFormat out=new java.text.SimpleDateFormat("HH:mm",Locale.US);
-   out.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));
-   return out.format(parsed);
-  }catch(Exception e){return "--:--";}
+   if(value.endsWith("Z"))input=new java.text.SimpleDateFormat(value.contains(".")?"yyyy-MM-dd'T'HH:mm:ss.SSSX":"yyyy-MM-dd'T'HH:mm:ssX",Locale.US);
+   else if(value.matches(".*[+-][0-9]{2}:[0-9]{2}$"))input=new java.text.SimpleDateFormat(value.contains(".")?"yyyy-MM-dd'T'HH:mm:ss.SSSXXX":"yyyy-MM-dd'T'HH:mm:ssXXX",Locale.US);
+   else if(value.matches(".*[+-][0-9]{4}$"))input=new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ",Locale.US);
+   else {input=new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss",Locale.US);input.setTimeZone(TimeZone.getTimeZone("UTC"));}
+   return input.parse(value);
+  }catch(Exception e){return null;}
+ }
+ private static String riyadhDay(String raw){
+  Date d=parseMatchDate(raw);if(d==null)return "";
+  SimpleDateFormat f=new SimpleDateFormat("yyyy-MM-dd",Locale.US);f.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));return f.format(d);
+ }
+ private static String fixtureTime(String raw){
+  Date d=parseMatchDate(raw);if(d==null)return "--:--";
+  SimpleDateFormat f=new SimpleDateFormat("HH:mm",Locale.US);f.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));return f.format(d);
  }
  private static int apiLeague(String id){
   switch(id){case "ksa.1":return 307;case "eng.1":return 39;case "esp.1":return 140;
