@@ -32,6 +32,20 @@ final class FootballScores {
  interface TeamsCallback{void onLoaded(List<Team> teams,String error);}
  private static final class Match{String date,home,away,homeId,awayId,hs,as,status;}
  private FootballScores(){}
+ static boolean enabled(Context c){return prefs(c).getBoolean("enabled",false);}
+ static void setEnabled(Context c,boolean value){prefs(c).edit().putBoolean("enabled",value).apply();}
+ static java.util.Set<String> selectedLeagues(Context c){
+  return new java.util.HashSet<>(prefs(c).getStringSet("selected_leagues",java.util.Collections.singleton("ksa.1")));
+ }
+ static boolean isLeagueSelected(Context c,String id){return selectedLeagues(c).contains(id);}
+ static void setLeagues(Context c,java.util.Set<String> ids){
+  prefs(c).edit().putStringSet("selected_leagues",new java.util.HashSet<>(ids)).remove(K_AT).apply();
+ }
+ static String selectedLeagueNames(Context c){
+  java.util.List<String> names=new java.util.ArrayList<>();
+  for(String[] l:LEAGUES)if(isLeagueSelected(c,l[0]))names.add(l[1]);
+  return names.isEmpty()?"لم يتم اختيار دوريات":android.text.TextUtils.join("، ",names);
+ }
  static SharedPreferences prefs(Context c){return c.getSharedPreferences(PREFS,Context.MODE_PRIVATE);}
  static String league(Context c){return prefs(c).getString(K_LEAGUE,"ksa.1");}
  static String leagueName(Context c){for(String[] x:LEAGUES)if(x[0].equals(league(c)))return x[1];return LEAGUES[0][1];}
@@ -72,35 +86,55 @@ final class FootballScores {
  }
  static void refresh(Context c,TextView view,boolean force){
   if(view==null)return;Context app=c.getApplicationContext();SharedPreferences p=prefs(app);
-  String lg=league(app),tid=teamId(app),tn=teamName(app);
-  if(tid.isEmpty()){view.setText("المباريات\nاختر الدوري ثم الفريق من الإعدادات");return;}
-  String key=lg+"|"+tid,cached=p.getString(K_DATA,null);long at=p.getLong(K_AT,0);
-  if(cached!=null&&key.equals(p.getString("cache_key","")))view.setText(cached);else view.setText("مباريات "+tn+"\nجارٍ تحميل النتائج والمواعيد…");
+  if(!enabled(app)){view.setVisibility(android.view.View.GONE);return;}
+  view.setVisibility(android.view.View.VISIBLE);
+  java.util.Set<String> selected=selectedLeagues(app);
+  if(selected.isEmpty()){view.setText("المباريات القادمة\\nاختر الدوريات من الإعدادات");return;}
+  String key=android.text.TextUtils.join("|",new java.util.TreeSet<>(selected));
+  String cached=p.getString(K_DATA,null);long at=p.getLong(K_AT,0);
+  view.setText(cached!=null&&key.equals(p.getString("cache_key",""))?cached:"المباريات القادمة\\nجارٍ تحميل المباريات…");
   if(busy||(!force&&key.equals(p.getString("cache_key",""))&&System.currentTimeMillis()-at<CACHE_MS))return;
   busy=true;new Thread(()->{
-   String result;HttpURLConnection conn=null;
-   try{
-    SimpleDateFormat day=new SimpleDateFormat("yyyyMMdd",Locale.US);day.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));
-    String from=day.format(new Date()),until=day.format(new Date(System.currentTimeMillis()+30L*86400000L));
-    String url="https://site.api.espn.com/apis/site/v2/sports/soccer/"+lg+"/scoreboard?dates="+from+"-"+until;
-    conn=(HttpURLConnection)new URL(url).openConnection();conn.setConnectTimeout(10000);conn.setReadTimeout(10000);
-    conn.setRequestProperty("User-Agent",Weather.UA);if(conn.getResponseCode()!=200)throw new Exception("scoreboard");
-    BufferedReader r=new BufferedReader(new InputStreamReader(conn.getInputStream(),"UTF-8"));StringBuilder b=new StringBuilder();String line;
-    while((line=r.readLine())!=null)b.append(line);r.close();JSONArray events=new JSONObject(b.toString()).optJSONArray("events");
-    List<Match> matches=new ArrayList<>();
-    if(events!=null)for(int i=0;i<events.length();i++){JSONObject ev=events.optJSONObject(i);JSONArray cs=ev==null?null:ev.optJSONArray("competitions");
-     JSONObject cp=cs==null||cs.length()==0?null:cs.optJSONObject(0);JSONArray comps=cp==null?null:cp.optJSONArray("competitors");
-     if(comps==null||comps.length()<2)continue;JSONObject a=comps.optJSONObject(0),z=comps.optJSONObject(1);if(a==null||z==null)continue;
-     Match m=new Match();m.date=ev.optString("date","");m.home=name(a);m.away=name(z);m.homeId=a.optString("id","");m.awayId=z.optString("id","");
-     if(!tid.equals(m.homeId)&&!tid.equals(m.awayId))continue;m.hs=a.optString("score","-");m.as=z.optString("score","-");
-     JSONObject st=ev.optJSONObject("status"),ty=st==null?null:st.optJSONObject("type");m.status=ty==null?"":ty.optString("shortDetail","");matches.add(m);}
-    Collections.sort(matches,Comparator.comparing(m->m.date==null?"":m.date));
-    StringBuilder out=new StringBuilder("مباريات ").append(tn);
-    if(matches.isEmpty())out.append("\nلا توجد مباريات مجدولة للفريق خلال الثلاثين يوماً القادمة");
-    for(int i=0;i<Math.min(5,matches.size());i++){Match m=matches.get(i);out.append("\n").append(m.home).append("  ").append(m.hs).append(" - ").append(m.as).append("  ").append(m.away);
-     if(!m.status.isEmpty())out.append(" • ").append(m.status);else if(m.date.length()>=16)out.append(" • ").append(date(m.date));}
-    result=out.toString();p.edit().putString(K_DATA,result).putLong(K_AT,System.currentTimeMillis()).putString("cache_key",key).apply();
-   }catch(Exception e){result="مباريات "+tn+"\nتعذر جلب المباريات • تحقق من الإنترنت";}finally{if(conn!=null)conn.disconnect();}
+   String result;try{
+    java.util.List<String> lines=new java.util.ArrayList<>();
+    java.text.SimpleDateFormat day=new java.text.SimpleDateFormat("yyyyMMdd",Locale.US);
+    day.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));
+    String from=day.format(new Date()),until=day.format(new Date(System.currentTimeMillis()+14L*86400000L));
+    for(String[] league:LEAGUES){
+     if(!selected.contains(league[0]))continue;
+     HttpURLConnection conn=null;
+     try{
+      String endpoint="https://site.api.espn.com/apis/site/v2/sports/soccer/"+league[0]+"/scoreboard?dates="+from+"-"+until;
+      conn=(HttpURLConnection)new URL(endpoint).openConnection();conn.setConnectTimeout(8000);conn.setReadTimeout(8000);
+      conn.setRequestProperty("User-Agent",Weather.UA);
+      if(conn.getResponseCode()!=200)continue;
+      BufferedReader reader=new BufferedReader(new InputStreamReader(conn.getInputStream(),"UTF-8"));
+      StringBuilder body=new StringBuilder();String line;while((line=reader.readLine())!=null)body.append(line);reader.close();
+      JSONArray events=new JSONObject(body.toString()).optJSONArray("events");
+      if(events==null)continue;
+      for(int i=0;i<events.length();i++){
+       JSONObject ev=events.optJSONObject(i);if(ev==null)continue;
+       JSONArray competitions=ev.optJSONArray("competitions");
+       JSONObject cp=competitions==null||competitions.length()==0?null:competitions.optJSONObject(0);
+       JSONArray competitors=cp==null?null:cp.optJSONArray("competitors");
+       if(competitors==null||competitors.length()<2)continue;
+       JSONObject home=competitors.optJSONObject(0),away=competitors.optJSONObject(1);
+       if(home==null||away==null)continue;
+       String when=date(ev.optString("date",""));
+       lines.add(ev.optString("date","")+"|"+league[1]+" • "+when+"\\n"+name(home)+"  VS  "+name(away));
+      }
+     }catch(Exception ignored){}finally{if(conn!=null)conn.disconnect();}
+    }
+    java.util.Collections.sort(lines);
+    StringBuilder out=new StringBuilder("المباريات القادمة");
+    for(int i=0;i<Math.min(3,lines.size());i++){
+     String entry=lines.get(i);int separator=entry.indexOf('|');
+     out.append("\\n").append(entry.substring(separator+1));
+    }
+    if(lines.isEmpty())out.append("\\nلا توجد مباريات متاحة حاليًا للدوريات المختارة");
+    result=out.toString();
+    p.edit().putString(K_DATA,result).putLong(K_AT,System.currentTimeMillis()).putString("cache_key",key).apply();
+   }catch(Exception e){result="المباريات القادمة\\nتعذر جلب المباريات";}
    final String display=result;new Handler(Looper.getMainLooper()).post(()->{busy=false;if(view!=null)view.setText(display);});
   },"football-score-refresh").start();
  }
