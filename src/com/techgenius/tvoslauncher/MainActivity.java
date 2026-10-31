@@ -795,7 +795,7 @@ public class MainActivity extends Activity {
 
         prayerCard = PrayerTimes.createView(this);
         FrameLayout.LayoutParams prayerLp = new FrameLayout.LayoutParams(
-                dp(300), dp(132), Gravity.TOP | Gravity.START);
+                dp(260), dp(160), Gravity.TOP | Gravity.START);
         prayerLp.topMargin = dp(WeatherView.COMPACT_H + 12);
         prayerLp.leftMargin = dockOuter;
         root.addView(prayerCard, prayerLp);
