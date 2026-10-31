@@ -672,22 +672,67 @@ public class SettingsActivity extends Activity {
     private void promptPrayerCity() {
         android.widget.EditText input = new android.widget.EditText(this);
         input.setSingleLine(true);
-        input.setText(PrayerTimes.city(this));
-        input.setHint("مثال: الرياض أو جدة");
+        input.setHint("ابحث عن المدينة");
         input.setInputType(android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_FLAG_CAP_WORDS);
         FrameLayout box = new FrameLayout(this);
         box.setPadding(u(14), u(8), u(14), 0);
         box.addView(input);
-        AlertDialog dlg = dialog("اكتب اسم المدينة").setView(box)
-                .setPositiveButton("حفظ", (d, w) -> {
-                    String city = input.getText().toString().trim();
-                    if (city.isEmpty()) return;
-                    PrayerTimes.setLocation(this, city, PrayerTimes.country(this), PrayerTimes.countryApi(this));
-                    rebuildMainRows();
-                    showStatusMsg("تم حفظ المدينة: " + city);
+        AlertDialog dlg = dialog("ابحث عن مدينة في " + PrayerTimes.country(this)).setView(box)
+                .setPositiveButton("بحث", (d, w) -> {
+                    String query = input.getText().toString().trim();
+                    if (query.isEmpty()) return;
+                    String search = prayerCitySearchName(query);
+                    showStatusMsg("جارٍ البحث عن المدن…");
+                    new Thread(() -> {
+                        List<Weather.Place> found;
+                        try { found = Weather.search(search); }
+                        catch (Exception e) { found = null; }
+                        List<Weather.Place> matches = new ArrayList<>();
+                        if (found != null) {
+                            String country = PrayerTimes.countryApi(this).toLowerCase(java.util.Locale.ROOT);
+                            for (Weather.Place place : found) {
+                                if (place.detail != null && place.detail.toLowerCase(java.util.Locale.ROOT).contains(country.toLowerCase(java.util.Locale.ROOT))) {
+                                    matches.add(place);
+                                }
+                            }
+                            if (matches.isEmpty()) matches.addAll(found);
+                        }
+                        List<Weather.Place> result = matches;
+                        runOnUiThread(() -> showPrayerCityResults(query, result));
+                    }).start();
                 }).setNegativeButton("إلغاء", null).show();
         Ui.setupDialogEditText(input, dlg);
         input.requestFocus();
+    }
+
+    private String prayerCitySearchName(String query) {
+        String[][] names = {{"جدة","Jeddah"},{"الرياض","Riyadh"},{"مكة","Mecca"},{"مكة المكرمة","Mecca"},
+                {"المدينة","Medina"},{"المدينة المنورة","Medina"},{"الدمام","Dammam"},{"الخبر","Khobar"},
+                {"الطائف","Taif"},{"أبها","Abha"},{"تبوك","Tabuk"},{"بريدة","Buraidah"},{"حائل","Hail"},
+                {"دبي","Dubai"},{"أبوظبي","Abu Dhabi"},{"الشارقة","Sharjah"},{"الدوحة","Doha"},
+                {"الكويت","Kuwait City"},{"المنامة","Manama"},{"مسقط","Muscat"},{"القاهرة","Cairo"},{"عمّان","Amman"}};
+        for (String[] pair : names) if (pair[0].equals(query)) return pair[1];
+        return query;
+    }
+
+    private void showPrayerCityResults(String query, List<Weather.Place> places) {
+        if (isFinishing()) return;
+        showStatusMsg(null);
+        if (places == null || places.isEmpty()) {
+            showStatusMsg("لم نعثر على المدينة. جرّب كتابتها بالإنجليزية.");
+            return;
+        }
+        String[] labels = new String[places.size()];
+        for (int i = 0; i < places.size(); i++) {
+            Weather.Place place = places.get(i);
+            labels[i] = place.name + (place.detail == null || place.detail.isEmpty() ? "" : " • " + place.detail);
+        }
+        dialog("اختر المدينة").setItems(labels, (d, which) -> {
+            Weather.Place picked = places.get(which);
+            PrayerTimes.setLocation(this, picked.name, PrayerTimes.country(this), PrayerTimes.countryApi(this));
+            rebuildMainRows();
+            showStatusMsg("تم اختيار المدينة: " + picked.name);
+        }).setNegativeButton("إلغاء", null).show();
     }
 
     void pageFootball() {
