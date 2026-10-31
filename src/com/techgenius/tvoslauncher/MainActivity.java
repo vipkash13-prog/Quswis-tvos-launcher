@@ -795,15 +795,15 @@ public class MainActivity extends Activity {
 
         prayerCard = PrayerTimes.createView(this);
         FrameLayout.LayoutParams prayerLp = new FrameLayout.LayoutParams(
-                dp(260), dp(160), Gravity.TOP | Gravity.START);
-        prayerLp.topMargin = dp(WeatherView.COMPACT_H + 12);
-        prayerLp.leftMargin = dockOuter;
+                dp(520), dp(76), Gravity.TOP | Gravity.START);
+        prayerLp.topMargin = dp(8);
+        prayerLp.leftMargin = dockOuter + dp(290);
         root.addView(prayerCard, prayerLp);
 
         footballCard = FootballScores.createView(this);
         FrameLayout.LayoutParams footballLp = new FrameLayout.LayoutParams(
                 dp(520), dp(158), Gravity.TOP | Gravity.START);
-        footballLp.topMargin = dp(WeatherView.COMPACT_H + 12);
+        footballLp.topMargin = dp(WeatherView.COMPACT_H + 16);
         footballLp.leftMargin = dockOuter + dp(278);
         root.addView(footballCard, footballLp);
 
@@ -2286,7 +2286,7 @@ public class MainActivity extends Activity {
     SearchPanel search;
     android.net.ConnectivityManager.NetworkCallback netCallback;
     WeatherView weatherCard;
-    TextView prayerCard;
+    LinearLayout prayerCard;
     TextView footballCard;
     LiquidGlass weatherGlass;
     int avatarSize;
