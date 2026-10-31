@@ -238,10 +238,58 @@ final class FootballScores {
   new Thread(()->{
    java.util.List<JSONObject> matches=new java.util.ArrayList<>();
    String error=null;boolean success=false;
+   // Prefer 365Scores for Saudi and AFC Elite fixtures; retain ESPN as fallback.
+   java.util.Set<String> from365=new java.util.HashSet<>();
+   for(String[] league:LEAGUES){
+    if(!selected.contains(league[0]))continue;
+    int compId="ksa.1".equals(league[0])?649:("afc.champions".equals(league[0])?623:0);
+    if(compId==0)continue;
+    try{
+     String base="https://webws.365scores.com/web/games/";
+     String common="appTypeId=5&langId=1&timezoneName=Asia%2FRiyadh&sports=1&showOdds=false";
+     java.text.SimpleDateFormat fmt=new java.text.SimpleDateFormat("dd/MM/yyyy",Locale.US);
+     fmt.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));
+     String start=fmt.format(new Date()),end=fmt.format(new Date(System.currentTimeMillis()+7L*86400000L));
+     String[] endpoints={base+"allscores/?"+common+"&startDate="+start+"&endDate="+end+"&competitions="+compId,
+       base+"fixtures/?"+common+"&competitions="+compId};
+     for(String endpoint:endpoints){
+      HttpURLConnection conn=null;
+      try{
+       conn=(HttpURLConnection)new URL(endpoint).openConnection();conn.setConnectTimeout(6500);conn.setReadTimeout(6500);
+       conn.setRequestProperty("User-Agent","Mozilla/5.0 (Linux; Android TV) AppleWebKit/537.36");
+       conn.setRequestProperty("Origin","https://www.365scores.com");conn.setRequestProperty("Referer","https://www.365scores.com/");
+       if(conn.getResponseCode()!=200)continue;
+       BufferedReader reader=new BufferedReader(new InputStreamReader(conn.getInputStream(),"UTF-8"));
+       StringBuilder body=new StringBuilder();String line;
+       while((line=reader.readLine())!=null&&body.length()<3000000)body.append(line);reader.close();
+       JSONObject root=new JSONObject(body.toString());JSONArray games=root.optJSONArray("games");if(games==null)continue;
+       for(int i=0;i<games.length();i++){
+        JSONObject g=games.optJSONObject(i);if(g==null||g.optInt("competitionId")!=compId)continue;
+        JSONObject home=g.optJSONObject("homeCompetitor"),away=g.optJSONObject("awayCompetitor");
+        if(home==null||away==null)continue;
+        String date=g.optString("startTime","");if(parseMatchDate(date)==null)continue;
+        String status=(g.optString("statusText","")+" "+g.optString("shortStatusText","")).toLowerCase(Locale.US);
+        int group=g.optInt("statusGroup",0);
+        if(group==4||status.contains("ended")||status.contains("full time")||status.contains("انتهت"))continue;
+        JSONObject item=new JSONObject(),fixture=new JSONObject(),teams=new JSONObject(),lg=new JSONObject(),goals=new JSONObject();
+        fixture.put("date",date);fixture.put("leagueId",league[0]);
+        String state=group==3?"in":"pre";fixture.put("state",state);
+        fixture.put("clock",g.optString("gameTimeDisplay",g.optString("shortStatusText","")));
+        if("in".equals(state)){goals.put("home",home.optInt("score",0));goals.put("away",away.optInt("score",0));}
+        teams.put("home",new JSONObject().put("name",home.optString("name","")).put("logo",logo365(home)));
+        teams.put("away",new JSONObject().put("name",away.optString("name","")).put("logo",logo365(away)));
+        lg.put("name",league[1]);item.put("fixture",fixture).put("teams",teams).put("goals",goals).put("league",lg);
+        matches.add(item);
+       }
+      }finally{if(conn!=null)conn.disconnect();}
+     }
+     if(!matches.isEmpty())from365.add(league[0]);
+    }catch(Exception ignored){}
+   }
    // Public ESPN scoreboard fallback, without API key. It includes team logos.
    {
     for(String[] league:LEAGUES){
-     if(!selected.contains(league[0]))continue;
+     if(!selected.contains(league[0])||from365.contains(league[0]))continue;
      int beforeLeague=matches.size();
      for(int offset=0;offset<=7;offset++){
      HttpURLConnection conn=null;
@@ -372,6 +420,10 @@ final class FootballScores {
   java.text.SimpleDateFormat f=new java.text.SimpleDateFormat("yyyy-MM-dd",Locale.US);
   f.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));
   return f.format(new Date(System.currentTimeMillis()+offset*86400000L));
+ }
+ private static String logo365(JSONObject competitor){
+  int id=competitor.optInt("id",0),version=competitor.optInt("imageVersion",1);
+  return id<=0?"":"https://imagecache.365scores.com/image/upload/f_png,w_96,h_96,c_limit,q_auto:eco,dpr_2,d_Competitors:default1.png/v"+version+"/Competitors/"+id;
  }
  private static Date parseMatchDate(String raw){
   if(raw==null||raw.trim().isEmpty())return null;
