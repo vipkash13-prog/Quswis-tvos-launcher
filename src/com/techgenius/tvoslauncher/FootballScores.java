@@ -203,7 +203,6 @@ final class FootballScores {
    new Handler(Looper.getMainLooper()).post(()->{
     busy=false;if(view==null)return;
     if(!top.isEmpty())showFixtures(view,top);
-    else if(cached==null||!success)showMessage(view,message);
     else showMessage(view,message);
    });
   },"football-api-refresh").start();
