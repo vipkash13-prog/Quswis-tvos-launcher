@@ -84,7 +84,7 @@ final class PrayerTimes {
   }
  }
  static void refresh(Context context,LinearLayout view,boolean force){
-  if(!enabled(context)){if(view!=null)view.setVisibility(View.GONE);return;}if(view!=null)view.setVisibility(View.VISIBLE);
+  if(view!=null){if(!enabled(context)){view.setVisibility(View.GONE);}else view.setVisibility(View.VISIBLE);}
   SharedPreferences p=prefs(context);String key=city(context)+"|"+countryApi(context)+"|"+prefs(context).getString("latitude","")+"|"+prefs(context).getString("longitude","");
   String cached=p.getString(K_DATA,null);long at=p.getLong(K_AT,0);
   String today=new SimpleDateFormat("yyyy-MM-dd",Locale.US).format(new Date());
