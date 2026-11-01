@@ -4748,6 +4748,14 @@ public class MainActivity extends Activity {
         panel.animate().translationY(0).setDuration(260).setInterpolator(EASE).start();
         panel.requestFocus();
         FootballScores.refresh(this, panel, true);
+        // Refresh live scores while this popover remains visible; stop when it closes.
+        handler.postDelayed(new Runnable() {
+            @Override public void run() {
+                if (pickerLayer != layer || !panel.isAttachedToWindow()) return;
+                FootballScores.refresh(MainActivity.this, panel, true);
+                handler.postDelayed(this, 60000L);
+            }
+        }, 60000L);
     }
 
     void showPrayerPanel() {
