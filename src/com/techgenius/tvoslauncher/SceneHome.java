@@ -1900,6 +1900,34 @@ final class SceneHome {
 
         View f = host.getCurrentFocus();
 
+        // The night-scenes dock intercepts D-pad events, so explicitly route focus
+        // to the compact prayer and football shortcuts above the dock.
+        View prayer = host.prayerCard;
+        View football = host.footballShortcut;
+        boolean prayerVisible = prayer != null && prayer.getVisibility() == View.VISIBLE;
+        boolean footballVisible = football != null && football.getVisibility() == View.VISIBLE;
+        if (f == prayer || f == football) {
+            if (k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER) {
+                if (down && ev.getRepeatCount() == 0) {
+                    if (f == prayer) host.showPrayerPanel();
+                    else host.showFootballPanel();
+                }
+                return true;
+            }
+            if (k == KeyEvent.KEYCODE_DPAD_DOWN) {
+                if (down) {
+                    if (f == prayer && footballVisible) football.requestFocus();
+                    else focusDock(focusedDockIdx);
+                }
+                return true;
+            }
+            if (k == KeyEvent.KEYCODE_DPAD_UP) {
+                if (down && f == football && prayerVisible) prayer.requestFocus();
+                return true;
+            }
+            if (k == KeyEvent.KEYCODE_DPAD_LEFT || k == KeyEvent.KEYCODE_DPAD_RIGHT) return true;
+        }
+
         if (k == KeyEvent.KEYCODE_MENU && !down) {
             int dIdx = dockTiles.indexOf(f);
             if (dIdx >= 0 && dIdx < dockEntries.size()) {
@@ -1986,7 +2014,9 @@ final class SceneHome {
             }
             if (k == KeyEvent.KEYCODE_DPAD_UP) {
                 if (down) {
-                    if (dIdx >= cols) {
+                    if (prayerVisible) prayer.requestFocus();
+                    else if (footballVisible) football.requestFocus();
+                    else if (dIdx >= cols) {
                         focusDock(dIdx - cols);
                     } else if (shelfBox.getVisibility() == View.VISIBLE && !shelfCards.isEmpty()) {
                         int target = Math.min(shelfCards.size() - 1, dIdx * shelfCards.size() / cols);
