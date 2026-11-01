@@ -1034,14 +1034,15 @@ final class SceneHome {
             frostFocus.animate().cancel();
             if (!isGear && !isMore) {
                 if (has) frostFocus.setTranslationX(index >= focusedDockIdx ? dp(9) : -dp(9));
-                frostFocus.animate().translationX(0f).alpha(has ? 0.75f : 0f)
+                frostFocus.animate().translationX(0f).alpha(has ? 0.48f : 0f)
                         .setDuration(has ? 230 : 130).setInterpolator(MainActivity.EASE).start();
             }
             glassOverlay.animate().cancel();
-            if (!isGear && !isMore) glassOverlay.animate().alpha(has ? 0.18f : 0f)
+            if (!isGear && !isMore) glassOverlay.animate().alpha(has ? 0.08f : 0f)
                     .setDuration(140).setInterpolator(MainActivity.EASE).start();
             if (has) {
-                moveGlassToDockTile(v);
+                // Keep focus glass clipped to the actual app tile; no detached overlay.
+                if (movingFocusGlass != null) movingFocusGlass.setVisibility(View.INVISIBLE);
                 focusedDockIdx = index;
                 host.prefs.edit().putInt("last_dock_idx", index).apply();
                 if (moveDockIdx >= 0) {
