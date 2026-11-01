@@ -3365,8 +3365,9 @@ public class MainActivity extends Activity {
                     return true;
                 }
                 if (fk == KeyEvent.KEYCODE_DPAD_DOWN) {
-                    if (pressed && prayerCard != null && prayerCard.getVisibility() == View.VISIBLE)
-                        prayerCard.requestFocus();
+                    if (pressed && sceneHome != null && Scenes.isScenesLook(this))
+                        sceneHome.focusDock(sceneHome.focusedDockIdx);
+                    else if (pressed && weatherCard != null) weatherCard.requestFocus();
                     return true;
                 }
                 if (fk == KeyEvent.KEYCODE_DPAD_UP || fk == KeyEvent.KEYCODE_DPAD_LEFT
@@ -3375,6 +3376,17 @@ public class MainActivity extends Activity {
                         prayerCard.requestFocus();
                     return true;
                 }
+            }
+            // Traverse the three compact lenses in visual top-to-bottom order.
+            if (focused == weatherCard && fk == KeyEvent.KEYCODE_DPAD_DOWN) {
+                if (pressed && prayerCard != null && prayerCard.getVisibility() == View.VISIBLE)
+                    prayerCard.requestFocus();
+                else if (pressed) footballShortcut.requestFocus();
+                return true;
+            }
+            if (focused == prayerCard && fk == KeyEvent.KEYCODE_DPAD_UP) {
+                if (pressed && weatherCard != null) weatherCard.requestFocus();
+                return true;
             }
             // From the prayer shortcut, DOWN selects the football shortcut.
             if (focused == prayerCard && fk == KeyEvent.KEYCODE_DPAD_DOWN) {
