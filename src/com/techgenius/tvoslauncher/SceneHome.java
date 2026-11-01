@@ -719,7 +719,8 @@ final class SceneHome {
         movingFocusGlass.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         movingFocusGlass.setVisibility(View.INVISIBLE);
         FrameLayout.LayoutParams focusLp = new FrameLayout.LayoutParams(dp(60), dp(60));
-        dockFocusLayer.addView(movingFocusGlass, focusLp);
+        // Draw the moving glass underneath the app artwork, not over the logos.
+        dockFocusLayer.addView(movingFocusGlass, 0, focusLp);
         dockContainer.addView(dockFocusLayer, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
@@ -993,7 +994,7 @@ final class SceneHome {
         GradientDrawable glassShape = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
                 new int[]{0x66FFFFFF, 0x19FFFFFF, 0x50DCEEFF});
         glassShape.setCornerRadius(rad + dp(4));
-        glassShape.setStroke(dp(3), 0xFFF7FAFF);
+        glassShape.setStroke(dp(1), 0x38FFFFFF);
         View glassOverlay = new View(host);
         glassOverlay.setBackground(glassShape);
         glassOverlay.setAlpha(0f);
@@ -1034,7 +1035,7 @@ final class SceneHome {
                         .setDuration(has ? 230 : 130).setInterpolator(MainActivity.EASE).start();
             }
             glassOverlay.animate().cancel();
-            if (!isGear && !isMore) glassOverlay.animate().alpha(has ? 1f : 0f)
+            if (!isGear && !isMore) glassOverlay.animate().alpha(has ? 0.18f : 0f)
                     .setDuration(140).setInterpolator(MainActivity.EASE).start();
             if (has) {
                 moveGlassToDockTile(v);
