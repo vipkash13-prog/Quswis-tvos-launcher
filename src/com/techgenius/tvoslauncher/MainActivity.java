@@ -975,6 +975,17 @@ public class MainActivity extends Activity {
             tile.addView(iv, new FrameLayout.LayoutParams(s, s, Gravity.CENTER));
         }
 
+        // Frosted focus layer stays INSIDE the clipped artwork, preserving the app's shape.
+        View frostFocus = new View(this);
+        GradientDrawable frostPaint = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{0x69F4FAFF, 0x1AFFFFFF, 0x3CBBDFFF});
+        frostPaint.setCornerRadius(radius);
+        frostFocus.setBackground(frostPaint);
+        frostFocus.setAlpha(0f);
+        frostFocus.setFocusable(false);
+        frostFocus.setClickable(false);
+        tile.addView(frostFocus, match());
+
         // tvOS focus has no outline ring: a soft top sheen on the hardware-cached tile.
         View topSheen = new View(this);
         topSheen.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
@@ -1043,6 +1054,8 @@ public class MainActivity extends Activity {
                 focusGlint.setTranslationX(0f);
                 focusGlint.setAlpha(0.8f);
                 focusGlint.animate().translationX(tileW - dp(16)).alpha(0f).setDuration(420).start();
+                frostFocus.animate().cancel();
+                frostFocus.animate().alpha(0.72f).setDuration(190).setInterpolator(EASE).start();
                 silverFocus.animate().cancel();
                 silverFocus.animate().alpha(1f).setDuration(160).setInterpolator(EASE).start();
                 onTileFocused(index);
@@ -1052,6 +1065,8 @@ public class MainActivity extends Activity {
                 focusHolder.animate().scaleX(1f).scaleY(1f).translationZ(0).setDuration(140).setInterpolator(EASE).start();
                 label.animate().alpha(0f).translationY(0).setDuration(120).start();
                 topSheen.setAlpha(0f);
+                frostFocus.animate().cancel();
+                frostFocus.animate().alpha(0f).setDuration(150).setInterpolator(EASE).start();
                 silverFocus.animate().cancel();
                 focusGlint.animate().cancel();
                 focusGlint.setAlpha(0f);
