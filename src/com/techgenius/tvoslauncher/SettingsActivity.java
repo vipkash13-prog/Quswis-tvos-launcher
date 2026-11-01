@@ -669,12 +669,12 @@ public class SettingsActivity extends Activity {
                         rebuildMainRows();
                     }).show());
         row("حقوق تسجيل أذان المسجد الحرام",
-                () -> "3omar Faruq · CC BY 3.0 · Wikimedia Commons",
+                () -> "Seyfula Islam · CC BY 3.0 · Wikimedia Commons",
                 () -> dialog("حقوق التسجيل").setMessage(
-                    "Maghrib Adhan at the Masjid al Haram, Mecca - 25 Feb, 2012\n"
-                    + "صاحب التسجيل: 3omar Faruq\n"
+                    "Adhan, Great Mosque of Mecca - Jan 21, 2013\n"
+                    + "صاحب التسجيل: Seyfula Islam\n"
                     + "الترخيص: Creative Commons Attribution 3.0\n"
-                    + "https://commons.wikimedia.org/wiki/File:Maghrib_Adhan_at_the_Masjid_al_Haram,_Mecca_-_25_Feb,_2012.webm"
+                    + "https://commons.wikimedia.org/wiki/File:Adhan,_Great_Mosque_of_Mecca_-_Jan_21,_2013.webm"
                 ).setPositiveButton("موافق", (d, w) -> {}).show());
         row("تجربة صوت الأذان الآن",
                 () -> "اضغط للاستماع",
