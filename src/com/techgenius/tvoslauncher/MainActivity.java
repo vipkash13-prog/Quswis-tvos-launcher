@@ -218,8 +218,36 @@ public class MainActivity extends Activity {
     ShelfScrollView scroll;
     LinearLayout content;
     View movingClassicGlass;
+    View classicGlassTarget;
+    private void syncClassicGlassOnScroll() {
+        if (movingClassicGlass == null || classicGlassTarget == null) return;
+        View target = classicGlassTarget;
+        if (!target.isFocused()) {
+            movingClassicGlass.setVisibility(View.INVISIBLE);
+            return;
+        }
+        android.graphics.Rect rect = new android.graphics.Rect();
+        if (!target.getGlobalVisibleRect(rect) || rect.isEmpty()) {
+            movingClassicGlass.setVisibility(View.INVISIBLE);
+            return;
+        }
+        int[] origin = new int[2];
+        root.getLocationOnScreen(origin);
+        movingClassicGlass.animate().cancel();
+        movingClassicGlass.setX(rect.left - origin[0] - dp(3));
+        movingClassicGlass.setY(rect.top - origin[1] - dp(3));
+        ViewGroup.LayoutParams params = movingClassicGlass.getLayoutParams();
+        int w = rect.width() + dp(6), h = rect.height() + dp(6);
+        if (params.width != w || params.height != h) {
+            params.width = w;
+            params.height = h;
+            movingClassicGlass.setLayoutParams(params);
+        }
+    }
+
     private void moveClassicGlassTo(View tile) {
         if (root == null || movingClassicGlass == null || tile == null) return;
+        classicGlassTarget = tile;
         tile.post(() -> {
             if (!tile.isFocused() || movingClassicGlass == null) return;
             int[] pos = new int[2], base = new int[2];
@@ -422,6 +450,7 @@ public class MainActivity extends Activity {
         if (folderMode) {
             folderMode = false;
             syncFootballVisibility();
+            syncClassicGlassOnScroll();
             switcher.setAlpha(1f);
             weatherCard.setAlpha(weatherAlpha());
             launchTile = null;
