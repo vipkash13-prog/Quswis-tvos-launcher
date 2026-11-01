@@ -984,8 +984,11 @@ final class SceneHome {
                 focusGlint.animate().translationX(size - dp(16)).alpha(0f).setDuration(420).start();
             } else focusGlint.setAlpha(0f);
             frostFocus.animate().cancel();
-            if (!isGear && !isMore) frostFocus.animate().alpha(has ? 0.75f : 0f)
-                    .setDuration(has ? 200 : 145).setInterpolator(MainActivity.EASE).start();
+            if (!isGear && !isMore) {
+                if (has) frostFocus.setTranslationX(index >= focusedDockIdx ? dp(9) : -dp(9));
+                frostFocus.animate().translationX(0f).alpha(has ? 0.75f : 0f)
+                        .setDuration(has ? 230 : 130).setInterpolator(MainActivity.EASE).start();
+            }
             glassOverlay.animate().cancel();
             if (!isGear && !isMore) glassOverlay.animate().alpha(has ? 1f : 0f)
                     .setDuration(140).setInterpolator(MainActivity.EASE).start();
