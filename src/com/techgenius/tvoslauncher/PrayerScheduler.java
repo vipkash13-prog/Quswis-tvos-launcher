@@ -82,7 +82,13 @@ public final class PrayerScheduler extends BroadcastReceiver {
    .setContentText(PrayerTimes.city(context)).setAutoCancel(true)
    .setCategory(Notification.CATEGORY_REMINDER).setPriority(Notification.PRIORITY_HIGH);
   try{nm.notify(7300+index*2+(iqama?1:0),builder.build());}catch(SecurityException ignored){}
-  if (!iqama) AdhanAudio.play(context);
+  if (!iqama) {
+   try {
+    Intent playback=new Intent(context,AdhanPlaybackService.class);
+    if(Build.VERSION.SDK_INT>=26)context.startForegroundService(playback);
+    else context.startService(playback);
+   } catch(Exception e) { android.util.Log.e("Quswis-Adhan","Could not start adhan playback",e); }
+  }
   // Refresh next-day schedule once a prayer fires; next fetch updates actual times.
   PrayerTimes.refresh(context,null,false);
  }
