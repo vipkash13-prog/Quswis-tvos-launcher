@@ -839,7 +839,7 @@ public class MainActivity extends Activity {
         // floats over app icons when the grid occupies the top of the screen.
         root.getViewTreeObserver().addOnPreDrawListener(() -> {
             if (prayerCard != null && prayerCard.getVisibility() == View.VISIBLE) {
-                float alpha = weatherAlpha();
+                float alpha = (pickerLayer != null ? 0f : weatherAlpha());
                 if (Math.abs(prayerCard.getAlpha() - alpha) > 0.015f) {
                     prayerCard.setAlpha(alpha);
                 }
@@ -2585,10 +2585,11 @@ public class MainActivity extends Activity {
         }
         if (f == prayerCard) {
             switch (k) {
-                case KeyEvent.KEYCODE_DPAD_UP: if (down && weatherShown()) weatherCard.requestFocus(); return true;
+                case KeyEvent.KEYCODE_DPAD_UP: if (down) { if (weatherShown()) weatherCard.requestFocus(); else focusTop(); } return true;
                 case KeyEvent.KEYCODE_DPAD_DOWN: if (down) focusIndex(Math.min(focusedIndex, COLS - 1)); return true;
                 case KeyEvent.KEYCODE_DPAD_RIGHT: if (down) focusTop(); return true;
-                case KeyEvent.KEYCODE_DPAD_LEFT: return true;
+                case KeyEvent.KEYCODE_DPAD_LEFT: if (down) focusTop(); return true;
+                case KeyEvent.KEYCODE_BACK: if (down) focusTop(); return true;
                 case KeyEvent.KEYCODE_DPAD_CENTER:
                 case KeyEvent.KEYCODE_ENTER: if (!down) showPrayerPanel(); return true;
                 default: return false;
@@ -4637,6 +4638,7 @@ public class MainActivity extends Activity {
         dropPicker();
         stopSway(null);
         popoverReturn = prayerCard;
+        prayerCard.setAlpha(0f);
         FrameLayout layer = new FrameLayout(this);
         layer.setClickable(true);
         View shade = new View(this);
