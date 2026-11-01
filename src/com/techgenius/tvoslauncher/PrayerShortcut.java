@@ -25,7 +25,7 @@ final class PrayerShortcut {
   bg.setStroke(Ui.px(activity,1),0x90FFFFFF);
   shortcut.setBackground(bg);
   TextView text=new TextView(activity);
-  text.setText("☪  مواقيت الصلاة");
+  text.setText("🕌  مواقيت الصلاة");
   text.setTextColor(Color.WHITE);
   text.setTextSize(17);
   text.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
@@ -37,11 +37,12 @@ final class PrayerShortcut {
    shortcut.animate().scaleX(focused?1.045f:1f).scaleY(focused?1.045f:1f).setDuration(190).start();
    bg.setStroke(Ui.px(activity,focused?2:1),focused?0xEEFFFFFF:0x90FFFFFF);
   });
-  shortcut.setOnClickListener(v->open(activity));
+  shortcut.setOnClickListener(v->{if(activity instanceof MainActivity)((MainActivity)activity).showPrayerPanel();else open(activity);});
   return shortcut;
  }
- static void open(Activity activity) {
+ static View createPanel(Activity activity) {
   LinearLayout content=new LinearLayout(activity);
+  content.setFocusable(true);
   content.setOrientation(LinearLayout.VERTICAL);
   content.setPadding(Ui.px(activity,28),Ui.px(activity,22),Ui.px(activity,28),Ui.px(activity,22));
   GradientDrawable glass=new GradientDrawable();
@@ -69,6 +70,10 @@ final class PrayerShortcut {
    content.addView(row);
   }
   PrayerTimes.refresh(activity, null, false);
+  return content;
+ }
+ static void open(Activity activity) {
+  View content=createPanel(activity);
   AlertDialog dialog=new AlertDialog.Builder(activity).setView(content).create();
   dialog.setOnShowListener(d->{
    if(dialog.getWindow()!=null){
