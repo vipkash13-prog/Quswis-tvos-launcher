@@ -775,8 +775,8 @@ public class SettingsActivity extends Activity {
         row("الدوريات المختارة",
                 () -> FootballScores.selectedLeagueNames(this),
                 this::chooseFootballLeagues);
-        row("اختيار الأندية", () -> "تخصيص الأندية لكل دوري", this::chooseFootballTeamLeague);
-        infoNote("تتحدث المباريات تلقائيًا. اختر الدوريات، ويمكنك تخصيص الأندية لكل دوري. لا يلزم مفتاح API.");
+        row("عرض جميع أندية الدوريات المختارة", () -> "تلقائي", () -> showStatusMsg("تُعرض مباريات جميع الأندية تلقائيًا دون اختيار فريق"));
+        infoNote("تتحدث المباريات تلقائيًا. اختر دوريًا أو عدة دوريات؛ تُعرض مباريات جميع الأندية تلقائيًا دون اختيار فرق. لا يلزم مفتاح API.");
     }
 
     private void chooseFootballTeamLeague(){
