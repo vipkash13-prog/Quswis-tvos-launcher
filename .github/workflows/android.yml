@@ -28,6 +28,17 @@ jobs:
         yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
         "$SDK/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0"
 
+    - name: Prepare licensed Makkah adhan audio
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq ffmpeg
+        mkdir -p assets
+        curl --fail --location --retry 4 --retry-delay 4 --user-agent "QuswisLauncher/1.0 (Wikimedia attribution)" \
+          "https://commons.wikimedia.org/wiki/Special:Redirect/file/Maghrib_Adhan_at_the_Masjid_al_Haram%2C_Mecca_-_25_Feb%2C_2012.webm" -o /tmp/makkah.webm
+        ffmpeg -hide_banner -loglevel error -y -i /tmp/makkah.webm -vn -c:a aac -b:a 80k assets/adhan_makkah.m4a
+        test -s assets/adhan_makkah.m4a
+        ls -lh assets/adhan_makkah.m4a
+
     - name: Build APK
       env:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
