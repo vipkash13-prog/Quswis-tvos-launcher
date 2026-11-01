@@ -936,7 +936,7 @@ final class SceneHome {
         focusHolder.setClipToPadding(false);
         focusHolder.addView(tile, new FrameLayout.LayoutParams(size, size));
         GradientDrawable glassShape = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{0x35FFFFFF, 0x09FFFFFF, 0x32C6E3FF});
+                new int[]{0x66FFFFFF, 0x19FFFFFF, 0x50DCEEFF});
         glassShape.setCornerRadius(rad + dp(4));
         glassShape.setStroke(dp(3), 0xFFF7FAFF);
         View glassOverlay = new View(host);
