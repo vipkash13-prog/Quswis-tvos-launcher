@@ -58,10 +58,10 @@ final class PrayerTimes {
    GradientDrawable tileBg=new GradientDrawable();tileBg.setColor(0x66B5D6DF);
    tileBg.setCornerRadius(Ui.px(c,12));tileBg.setStroke(Ui.px(c,1),0x88FFFFFF);
    tile.setBackground(tileBg);
-   TextView label=new TextView(c);label.setText(icons[i]+"  "+names[i]);label.setTextColor(Color.WHITE);
-   label.setGravity(Gravity.CENTER);label.setSingleLine(true);label.setTextSize(11);label.setEllipsize(android.text.TextUtils.TruncateAt.END);
+   TextView label=new TextView(c);label.setText(names[i]);label.setTextColor(Color.WHITE);
+   label.setGravity(Gravity.CENTER);label.setSingleLine(true);label.setTextDirection(View.TEXT_DIRECTION_RTL);label.setTextSize(12);label.setEllipsize(android.text.TextUtils.TruncateAt.END);
    TextView time=new TextView(c);time.setText("--:--");time.setTextColor(Color.WHITE);
-   time.setTypeface(Typeface.DEFAULT_BOLD);time.setTextSize(14);time.setGravity(Gravity.CENTER);time.setSingleLine(true);
+   time.setTypeface(Typeface.DEFAULT_BOLD);time.setTextSize(14);time.setTextDirection(View.TEXT_DIRECTION_LTR);time.setGravity(Gravity.CENTER);time.setSingleLine(true);
    tile.addView(label,new LinearLayout.LayoutParams(-1,0,1));
    tile.addView(time,new LinearLayout.LayoutParams(-1,0,1));
    LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-1,1);
@@ -78,6 +78,19 @@ final class PrayerTimes {
    String value=t==null?"--:--":t.optString(keys[i],"--:--");
    int cut=value.indexOf(" ");if(cut>0)value=value.substring(0,cut);
    time.setText(value);
+   // Keep the existing card size and highlight the next upcoming prayer.
+   try {
+    java.text.SimpleDateFormat clock=new java.text.SimpleDateFormat("HH:mm",java.util.Locale.US);
+    java.util.Date prayer=clock.parse(value);
+    java.util.Date now=clock.parse(clock.format(new java.util.Date()));
+    boolean upcoming=prayer!=null&&now!=null&&prayer.after(now);
+    boolean firstUpcoming=upcoming;
+    for(int j=0;j<i;j++){
+     String earlier=t.optString(keys[j],"--:--");
+     if(earlier.length()>=5){java.util.Date e=clock.parse(earlier.substring(0,5));if(e!=null&&e.after(now)){firstUpcoming=false;break;}}
+    }
+    time.setTextColor(firstUpcoming?0xFFFFE8A3:Color.WHITE);
+   }catch(Exception ignored){time.setTextColor(Color.WHITE);}
   }
  }
  static void refresh(Context context,LinearLayout view,boolean force){
