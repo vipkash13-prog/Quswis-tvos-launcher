@@ -1055,7 +1055,10 @@ public class MainActivity extends Activity {
                 focusGlint.setAlpha(0.8f);
                 focusGlint.animate().translationX(tileW - dp(16)).alpha(0f).setDuration(420).start();
                 frostFocus.animate().cancel();
-                frostFocus.animate().alpha(0.72f).setDuration(190).setInterpolator(EASE).start();
+                // Directional glass arrival: slides into place while fading in.
+                frostFocus.setTranslationX(index >= focusedIndex ? dp(11) : -dp(11));
+                frostFocus.animate().translationX(0f).alpha(0.72f)
+                        .setDuration(230).setInterpolator(EASE).start();
                 silverFocus.animate().cancel();
                 silverFocus.animate().alpha(1f).setDuration(160).setInterpolator(EASE).start();
                 onTileFocused(index);
@@ -1066,7 +1069,7 @@ public class MainActivity extends Activity {
                 label.animate().alpha(0f).translationY(0).setDuration(120).start();
                 topSheen.setAlpha(0f);
                 frostFocus.animate().cancel();
-                frostFocus.animate().alpha(0f).setDuration(150).setInterpolator(EASE).start();
+                frostFocus.animate().alpha(0f).translationX(0f).setDuration(130).setInterpolator(EASE).start();
                 silverFocus.animate().cancel();
                 focusGlint.animate().cancel();
                 focusGlint.setAlpha(0f);
