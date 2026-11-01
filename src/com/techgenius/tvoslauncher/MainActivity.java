@@ -3337,24 +3337,6 @@ public class MainActivity extends Activity {
             }
             return true;
         }
-        // Keep directional navigation within the app grid. Android's default
-        // spatial focus search can jump to weather/status controls across rows.
-        int currentTile = tiles.indexOf(getCurrentFocus());
-        if (currentTile >= 0 && (k == KeyEvent.KEYCODE_DPAD_LEFT
-                || k == KeyEvent.KEYCODE_DPAD_RIGHT
-                || k == KeyEvent.KEYCODE_DPAD_UP
-                || k == KeyEvent.KEYCODE_DPAD_DOWN)) {
-            if (down && ev.getRepeatCount() == 0) {
-                int next = currentTile;
-                if (k == KeyEvent.KEYCODE_DPAD_LEFT && currentTile % COLS > 0) next--;
-                if (k == KeyEvent.KEYCODE_DPAD_RIGHT && currentTile % COLS < COLS - 1
-                        && currentTile + 1 < tiles.size()) next++;
-                if (k == KeyEvent.KEYCODE_DPAD_UP && currentTile >= COLS) next -= COLS;
-                if (k == KeyEvent.KEYCODE_DPAD_DOWN && currentTile + COLS < tiles.size()) next += COLS;
-                if (next != currentTile) focusIndex(next);
-            }
-            return true;
-        }
         return super.dispatchKeyEvent(ev);
     }
 
