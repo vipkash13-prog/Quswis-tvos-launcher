@@ -67,6 +67,28 @@ final class SceneHome {
     LinearLayout dockBox;
     FrameLayout dockFocusLayer;
     View movingFocusGlass;
+    private void moveGlassToDockTile(View tile) {
+        if (dockFocusLayer == null || movingFocusGlass == null || tile == null) return;
+        final View glass = movingFocusGlass;
+        tile.post(() -> {
+            if (!tile.isFocused() || glass.getParent() != dockFocusLayer) return;
+            int[] pos = new int[2], base = new int[2];
+            tile.getLocationOnScreen(pos);
+            dockFocusLayer.getLocationOnScreen(base);
+            float x = pos[0] - base[0] - dp(3);
+            float y = pos[1] - base[1] - dp(3);
+            if (glass.getVisibility() != View.VISIBLE) {
+                glass.setX(x);
+                glass.setY(y);
+                glass.setVisibility(View.VISIBLE);
+                glass.setAlpha(0f);
+            }
+            glass.animate().cancel();
+            glass.animate().x(x).y(y).alpha(1f)
+                    .setDuration(245).setInterpolator(MainActivity.EASE).start();
+        });
+    }
+
     TextView dockLabel;
     final List<View> dockTiles = new ArrayList<>();
     final List<MainActivity.AppEntry> dockEntries = new ArrayList<>();
@@ -686,6 +708,12 @@ final class SceneHome {
         dockFocusLayer.addView(dockBox, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         movingFocusGlass = new View(host);
+        GradientDrawable movingPaint = new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                new int[]{0x55F4FAFF, 0x14FFFFFF, 0x36B7DEFF});
+        movingPaint.setCornerRadius(dp(16));
+        movingPaint.setStroke(dp(1), 0x7AFFFFFF);
+        movingFocusGlass.setBackground(movingPaint);
         movingFocusGlass.setFocusable(false);
         movingFocusGlass.setClickable(false);
         movingFocusGlass.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
@@ -805,6 +833,7 @@ final class SceneHome {
         if (dockBox == null) return;
         int savedFocusIdx = focusedDockIdx;
         stopDockWiggle();
+        if (movingFocusGlass != null) movingFocusGlass.setVisibility(View.INVISIBLE);
         dockBox.removeAllViews();
         dockTiles.clear();
         dockEntries.clear();
@@ -1008,6 +1037,7 @@ final class SceneHome {
             if (!isGear && !isMore) glassOverlay.animate().alpha(has ? 1f : 0f)
                     .setDuration(140).setInterpolator(MainActivity.EASE).start();
             if (has) {
+                moveGlassToDockTile(v);
                 focusedDockIdx = index;
                 host.prefs.edit().putInt("last_dock_idx", index).apply();
                 if (moveDockIdx >= 0) {
