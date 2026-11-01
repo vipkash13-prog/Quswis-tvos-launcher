@@ -595,8 +595,8 @@ public class MainActivity extends Activity {
                 int[] a = new int[2], b = new int[2];
                 target.getLocationOnScreen(a);
                 root.getLocationOnScreen(b);
-                classicGlassLens.setX(a[0] - b[0] - dp(5));
-                classicGlassLens.setY(a[1] - b[1] - dp(5));
+                classicGlassLens.setX(a[0] - b[0]);
+                classicGlassLens.setY(a[1] - b[1]);
             }
             float ca = clockAlpha();
             if (launchOverlay == null && !statusFocused() && Math.abs(clockBox.getAlpha() - ca) > 0.005f) {
@@ -2976,7 +2976,7 @@ public class MainActivity extends Activity {
             classicGlassLens = new View(this);
             GradientDrawable glass = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
                     new int[]{0x48FFFFFF, 0x10FFFFFF, 0x34C6E3FF});
-            glass.setCornerRadius(dp(18));
+            glass.setCornerRadius(dp(13));
             glass.setStroke(dp(2), 0xD9FFFFFF);
             classicGlassLens.setBackground(glass);
             classicGlassLens.setFocusable(false);
@@ -2991,13 +2991,13 @@ public class MainActivity extends Activity {
                     classicLensTarget.getLocationOnScreen(a);
                     root.getLocationOnScreen(b);
                     classicGlassLens.animate().cancel();
-                    classicGlassLens.setX(a[0] - b[0] - dp(5));
-                    classicGlassLens.setY(a[1] - b[1] - dp(5));
+                    classicGlassLens.setX(a[0] - b[0]);
+                    classicGlassLens.setY(a[1] - b[1]);
                 }
                 return true;
             });
             classicGlassLens.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-            root.addView(classicGlassLens, new FrameLayout.LayoutParams(tileW + dp(10), tileH + dp(10)));
+            root.addView(classicGlassLens, new FrameLayout.LayoutParams(tileW, tileH));
         }
         target.post(() -> {
             if (classicLensTarget != target || !target.isAttachedToWindow() || Scenes.isScenesLook(this)) return;
@@ -3005,8 +3005,8 @@ public class MainActivity extends Activity {
             int[] a = new int[2], b = new int[2];
             target.getLocationOnScreen(a);
             root.getLocationOnScreen(b);
-            float x = a[0] - b[0] - dp(5);
-            float y = a[1] - b[1] - dp(5);
+            float x = a[0] - b[0];
+            float y = a[1] - b[1];
             classicGlassLens.animate().cancel();
             if (!classicLensPlaced) {
                 classicGlassLens.setX(x);
