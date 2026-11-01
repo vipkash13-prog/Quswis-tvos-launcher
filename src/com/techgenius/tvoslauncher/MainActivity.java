@@ -3073,7 +3073,16 @@ public class MainActivity extends Activity {
         focusedIndex = index;
         boolean dock = hasDock() && index < COLS;
         setHeroShown(dock && !heroItems.isEmpty());
-        scrollToRow(index / COLS);
+        // Avoid repeated competing smooth-scroll animations during rapid D-pad focus changes.
+        // Only scroll when the focused tile is outside the currently visible viewport.
+        View focusedTile = index >= 0 && index < tiles.size() ? tiles.get(index) : null;
+        if (focusedTile != null && scroll != null) {
+            android.graphics.Rect visible = new android.graphics.Rect();
+            boolean onScreen = focusedTile.getGlobalVisibleRect(visible);
+            if (!onScreen || visible.height() < focusedTile.getHeight() / 2) {
+                scrollToRow(index / COLS);
+            }
+        }
         handler.removeCallbacks(shelfUpdate);
         handler.postDelayed(shelfUpdate, 90);
     }
