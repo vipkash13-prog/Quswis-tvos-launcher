@@ -169,7 +169,7 @@ final class FootballScores {
   },"matchgrind-diagnostic").start();
  }
  private static void showMessage(android.widget.LinearLayout panel,String msg){
-  for(int i=0;i<7;i++){
+  for(int i=0;i<5;i++){
    android.widget.LinearLayout line=(android.widget.LinearLayout)panel.getChildAt(i+1);
    ((android.widget.ImageView)line.getChildAt(0)).setImageDrawable(null);
    ((android.widget.ImageView)line.getChildAt(4)).setImageDrawable(null);
@@ -180,7 +180,7 @@ final class FootballScores {
   }
  }
  private static void showFixtures(android.widget.LinearLayout panel,java.util.List<JSONObject> matches){
-  for(int i=0;i<7;i++){
+  for(int i=0;i<5;i++){
    android.widget.LinearLayout line=(android.widget.LinearLayout)panel.getChildAt(i+1);
    if(i>=matches.size()){line.setVisibility(android.view.View.INVISIBLE);continue;}
    line.setVisibility(android.view.View.VISIBLE);
