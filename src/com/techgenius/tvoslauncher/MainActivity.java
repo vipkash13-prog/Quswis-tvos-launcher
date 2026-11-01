@@ -828,6 +828,19 @@ public class MainActivity extends Activity {
 
         // Compact prayer shortcut immediately below the classic weather card.
         prayerCard = PrayerShortcut.create(this);
+        // Same optical glass as the weather pill, anchored directly to the fixed root.
+        LiquidGlass prayerGlass = new LiquidGlass(dp(WeatherView.COMPACT_H) / 2f,
+                0x2E000000, glassSource, screenW, screenH, unit).adaptive();
+        prayerGlass.lens = dp(6);
+        prayerCard.setBackground(prayerGlass);
+        prayerCard.setElevation(dp(12));
+        prayerCard.setPivotX(0);
+        prayerCard.setPivotY(0);
+        prayerCard.setOnFocusChangeListener((v, has) -> {
+            prayerGlass.setLit(has);
+            v.animate().scaleX(has ? 1.05f : 1f).scaleY(has ? 1.05f : 1f)
+                    .translationZ(has ? dp(10) : 0).setDuration(200).setInterpolator(LIFT).start();
+        });
         FrameLayout.LayoutParams prayerLp = new FrameLayout.LayoutParams(
                 dp(WeatherView.COMPACT_W), dp(WeatherView.COMPACT_H), Gravity.TOP | Gravity.START);
         prayerLp.topMargin = dp(24 + WeatherView.COMPACT_H + 12);
