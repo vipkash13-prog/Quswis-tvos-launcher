@@ -75,6 +75,9 @@ final class SceneHome {
             int[] pos = new int[2], base = new int[2];
             tile.getLocationOnScreen(pos);
             dockFocusLayer.getLocationOnScreen(base);
+            glass.getLayoutParams().width = tile.getWidth() + dp(6);
+            glass.getLayoutParams().height = tile.getHeight() + dp(6);
+            glass.requestLayout();
             float x = pos[0] - base[0] - dp(3);
             float y = pos[1] - base[1] - dp(3);
             if (glass.getVisibility() != View.VISIBLE) {
@@ -710,9 +713,9 @@ final class SceneHome {
         movingFocusGlass = new View(host);
         GradientDrawable movingPaint = new GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                new int[]{0x55F4FAFF, 0x14FFFFFF, 0x36B7DEFF});
+                new int[]{0x42F4FAFF, 0x0FFFFFFF, 0x31B7DEFF});
         movingPaint.setCornerRadius(dp(16));
-        movingPaint.setStroke(dp(1), 0x7AFFFFFF);
+        movingPaint.setStroke(dp(2), 0x92FFFFFF);
         movingFocusGlass.setBackground(movingPaint);
         movingFocusGlass.setFocusable(false);
         movingFocusGlass.setClickable(false);
@@ -720,7 +723,7 @@ final class SceneHome {
         movingFocusGlass.setVisibility(View.INVISIBLE);
         FrameLayout.LayoutParams focusLp = new FrameLayout.LayoutParams(dp(60), dp(60));
         // Draw the moving glass underneath the app artwork, not over the logos.
-        dockFocusLayer.addView(movingFocusGlass, 0, focusLp);
+        dockFocusLayer.addView(movingFocusGlass, focusLp);
         dockContainer.addView(dockFocusLayer, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
