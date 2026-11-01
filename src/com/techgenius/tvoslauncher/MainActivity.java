@@ -988,7 +988,7 @@ public class MainActivity extends Activity {
         focusHolder.setClipToPadding(false);
         focusHolder.addView(tile, new FrameLayout.LayoutParams(tileW, tileH));
         GradientDrawable silverGlass = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{0x35FFFFFF, 0x09FFFFFF, 0x32C6E3FF});
+                new int[]{0x66FFFFFF, 0x19FFFFFF, 0x50DCEEFF});
         silverGlass.setCornerRadius(radius + dp(4));
         silverGlass.setStroke(dp(3), 0xFFF7FAFF);
         View silverFocus = new View(this);
@@ -1028,13 +1028,13 @@ public class MainActivity extends Activity {
                 cell.setTranslationZ(dp(10));
                 if (moveIndex >= 0) {
                     // Rebuilt while moving: appear already lifted, or every step would "pop".
-                    v.setScaleX(1.035f);
-                    v.setScaleY(1.035f);
-                    v.setTranslationZ(dp(18));
+                    focusHolder.setScaleX(1.035f);
+                    focusHolder.setScaleY(1.035f);
+                    focusHolder.setTranslationZ(dp(18));
                     label.setAlpha(1f);
                     label.setTranslationY(tileH * (FOCUS_SCALE - 1f) / 2f);
                 } else {
-                    v.animate().scaleX(1.035f).scaleY(1.035f).translationZ(dp(18)).setDuration(110)
+                    focusHolder.animate().scaleX(1.035f).scaleY(1.035f).translationZ(dp(18)).setDuration(110)
                             .setInterpolator(LIFT).start();
                     label.animate().alpha(1f).translationY(tileH * (FOCUS_SCALE - 1f) / 2f).setDuration(160).start();
                 }
@@ -1049,7 +1049,7 @@ public class MainActivity extends Activity {
             } else {
                 cell.setTranslationZ(0);
                 stopSway(v);
-                v.animate().scaleX(1f).scaleY(1f).translationZ(0).setDuration(140).setInterpolator(EASE).start();
+                focusHolder.animate().scaleX(1f).scaleY(1f).translationZ(0).setDuration(140).setInterpolator(EASE).start();
                 label.animate().alpha(0f).translationY(0).setDuration(120).start();
                 topSheen.setAlpha(0f);
                 silverFocus.animate().cancel();
