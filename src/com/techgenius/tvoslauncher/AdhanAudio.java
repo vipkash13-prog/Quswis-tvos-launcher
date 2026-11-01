@@ -26,7 +26,8 @@ final class AdhanAudio {
 
     static void play(Context context) {
         if (!PrayerTimes.prefs(context).getBoolean("adhan_enabled", false)) return;
-        if (!"cc0".equals(PrayerTimes.prefs(context).getString("adhan_audio", "system"))) return;
+        String choice = PrayerTimes.prefs(context).getString("adhan_audio", "system");
+        if (!"cc0".equals(choice) && !"makkah".equals(choice)) return;
         MAIN.post(() -> {
             stop();
             try {
@@ -35,7 +36,13 @@ final class AdhanAudio {
                 mp.setAudioAttributes(new AudioAttributes.Builder()
                     .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());
-                mp.setDataSource(CC0_URL);
+                if ("makkah".equals(choice)) {
+                    android.content.res.AssetFileDescriptor afd = context.getAssets().openFd("adhan_makkah.m4a");
+                    try { mp.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength()); }
+                    finally { afd.close(); }
+                } else {
+                    mp.setDataSource(CC0_URL);
+                }
                 mp.setOnPreparedListener(MediaPlayer::start);
                 mp.setOnCompletionListener(done -> stop());
                 mp.setOnErrorListener((bad, what, extra) -> { stop(); return true; });
