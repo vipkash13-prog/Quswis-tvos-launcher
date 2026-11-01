@@ -100,7 +100,7 @@ final class FootballScores {
   TextView title=new TextView(c);title.setText("المباريات القادمة");title.setTextSize(18);
   title.setTypeface(Typeface.DEFAULT_BOLD);title.setTextColor(Color.WHITE);
   title.setGravity(Gravity.CENTER);panel.addView(title,new android.widget.LinearLayout.LayoutParams(-1,Ui.px(c,34)));
-  for(int i=0;i<7;i++){
+  for(int i=0;i<5;i++){
    android.widget.LinearLayout line=new android.widget.LinearLayout(c);
    line.setOrientation(android.widget.LinearLayout.HORIZONTAL);
    line.setLayoutDirection(android.view.View.LAYOUT_DIRECTION_RTL);
@@ -225,7 +225,7 @@ final class FootballScores {
   if(selected.isEmpty()){showMessage(view,"اختر الدوريات من الإعدادات");return;}
   String token="";
   SharedPreferences p=prefs(app);
-  String key=android.text.TextUtils.join("|",new java.util.TreeSet<>(selected))+"|"+apiDay(0)+"|"+selectedTeamCacheKey(app,selected);
+  String key=android.text.TextUtils.join("|",new java.util.TreeSet<>(selected))+"|"+apiDay(0)+"|"+"all-teams";
   String cached=p.getString("fixtures_json",null);
   long at=p.getLong(K_AT,0);
   if(cached!=null&&key.equals(p.getString("cache_key",""))&&System.currentTimeMillis()-at<CACHE_MS){
@@ -323,7 +323,7 @@ final class FootballScores {
        JSONObject status=event.optJSONObject("status");
        JSONObject type=status==null?null:status.optJSONObject("type");
        if(type!=null&&"post".equals(type.optString("state")))continue;
-       java.util.Set<String> wanted=selectedTeams(app,league[0]);
+       java.util.Set<String> wanted=java.util.Collections.emptySet();
        JSONObject ht=home.optJSONObject("team"),awayTeam=away.optJSONObject("team");
        if(!wanted.isEmpty()&&(ht==null||!wanted.contains(ht.optString("id")))&&(awayTeam==null||!wanted.contains(awayTeam.optString("id"))))continue;
        JSONObject item=new JSONObject(),fixture=new JSONObject(),teams=new JSONObject(),leagueObj=new JSONObject();
@@ -383,7 +383,7 @@ final class FootballScores {
    added=true;
    while(added){added=false;for(java.util.List<JSONObject> group:byLeague.values())if(!group.isEmpty()){ordered.add(group.remove(0));added=true;}}
    ordered.addAll(0,live);
-   final java.util.List<JSONObject> top=new java.util.ArrayList<>(ordered.subList(0,Math.min(7,ordered.size())));
+   final java.util.List<JSONObject> top=new java.util.ArrayList<>(ordered.subList(0,Math.min(5,ordered.size())));
    if(success&&!top.isEmpty()){
     JSONArray saved=new JSONArray();for(JSONObject m:top)saved.put(m);
     p.edit().putString("fixtures_json",saved.toString()).putString("cache_key",key).putLong(K_AT,System.currentTimeMillis()).apply();
