@@ -172,7 +172,7 @@ public class MainActivity extends Activity {
     final Runnable footballTick = new Runnable() {
         @Override public void run() {
             if (!resumed) return;
-            if (footballCard != null) FootballScores.refresh(MainActivity.this, footballCard, false);
+            if (footballCard != null && pickerLayer != null) FootballScores.refresh(MainActivity.this, footballCard, false);
             handler.postDelayed(this, 60000L);
         }
     };
@@ -180,9 +180,11 @@ public class MainActivity extends Activity {
         return FootballScores.enabled(this) && !folderMode && (sceneHome == null || !sceneHome.moreExpanded) && (scroll == null || scroll.getScrollY() < dp(65));
     }
     void syncFootballVisibility() {
-        if (footballCard != null) footballCard.setVisibility(shouldShowFootball() ? View.VISIBLE : View.GONE);
+        if (footballCard != null) footballCard.setVisibility(pickerLayer != null && shouldShowFootball() ? View.VISIBLE : View.GONE);
+        if (footballShortcut != null) footballShortcut.setVisibility(shouldShowFootball() ? View.VISIBLE : View.GONE);
     }
 
+    View footballShortcut;
     FrameLayout root;
     View classicGlassLens;
     View classicLensTarget;
@@ -467,7 +469,7 @@ public class MainActivity extends Activity {
         }
         updateWeather();
         if (prayerCard != null) prayerCard.setVisibility(PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
-        if (footballCard != null) FootballScores.refresh(this, footballCard, false);
+        if (footballShortcut != null) footballShortcut.setVisibility(shouldShowFootball() ? View.VISIBLE : View.GONE);
         handler.removeCallbacks(footballTick);
         handler.postDelayed(footballTick, 120000L);
         refreshAvatar();
@@ -862,25 +864,57 @@ public class MainActivity extends Activity {
         prayerCard.setOnClickListener(v -> showPrayerPanel());
         prayerCard.setVisibility(PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
 
+        // Compact glass football shortcut; details open only when selected.
+        android.widget.LinearLayout footballLens = new android.widget.LinearLayout(this);
+        footballLens.setGravity(Gravity.CENTER_VERTICAL);
+        footballLens.setPadding(dp(14), 0, dp(12), 0);
+        android.widget.TextView footballTitle = new android.widget.TextView(this);
+        footballTitle.setText("المباريات القادمة");
+        footballTitle.setTextColor(0xFFFFD995);
+        footballTitle.setTextSize(18);
+        footballTitle.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        footballLens.addView(footballTitle, new android.widget.LinearLayout.LayoutParams(0, -2, 1f));
+        android.widget.TextView footballIcon = new android.widget.TextView(this);
+        footballIcon.setText("⚽");
+        footballIcon.setTextSize(27);
+        footballIcon.setGravity(Gravity.CENTER);
+        footballLens.addView(footballIcon, new android.widget.LinearLayout.LayoutParams(dp(55), -1));
+        LiquidGlass footballGlass = new LiquidGlass(dp(WeatherView.COMPACT_H) / 2f,
+                0x2E000000, glassSource, screenW, screenH, unit).adaptive();
+        footballGlass.lens = dp(6);
+        footballLens.setBackground(footballGlass);
+        footballLens.setFocusable(true);
+        footballLens.setClickable(true);
+        footballLens.setElevation(dp(12));
+        footballLens.setOnFocusChangeListener((v, has) -> {
+            footballGlass.setLit(has);
+            v.animate().scaleX(has ? 1.05f : 1f).scaleY(has ? 1.05f : 1f)
+                    .setDuration(200).start();
+        });
+        footballLens.setOnClickListener(v -> showFootballPanel());
+        footballShortcut = footballLens;
+        FrameLayout.LayoutParams footballShortcutLp = new FrameLayout.LayoutParams(
+                dp(WeatherView.COMPACT_W), dp(WeatherView.COMPACT_H), Gravity.TOP | Gravity.START);
+        footballShortcutLp.topMargin = dp(24 + (WeatherView.COMPACT_H + 12) * 2);
+        footballShortcutLp.leftMargin = dockOuter;
+        root.addView(footballShortcut, footballShortcutLp);
+        footballShortcut.setVisibility(FootballScores.enabled(this) ? View.VISIBLE : View.GONE);
+        root.getViewTreeObserver().addOnPreDrawListener(() -> {
+            if (footballShortcut != null && footballShortcut.getVisibility() == View.VISIBLE)
+                footballShortcut.setAlpha(pickerLayer != null ? 0f : weatherAlpha());
+            return true;
+        });
         footballCard = FootballScores.createView(this);
-        // Compact match panel on the right: leave the center clear for the clock
-        // and keep the Apple TV-style app dock unobstructed.
-        FrameLayout.LayoutParams footballLp = new FrameLayout.LayoutParams(
-                Math.min(dp(450), screenW * 32 / 100),
-                Math.min(dp(355), screenH * 49 / 100),
-                Gravity.TOP | Gravity.RIGHT);
-        footballLp.topMargin = dp(150);
-        footballLp.rightMargin = dp(28);
-        root.addView(footballCard, footballLp);
+        footballCard.setVisibility(View.GONE);
 
         root.addView(sceneHome.overlay, match());
         // Keep the information cards above full-screen scene overlays on every TV layout.
         weatherCard.bringToFront();
         prayerCard.bringToFront();
-        footballCard.bringToFront();
+        footballShortcut.bringToFront();
         updateWeather();
 
-        FootballScores.refresh(this, footballCard, true);
+
 
         setContentView(root);
     }
@@ -4642,6 +4676,36 @@ public class MainActivity extends Activity {
     }
 
     /** Prayer popover uses the same fixed root layer and animation as the weather forecast. */
+    void showFootballPanel() {
+        dropPicker();
+        stopSway(null);
+        popoverReturn = footballShortcut;
+        footballShortcut.setAlpha(0f);
+        FrameLayout layer = new FrameLayout(this);
+        layer.setClickable(true);
+        View shade = new View(this);
+        shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.RIGHT_LEFT,
+                new int[]{0xA6000000, 0x4D000000, 0x00000000}));
+        layer.addView(shade, new FrameLayout.LayoutParams(screenW * 3 / 5, -1, Gravity.RIGHT));
+        android.widget.LinearLayout panel = FootballScores.createView(this);
+        FrameLayout.LayoutParams plp = new FrameLayout.LayoutParams(
+                Math.min(dp(530), screenW * 43 / 100),
+                Math.min(dp(410), screenH * 67 / 100), Gravity.TOP | Gravity.RIGHT);
+        plp.topMargin = dp(28);
+        plp.rightMargin = dp(28);
+        layer.addView(panel, plp);
+        root.addView(layer, match());
+        pickerLayer = layer;
+        pickerCells = new ArrayList<>();
+        pickerCells.add(panel);
+        layer.setAlpha(0f);
+        panel.setTranslationY(-dp(10));
+        layer.animate().alpha(1f).setDuration(200).start();
+        panel.animate().translationY(0).setDuration(260).setInterpolator(EASE).start();
+        panel.requestFocus();
+        FootballScores.refresh(this, panel, true);
+    }
+
     void showPrayerPanel() {
         dropPicker();
         stopSway(null);
