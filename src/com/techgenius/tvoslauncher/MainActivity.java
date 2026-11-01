@@ -466,7 +466,7 @@ public class MainActivity extends Activity {
             getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
         updateWeather();
-        if (prayerCard != null) prayerCard.setVisibility(!scenes && PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
+        if (prayerCard != null) prayerCard.setVisibility(PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
         if (footballCard != null) FootballScores.refresh(this, footballCard, false);
         handler.removeCallbacks(footballTick);
         handler.postDelayed(footballTick, 120000L);
