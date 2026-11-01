@@ -914,7 +914,7 @@ public final class Scenes {
             float rawCapH = Math.max(clockPx * 0.68f, -digitBounds.top);
             float visualCapH = rawCapH * scaleY;
             float minClockTopY = dateBaselineY + (14f * u);
-            float clockVisualTopY = Math.max(minClockTopY, 260f * u);
+            float clockVisualTopY = Math.max((sp.clockTopU + topOffsetU) * u, minClockTopY);
             float baselineY = clockVisualTopY + visualCapH;
 
             float textW = measureClockWidth(timeStr, clockFillPaint, u, isDuo || isRounded);
@@ -926,7 +926,7 @@ public final class Scenes {
                 } else if (CLOCK_POS_RIGHT.equals(cPos)) {
                     clockX = w - textW - (48f * u);
                 } else {
-                    clockX = (w - textW) * 0.43f;
+                    clockX = (w - textW) * 0.5f;
                 }
             } else {
                 clockX = sp.leftAlign ? (sp.clockLeftU * u) : ((w - textW) * 0.5f);
