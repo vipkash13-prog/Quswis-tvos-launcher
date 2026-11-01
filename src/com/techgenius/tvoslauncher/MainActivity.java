@@ -466,7 +466,7 @@ public class MainActivity extends Activity {
             getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
         updateWeather();
-        if (prayerCard != null) prayerCard.setVisibility(PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
+        if (prayerCard != null) prayerCard.setVisibility(!scenes && PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
         if (footballCard != null) FootballScores.refresh(this, footballCard, false);
         handler.removeCallbacks(footballTick);
         handler.postDelayed(footballTick, 120000L);
@@ -2558,10 +2558,24 @@ public class MainActivity extends Activity {
             }
             return k == KeyEvent.KEYCODE_DPAD_UP;
         }
+        if (f == prayerCard) {
+            switch (k) {
+                case KeyEvent.KEYCODE_DPAD_UP: if (down && weatherShown()) weatherCard.requestFocus(); return true;
+                case KeyEvent.KEYCODE_DPAD_DOWN: if (down) focusIndex(Math.min(focusedIndex, COLS - 1)); return true;
+                case KeyEvent.KEYCODE_DPAD_RIGHT: if (down) focusTop(); return true;
+                case KeyEvent.KEYCODE_DPAD_LEFT: return true;
+                case KeyEvent.KEYCODE_DPAD_CENTER:
+                case KeyEvent.KEYCODE_ENTER: if (!down) showPrayerPanel(); return true;
+                default: return false;
+            }
+        }
         if (f == weatherCard) {
             switch (k) {
                 case KeyEvent.KEYCODE_DPAD_RIGHT: if (down) focusTop(); return true;
                 case KeyEvent.KEYCODE_DPAD_DOWN:
+                    if (down && prayerCard != null && prayerCard.getVisibility() == View.VISIBLE) prayerCard.requestFocus();
+                    else if (down) focusIndex(Math.min(focusedIndex, COLS - 1));
+                    return true;
                 case KeyEvent.KEYCODE_BACK:
                     if (down) {
                         if (heroActive) {
