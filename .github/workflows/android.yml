@@ -2,7 +2,7 @@ name: Android CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "test-scene-glass-lens" ]
   workflow_dispatch:
 
 permissions:
@@ -47,7 +47,7 @@ jobs:
 
     - name: Create Release and Upload APK
       uses: softprops/action-gh-release@v2
-      if: success()
+      if: success() && github.ref == 'refs/heads/main'
       with:
         tag_name: v1.0.${{ github.run_number }}
         name: Release v1.0.${{ github.run_number }}
