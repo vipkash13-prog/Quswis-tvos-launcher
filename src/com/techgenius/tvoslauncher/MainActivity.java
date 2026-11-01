@@ -4714,15 +4714,17 @@ public class MainActivity extends Activity {
         FrameLayout layer = new FrameLayout(this);
         layer.setClickable(true);
         View shade = new View(this);
-        shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.RIGHT_LEFT,
+        shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
                 new int[]{0xA6000000, 0x4D000000, 0x00000000}));
-        layer.addView(shade, new FrameLayout.LayoutParams(screenW * 3 / 5, -1, Gravity.RIGHT));
+        layer.addView(shade, new FrameLayout.LayoutParams(screenW * 3 / 5, -1, Gravity.START));
         android.widget.LinearLayout panel = FootballScores.createView(this);
+        LiquidGlass matchGlass = new LiquidGlass(dp(26), 0x33000000, glassSource, screenW, screenH, unit).adaptive();
+        matchGlass.lens = dp(7);
+        panel.setBackground(matchGlass);
         FrameLayout.LayoutParams plp = new FrameLayout.LayoutParams(
-                Math.min(dp(530), screenW * 43 / 100),
-                Math.min(dp(410), screenH * 67 / 100), Gravity.TOP | Gravity.RIGHT);
-        plp.topMargin = dp(28);
-        plp.rightMargin = dp(28);
+                dp(WeatherView.FULL_W), dp(WeatherView.FULL_H), Gravity.TOP | Gravity.START);
+        plp.topMargin = dp(24);
+        plp.leftMargin = dockOuter;
         layer.addView(panel, plp);
         root.addView(layer, match());
         pickerLayer = layer;
