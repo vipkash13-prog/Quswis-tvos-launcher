@@ -47,14 +47,15 @@ jobs:
 
     - name: Create Release and Upload APK
       uses: softprops/action-gh-release@v2
-      if: success() && github.ref == 'refs/heads/main'
+      if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature-classic-prayer-adhan')
       with:
-        tag_name: v1.0.${{ github.run_number }}
-        name: Release v1.0.${{ github.run_number }}
+        tag_name: ${{ github.ref == 'refs/heads/main' && format('v1.0.{0}', github.run_number) || format('prayer-test-v1.0.{0}', github.run_number) }}
+        name: ${{ github.ref == 'refs/heads/main' && format('Release v1.0.{0}', github.run_number) || format('Prayer Test v1.0.{0}', github.run_number) }}
         body: |
           تحديث جديد لتطبيق Quswis tvOS Launcher من مستودعك:
           - إضافة مواقيت الصلاة
           - إضافة مباريات دوري أبطال آسيا للنخبة (AFC Champions League Elite)
+        prerelease: ${{ github.ref != 'refs/heads/main' }}
         files: |
           dist/Quswis-tvOS-Launcher.apk
       env:
