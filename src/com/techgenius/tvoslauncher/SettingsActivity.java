@@ -655,6 +655,16 @@ public class SettingsActivity extends Activity {
                     PrayerScheduler.schedule(this);
                     rebuildMainRows();
                 });
+        row("صوت الأذان",
+                () -> "cc0".equals(PrayerTimes.prefs(this).getString("adhan_audio", "system"))
+                    ? "أذان كامل (ترخيص CC0)" : "تنبيه النظام",
+                () -> dialog("اختيار صوت الأذان").setItems(
+                    new String[]{"تنبيه النظام", "أذان كامل موثوق (CC0)"},
+                    (d, which) -> {
+                        PrayerTimes.prefs(this).edit()
+                            .putString("adhan_audio", which == 1 ? "cc0" : "system").apply();
+                        rebuildMainRows();
+                    }).show());
         row("تنبيه الإقامة",
                 () -> PrayerTimes.prefs(this).getBoolean("iqama_enabled", false) ? "مفعّل" : "متوقف",
                 () -> {
@@ -669,7 +679,7 @@ public class SettingsActivity extends Activity {
         row("المدينة",
                 () -> PrayerTimes.city(this),
                 this::promptPrayerCity);
-        infoNote("اختر الدولة والمدينة. تنبيه الأذان صوت تنبيه النظام مؤقتاً، وليس تسجيلاً كاملاً للأذان؛ يمكنك إيقافه من هنا.");
+        infoNote("اختر الدولة والمدينة. اختر تنبيه النظام أو أذاناً كاملاً مرخصاً CC0. تسجيلات الحرمين ستضاف بعد توثيق مصدرها.");
     }
 
     private void choosePrayerCountry() {
