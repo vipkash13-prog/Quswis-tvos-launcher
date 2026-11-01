@@ -925,6 +925,17 @@ final class SceneHome {
             }
         }
 
+        // Translucent frosted highlight is clipped to the existing rounded app icon.
+        View frostFocus = new View(host);
+        GradientDrawable frostPaint = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[]{0x78F4FAFF, 0x20FFFFFF, 0x45B9DEFF});
+        frostPaint.setCornerRadius(rad);
+        frostFocus.setBackground(frostPaint);
+        frostFocus.setAlpha(0f);
+        frostFocus.setFocusable(false);
+        frostFocus.setClickable(false);
+        if (!isGear && !isMore) tile.addView(frostFocus, host.match());
+
         GradientDrawable focusRing = new GradientDrawable();
         focusRing.setCornerRadius(rad);
         focusRing.setColor(Color.TRANSPARENT);
@@ -972,6 +983,9 @@ final class SceneHome {
                 focusGlint.setAlpha(0.8f);
                 focusGlint.animate().translationX(size - dp(16)).alpha(0f).setDuration(420).start();
             } else focusGlint.setAlpha(0f);
+            frostFocus.animate().cancel();
+            if (!isGear && !isMore) frostFocus.animate().alpha(has ? 0.75f : 0f)
+                    .setDuration(has ? 200 : 145).setInterpolator(MainActivity.EASE).start();
             glassOverlay.animate().cancel();
             if (!isGear && !isMore) glassOverlay.animate().alpha(has ? 1f : 0f)
                     .setDuration(140).setInterpolator(MainActivity.EASE).start();
