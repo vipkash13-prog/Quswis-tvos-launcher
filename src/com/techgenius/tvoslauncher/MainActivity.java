@@ -217,6 +217,28 @@ public class MainActivity extends Activity {
     };
     ShelfScrollView scroll;
     LinearLayout content;
+    View movingClassicGlass;
+    private void moveClassicGlassTo(View tile) {
+        if (root == null || movingClassicGlass == null || tile == null) return;
+        tile.post(() -> {
+            if (!tile.isFocused() || movingClassicGlass == null) return;
+            int[] pos = new int[2], base = new int[2];
+            tile.getLocationOnScreen(pos);
+            root.getLocationOnScreen(base);
+            float x = pos[0] - base[0] - dp(5);
+            float y = pos[1] - base[1] - dp(5);
+            if (movingClassicGlass.getVisibility() != View.VISIBLE) {
+                movingClassicGlass.setX(x);
+                movingClassicGlass.setY(y);
+                movingClassicGlass.setAlpha(0f);
+                movingClassicGlass.setVisibility(View.VISIBLE);
+            }
+            movingClassicGlass.animate().cancel();
+            movingClassicGlass.animate().x(x).y(y).alpha(1f)
+                    .setDuration(245).setInterpolator(EASE).start();
+        });
+    }
+
     LinearLayout clockBox;
     LinearLayout titleBox;
     View chevron;
@@ -609,6 +631,20 @@ public class MainActivity extends Activity {
         scroll.addView(content, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(scroll, match());
+        // A single moving glass focus surface shared by every classic tile.
+        movingClassicGlass = new View(this);
+        GradientDrawable sharedGlass = new GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                new int[]{0x4EF4FAFF, 0x10FFFFFF, 0x35B8DFFF});
+        sharedGlass.setCornerRadius(radius + dp(5));
+        sharedGlass.setStroke(dp(2), 0x8CFFFFFF);
+        movingClassicGlass.setBackground(sharedGlass);
+        movingClassicGlass.setFocusable(false);
+        movingClassicGlass.setClickable(false);
+        movingClassicGlass.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        movingClassicGlass.setVisibility(View.INVISIBLE);
+        root.addView(movingClassicGlass, new FrameLayout.LayoutParams(tileW + dp(10), tileH + dp(10)));
+
 
         // Top shelf: header shown only inside the More Apps folder.
         FrameLayout shelf = new FrameLayout(this);
@@ -1060,7 +1096,8 @@ public class MainActivity extends Activity {
                 frostFocus.animate().translationX(0f).alpha(0.72f)
                         .setDuration(230).setInterpolator(EASE).start();
                 silverFocus.animate().cancel();
-                silverFocus.animate().alpha(1f).setDuration(160).setInterpolator(EASE).start();
+                silverFocus.animate().alpha(0.12f).setDuration(160).setInterpolator(EASE).start();
+                moveClassicGlassTo(v);
                 onTileFocused(index);
             } else {
                 cell.setTranslationZ(0);
