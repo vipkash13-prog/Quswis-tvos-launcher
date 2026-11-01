@@ -1137,10 +1137,10 @@ public class MainActivity extends Activity {
                 frostFocus.animate().cancel();
                 // Directional glass arrival: slides into place while fading in.
                 frostFocus.setTranslationX(index >= focusedIndex ? dp(11) : -dp(11));
-                frostFocus.animate().translationX(0f).alpha(0.72f)
+                frostFocus.animate().translationX(0f).alpha(0.50f)
                         .setDuration(230).setInterpolator(EASE).start();
                 silverFocus.animate().cancel();
-                silverFocus.animate().alpha(0.12f).setDuration(160).setInterpolator(EASE).start();
+                silverFocus.animate().alpha(0.06f).setDuration(160).setInterpolator(EASE).start();
                 // Disable the detached shared overlay until its coordinate system is fixed.
                 if (movingClassicGlass != null) movingClassicGlass.setVisibility(View.INVISIBLE);
                 onTileFocused(index);
