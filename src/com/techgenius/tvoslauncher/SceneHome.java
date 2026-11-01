@@ -2014,7 +2014,10 @@ final class SceneHome {
             }
             if (k == KeyEvent.KEYCODE_DPAD_UP) {
                 if (down) {
-                    if (prayerVisible) prayer.requestFocus();
+                    if (moreExpanded && dIdx >= cols) {
+                        // Inside the expanded apps grid, UP moves to the previous row.
+                        focusDock(dIdx - cols);
+                    } else if (prayerVisible) prayer.requestFocus();
                     else if (footballVisible) football.requestFocus();
                     else if (dIdx >= cols) {
                         focusDock(dIdx - cols);
