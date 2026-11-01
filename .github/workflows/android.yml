@@ -2,7 +2,7 @@ name: Android CI
 
 on:
   push:
-    branches: [ "main", "test-scene-glass-lens" ]
+    branches: [ "main", "test-scene-glass-lens", "feature-classic-prayer-adhan" ]
   workflow_dispatch:
 
 permissions:
