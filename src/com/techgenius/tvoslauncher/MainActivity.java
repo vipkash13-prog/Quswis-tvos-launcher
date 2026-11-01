@@ -225,8 +225,23 @@ public class MainActivity extends Activity {
             int[] pos = new int[2], base = new int[2];
             tile.getLocationOnScreen(pos);
             root.getLocationOnScreen(base);
-            float x = pos[0] - base[0] - dp(5);
-            float y = pos[1] - base[1] - dp(5);
+            // Convert screen coordinates into the root's drawing space.
+            // This also accounts for the current scroll offset.
+            android.graphics.Rect visible = new android.graphics.Rect();
+            if (!tile.getGlobalVisibleRect(visible)) {
+                movingClassicGlass.setVisibility(View.INVISIBLE);
+                return;
+            }
+            float x = visible.left - base[0] - dp(3);
+            float y = visible.top - base[1] - dp(3);
+            ViewGroup.LayoutParams glassParams = movingClassicGlass.getLayoutParams();
+            int targetW = visible.width() + dp(6);
+            int targetH = visible.height() + dp(6);
+            if (glassParams.width != targetW || glassParams.height != targetH) {
+                glassParams.width = targetW;
+                glassParams.height = targetH;
+                movingClassicGlass.setLayoutParams(glassParams);
+            }
             if (movingClassicGlass.getVisibility() != View.VISIBLE) {
                 movingClassicGlass.setX(x);
                 movingClassicGlass.setY(y);
