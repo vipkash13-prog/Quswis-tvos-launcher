@@ -647,13 +647,29 @@ public class SettingsActivity extends Activity {
                     PrayerTimes.setEnabled(this, !PrayerTimes.enabled(this));
                     rebuildMainRows();
                 });
+        row("تنبيه الأذان عند دخول وقت الصلاة",
+                () -> PrayerTimes.prefs(this).getBoolean("adhan_enabled", false) ? "مفعّل" : "متوقف",
+                () -> {
+                    boolean enabled = !PrayerTimes.prefs(this).getBoolean("adhan_enabled", false);
+                    PrayerTimes.prefs(this).edit().putBoolean("adhan_enabled", enabled).apply();
+                    PrayerScheduler.schedule(this);
+                    rebuildMainRows();
+                });
+        row("تنبيه الإقامة",
+                () -> PrayerTimes.prefs(this).getBoolean("iqama_enabled", false) ? "مفعّل" : "متوقف",
+                () -> {
+                    boolean enabled = !PrayerTimes.prefs(this).getBoolean("iqama_enabled", false);
+                    PrayerTimes.prefs(this).edit().putBoolean("iqama_enabled", enabled).apply();
+                    PrayerScheduler.schedule(this);
+                    rebuildMainRows();
+                });
         row("الدولة",
                 () -> PrayerTimes.country(this),
                 this::choosePrayerCountry);
         row("المدينة",
                 () -> PrayerTimes.city(this),
                 this::promptPrayerCity);
-        infoNote("اختر الدولة أولاً ثم اكتب اسم المدينة. ستظهر المواقيت في مربع مستقل على يسار الشاشة الرئيسية.");
+        infoNote("اختر الدولة والمدينة. تنبيه الأذان صوت تنبيه النظام مؤقتاً، وليس تسجيلاً كاملاً للأذان؛ يمكنك إيقافه من هنا.");
     }
 
     private void choosePrayerCountry() {
