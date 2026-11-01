@@ -91,6 +91,7 @@ final class PrayerTimes {
   boolean sameDay=today.equals(p.getString("cache_date",""));
   if(view!=null&&cached!=null&&key.equals(p.getString(K_KEY,"")))show(view,cached);
   else if(view!=null)show(view,"{}");
+  if(!force&&sameDay&&key.equals(p.getString(K_KEY,""))&&cached!=null) PrayerScheduler.schedule(context);
   if(busy||(!force&&sameDay&&key.equals(p.getString(K_KEY,""))&&System.currentTimeMillis()-at<3600000L))return;
   busy=true;Context app=context.getApplicationContext();
   new Thread(()->{
