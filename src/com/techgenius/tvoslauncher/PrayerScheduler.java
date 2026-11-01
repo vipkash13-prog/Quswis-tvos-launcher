@@ -22,7 +22,7 @@ public final class PrayerScheduler extends BroadcastReceiver {
  static final String[] NAMES={"الفجر","الظهر","العصر","المغرب","العشاء"};
  static final String ACTION="com.techgenius.tvoslauncher.PRAYER_ALARM";
  static void schedule(Context context) {
-  if(!PrayerTimes.enabled(context))return;
+  if(!PrayerTimes.prefs(context).getBoolean("adhan_enabled",false) && !PrayerTimes.prefs(context).getBoolean("iqama_enabled",false))return;
   JSONObject times;
   try{times=new JSONObject(PrayerTimes.prefs(context).getString("data","{}"));}catch(Exception e){return;}
   AlarmManager manager=(AlarmManager)context.getSystemService(Context.ALARM_SERVICE);
@@ -49,14 +49,20 @@ public final class PrayerScheduler extends BroadcastReceiver {
   intent.putExtra("index",index).putExtra("iqama",iqama);
   int flags=PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE;
   PendingIntent pi=PendingIntent.getBroadcast(context,index*2+(iqama?1:0),intent,flags);
-  manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,time,pi);
+  if (Build.VERSION.SDK_INT >= 31 && manager.canScheduleExactAlarms()) {
+   manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,time,pi);
+  } else if (Build.VERSION.SDK_INT < 31) {
+   manager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,time,pi);
+  } else {
+   manager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,time,pi);
+  }
  }
  @Override public void onReceive(Context context,Intent intent){
   if(Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())||Intent.ACTION_MY_PACKAGE_REPLACED.equals(intent.getAction())){
    PrayerTimes.refresh(context,null,true);
    schedule(context);return;
   }
-  if(!ACTION.equals(intent.getAction())||!PrayerTimes.enabled(context))return;
+  if(!ACTION.equals(intent.getAction()))return;
   int index=intent.getIntExtra("index",-1);if(index<0||index>=5)return;
   boolean iqama=intent.getBooleanExtra("iqama",false);
   if(!PrayerTimes.prefs(context).getBoolean(iqama?"iqama_enabled":"adhan_enabled",false))return;
