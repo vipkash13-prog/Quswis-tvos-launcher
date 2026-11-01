@@ -187,6 +187,7 @@ public class MainActivity extends Activity {
     View classicGlassLens;
     View classicLensTarget;
     boolean classicLensPlaced;
+    int classicLastScrollY;
     ImageView wallView;
     /** Top shelf carousel: two crossfading backdrops + info panel. */
     ImageView heroBack, heroFront;
@@ -547,6 +548,7 @@ public class MainActivity extends Activity {
         root = new FrameLayout(this);
         root.setBackground(null);
         classicLensPlaced = false;
+        classicLastScrollY = 0;
         classicGlassLens = null;
 
         // One ambient wallpaper for every app. It is drawn tiny and upscaled, so it is already
@@ -2979,11 +2981,27 @@ public class MainActivity extends Activity {
             classicGlassLens.setBackground(glass);
             classicGlassLens.setFocusable(false);
             classicGlassLens.setClickable(false);
+            // Keep the lens attached to the icon while the classic grid scrolls.
+            root.getViewTreeObserver().addOnPreDrawListener(() -> {
+                if (classicGlassLens == null || classicLensTarget == null
+                        || Scenes.isScenesLook(this) || !classicLensTarget.isAttachedToWindow()) return true;
+                if (scroll != null && scroll.getScrollY() != classicLastScrollY) {
+                    classicLastScrollY = scroll.getScrollY();
+                    int[] a = new int[2], b = new int[2];
+                    classicLensTarget.getLocationOnScreen(a);
+                    root.getLocationOnScreen(b);
+                    classicGlassLens.animate().cancel();
+                    classicGlassLens.setX(a[0] - b[0] - dp(5));
+                    classicGlassLens.setY(a[1] - b[1] - dp(5));
+                }
+                return true;
+            });
             classicGlassLens.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
             root.addView(classicGlassLens, new FrameLayout.LayoutParams(tileW + dp(10), tileH + dp(10)));
         }
         target.post(() -> {
             if (classicLensTarget != target || !target.isAttachedToWindow() || Scenes.isScenesLook(this)) return;
+            classicLastScrollY = scroll == null ? 0 : scroll.getScrollY();
             int[] a = new int[2], b = new int[2];
             target.getLocationOnScreen(a);
             root.getLocationOnScreen(b);
