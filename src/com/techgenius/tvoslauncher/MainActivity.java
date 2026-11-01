@@ -172,7 +172,7 @@ public class MainActivity extends Activity {
     final Runnable footballTick = new Runnable() {
         @Override public void run() {
             if (!resumed) return;
-            if (footballCard != null && pickerLayer != null) FootballScores.refresh(MainActivity.this, footballCard, false);
+            // On-demand match panel refreshes when the lens is opened.
             handler.postDelayed(this, 60000L);
         }
     };
@@ -904,8 +904,7 @@ public class MainActivity extends Activity {
                 footballShortcut.setAlpha(pickerLayer != null ? 0f : weatherAlpha());
             return true;
         });
-        footballCard = FootballScores.createView(this);
-        footballCard.setVisibility(View.GONE);
+        // Match panel is created lazily only when the football lens is opened.
 
         root.addView(sceneHome.overlay, match());
         // Keep the information cards above full-screen scene overlays on every TV layout.
