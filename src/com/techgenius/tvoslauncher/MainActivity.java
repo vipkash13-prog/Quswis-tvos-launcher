@@ -834,6 +834,18 @@ public class MainActivity extends Activity {
         prayerGlass.lens = dp(6);
         prayerCard.setBackground(prayerGlass);
         prayerCard.setElevation(dp(12));
+        // The prayer shortcut is a fixed HUD item, not an app-grid tile.
+        // Match the weather/clock visibility while the shelf scrolls, so it never
+        // floats over app icons when the grid occupies the top of the screen.
+        root.getViewTreeObserver().addOnPreDrawListener(() -> {
+            if (prayerCard != null && prayerCard.getVisibility() == View.VISIBLE) {
+                float alpha = weatherAlpha();
+                if (Math.abs(prayerCard.getAlpha() - alpha) > 0.015f) {
+                    prayerCard.setAlpha(alpha);
+                }
+            }
+            return true;
+        });
         prayerCard.setPivotX(0);
         prayerCard.setPivotY(0);
         prayerCard.setOnFocusChangeListener((v, has) -> {
