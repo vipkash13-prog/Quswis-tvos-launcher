@@ -68,6 +68,7 @@ final class PrayerShortcut {
    row.setPadding(0,Ui.px(activity,13),0,Ui.px(activity,13));
    content.addView(row);
   }
+  PrayerTimes.refresh(activity, null, false);
   AlertDialog dialog=new AlertDialog.Builder(activity).setView(content).create();
   dialog.setOnShowListener(d->{
    if(dialog.getWindow()!=null){
@@ -76,5 +77,6 @@ final class PrayerShortcut {
    }
   });
   dialog.show();
+  PrayerScheduler.schedule(activity);
  }
 }
