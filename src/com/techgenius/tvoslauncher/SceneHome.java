@@ -963,8 +963,8 @@ final class SceneHome {
 
 
         tile.setOnFocusChangeListener((v, has) -> {
-            v.setPivotX(v.getWidth() > 0 ? v.getWidth() / 2f : size / 2f);
-            v.setPivotY(v.getHeight() > 0 ? v.getHeight() / 2f : size / 2f);
+            focusHolder.setPivotX(size / 2f);
+            focusHolder.setPivotY(size / 2f);
             v.setForeground((isGear || isMore) && has ? focusRing : null);
             focusGlint.animate().cancel();
             if (has && !isGear && !isMore) {
@@ -985,12 +985,12 @@ final class SceneHome {
                 } else {
                     updateDockTooltip(v, a.label);
                 }
-                v.animate().withLayer().scaleX(1.13f).scaleY(1.13f)
+                focusHolder.animate().withLayer().scaleX(1.13f).scaleY(1.13f)
                         .translationY(0f)
                         .translationZ(isGear || isMore ? 0f : dp(8))
                         .setDuration(190).setInterpolator(MainActivity.LIFT).start();
             } else {
-                v.animate().withLayer().scaleX(1f).scaleY(1f)
+                focusHolder.animate().withLayer().scaleX(1f).scaleY(1f)
                         .translationY(0f)
                         .translationZ(0f)
                         .setDuration(150).setInterpolator(MainActivity.EASE).start();
