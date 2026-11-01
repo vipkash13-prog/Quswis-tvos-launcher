@@ -65,15 +65,37 @@ final class PrayerShortcut {
   String[] keys={"Fajr","Dhuhr","Asr","Maghrib","Isha"};
   JSONObject times=null;
   try {times=new JSONObject(PrayerTimes.prefs(activity).getString("data","{}"));}catch(Exception ignored){}
+  heading.setTextColor(0xFFFFD995);
+  heading.setPadding(0,0,0,Ui.px(activity,14));
   for(int i=0;i<names.length;i++){
-   TextView row=new TextView(activity);
+   LinearLayout row=new LinearLayout(activity);
+   row.setOrientation(LinearLayout.HORIZONTAL);
+   row.setGravity(Gravity.CENTER_VERTICAL);
+   row.setPadding(Ui.px(activity,16),Ui.px(activity,11),Ui.px(activity,16),Ui.px(activity,11));
+   GradientDrawable rowBg=new GradientDrawable();
+   rowBg.setColor(i%2==0?0x353B5A70:0x223B5A70);
+   rowBg.setCornerRadius(Ui.px(activity,12));
+   row.setBackground(rowBg);
    String value=times==null?"--:--":times.optString(keys[i],"--:--");
    int cut=value.indexOf(' ');if(cut>0)value=value.substring(0,cut);
-   row.setText(names[i]+"                    "+value);
-   row.setTextSize(19);row.setTextColor(Color.WHITE);
-   row.setPadding(0,Ui.px(activity,13),0,Ui.px(activity,13));
-   content.addView(row);
+   TextView time=new TextView(activity);
+   time.setText(value);time.setTextSize(19);time.setTextColor(0xFFFFD995);
+   time.setGravity(Gravity.CENTER_VERTICAL);
+   row.addView(time,new LinearLayout.LayoutParams(0,-2,1f));
+   TextView name=new TextView(activity);
+   name.setText(names[i]);name.setTextSize(19);name.setTextColor(Color.WHITE);
+   name.setTypeface(Typeface.DEFAULT,Typeface.BOLD);
+   name.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);
+   row.addView(name,new LinearLayout.LayoutParams(0,-2,1f));
+   LinearLayout.LayoutParams rp=new LinearLayout.LayoutParams(-1,0,1f);
+   rp.bottomMargin=Ui.px(activity,5);
+   content.addView(row,rp);
   }
+  TextView note=new TextView(activity);
+  note.setText("التنبيهات الصوتية من إعدادات مواقيت الصلاة");
+  note.setTextSize(12);note.setTextColor(0xFFCFD8E3);
+  note.setGravity(Gravity.CENTER);
+  content.addView(note);
   PrayerTimes.refresh(activity, null, false);
   return content;
  }
