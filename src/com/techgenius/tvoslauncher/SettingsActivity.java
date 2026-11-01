@@ -656,15 +656,26 @@ public class SettingsActivity extends Activity {
                     rebuildMainRows();
                 });
         row("صوت الأذان",
-                () -> "cc0".equals(PrayerTimes.prefs(this).getString("adhan_audio", "system"))
-                    ? "أذان كامل (ترخيص CC0)" : "تنبيه النظام",
+                () -> {
+                    String selected = PrayerTimes.prefs(this).getString("adhan_audio", "system");
+                    return "makkah".equals(selected) ? "أذان المسجد الحرام – مكة"
+                        : "cc0".equals(selected) ? "أذان كامل (ترخيص CC0)" : "تنبيه النظام";
+                },
                 () -> dialog("اختيار صوت الأذان").setItems(
-                    new String[]{"تنبيه النظام", "أذان كامل موثوق (CC0)"},
+                    new String[]{"تنبيه النظام", "أذان كامل موثوق (CC0)", "أذان المسجد الحرام – مكة"},
                     (d, which) -> {
                         PrayerTimes.prefs(this).edit()
-                            .putString("adhan_audio", which == 1 ? "cc0" : "system").apply();
+                            .putString("adhan_audio", which == 2 ? "makkah" : which == 1 ? "cc0" : "system").apply();
                         rebuildMainRows();
                     }).show());
+        row("حقوق تسجيل أذان المسجد الحرام",
+                () -> "3omar Faruq · CC BY 3.0 · Wikimedia Commons",
+                () -> dialog("حقوق التسجيل").setMessage(
+                    "Maghrib Adhan at the Masjid al Haram, Mecca - 25 Feb, 2012\n"
+                    + "صاحب التسجيل: 3omar Faruq\n"
+                    + "الترخيص: Creative Commons Attribution 3.0\n"
+                    + "https://commons.wikimedia.org/wiki/File:Maghrib_Adhan_at_the_Masjid_al_Haram,_Mecca_-_25_Feb,_2012.webm"
+                ).setPositiveButton("موافق", (d, w) -> {}).show());
         row("تجربة صوت الأذان الآن",
                 () -> "اضغط للاستماع",
                 () -> AdhanAudio.play(this));
