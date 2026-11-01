@@ -2974,11 +2974,24 @@ public class MainActivity extends Activity {
         classicLensTarget = target;
         if (classicGlassLens == null) {
             classicGlassLens = new View(this);
+            // Three-layer glass rim: dark contrast on white icons, bright specular
+            // highlight on dark icons, and a soft diagonal sheen. Visual only.
+            GradientDrawable contrast = new GradientDrawable();
+            contrast.setColor(0x08000000);
+            contrast.setCornerRadius(dp(13));
+            contrast.setStroke(dp(2), 0xA04B6075);
             GradientDrawable glass = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                    new int[]{0x48FFFFFF, 0x10FFFFFF, 0x34C6E3FF});
-            glass.setCornerRadius(dp(13));
-            glass.setStroke(dp(2), 0xD9FFFFFF);
-            classicGlassLens.setBackground(glass);
+                    new int[]{0x3CFFFFFF, 0x08FFFFFF, 0x20D5E9FF});
+            glass.setCornerRadius(dp(11));
+            glass.setStroke(dp(2), 0xE8FFFFFF);
+            GradientDrawable shine = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                    new int[]{0x35FFFFFF, 0x00FFFFFF, 0x00FFFFFF});
+            shine.setCornerRadius(dp(11));
+            android.graphics.drawable.LayerDrawable rim = new android.graphics.drawable.LayerDrawable(
+                    new android.graphics.drawable.Drawable[]{contrast, glass, shine});
+            rim.setLayerInset(1, dp(2), dp(2), dp(2), dp(2));
+            rim.setLayerInset(2, dp(3), dp(3), dp(3), dp(3));
+            classicGlassLens.setBackground(rim);
             classicGlassLens.setFocusable(false);
             classicGlassLens.setClickable(false);
             // Keep the lens attached to the icon while the classic grid scrolls.
