@@ -1013,7 +1013,7 @@ public final class Scenes {
                     greetX = (w - greetW) * 0.5f;
                 }
             } else {
-                greetX = sp.leftAlign ? (sp.dateLeftU * u) : (w - greetW - 65f * u);
+                greetX = (w - greetW) * 0.5f;
             }
             canvas.drawText(greeting, greetX, greetBaselineY, greetPaint);
 
@@ -1045,7 +1045,7 @@ public final class Scenes {
                     dateX = (w - dateW) * 0.5f;
                 }
             } else {
-                dateX = sp.leftAlign ? (sp.dateLeftU * u) : (w - dateW - 65f * u);
+                dateX = (w - dateW) * 0.5f;
             }
             canvas.drawText(fullHeader, dateX, dateBaselineY, datePaint);
 
