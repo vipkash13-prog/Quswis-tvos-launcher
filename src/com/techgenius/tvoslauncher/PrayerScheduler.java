@@ -17,7 +17,7 @@ import java.util.Locale;
 
 /** Non-disruptive prayer and iqama notifications. No app switching or overlay permission. */
 public final class PrayerScheduler extends BroadcastReceiver {
- static final String CHANNEL="prayer_alerts_v1";
+ static final String CHANNEL="prayer_alerts_v2";
  static final String[] KEYS={"Fajr","Dhuhr","Asr","Maghrib","Isha"};
  static final String[] NAMES={"الفجر","الظهر","العصر","المغرب","العشاء"};
  static final String ACTION="com.techgenius.tvoslauncher.PRAYER_ALARM";
@@ -38,9 +38,9 @@ public final class PrayerScheduler extends BroadcastReceiver {
     when.set(Calendar.HOUR_OF_DAY,hour);when.set(Calendar.MINUTE,minute);when.set(Calendar.SECOND,0);
     when.set(Calendar.MILLISECOND,0);
     if(when.before(now))continue;
-    set(manager,context,i,false,when.getTimeInMillis());
+    if(PrayerTimes.prefs(context).getBoolean("adhan_enabled",false))set(manager,context,i,false,when.getTimeInMillis());
     int delay=PrayerTimes.prefs(context).getInt("iqama_"+KEYS[i],15);
-    if(delay>0)set(manager,context,i,true,when.getTimeInMillis()+delay*60000L);
+    if(delay>0&&PrayerTimes.prefs(context).getBoolean("iqama_enabled",false))set(manager,context,i,true,when.getTimeInMillis()+delay*60000L);
    }catch(Exception ignored){}
   }
  }
@@ -59,11 +59,15 @@ public final class PrayerScheduler extends BroadcastReceiver {
   if(!ACTION.equals(intent.getAction())||!PrayerTimes.enabled(context))return;
   int index=intent.getIntExtra("index",-1);if(index<0||index>=5)return;
   boolean iqama=intent.getBooleanExtra("iqama",false);
+  if(!PrayerTimes.prefs(context).getBoolean(iqama?"iqama_enabled":"adhan_enabled",false))return;
   NotificationManager nm=(NotificationManager)context.getSystemService(Context.NOTIFICATION_SERVICE);
   if(nm==null)return;
   if(Build.VERSION.SDK_INT>=26){
    NotificationChannel channel=new NotificationChannel(CHANNEL,"مواقيت الصلاة",NotificationManager.IMPORTANCE_HIGH);
-   channel.setDescription("تنبيهات الصلاة والإقامة بدون مغادرة التطبيقات");
+   channel.setDescription("تنبيهات صوتية عند وقت الصلاة والإقامة بدون مغادرة التطبيقات");
+   channel.enableVibration(true);
+   channel.setSound(android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM),
+       new android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_ALARM).build());
    nm.createNotificationChannel(channel);
   }
   String title=(iqama?"حان وقت إقامة صلاة ":"حان وقت أذان صلاة ")+NAMES[index];
