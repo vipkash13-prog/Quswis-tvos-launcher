@@ -1001,7 +1001,7 @@ public class MainActivity extends Activity {
         GradientDrawable silverGlass = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
                 new int[]{0x66FFFFFF, 0x19FFFFFF, 0x50DCEEFF});
         silverGlass.setCornerRadius(radius + dp(4));
-        silverGlass.setStroke(dp(3), 0xFFF7FAFF);
+        silverGlass.setStroke(dp(1), 0x4AFFFFFF);
         View silverFocus = new View(this);
         silverFocus.setBackground(silverGlass);
         silverFocus.setAlpha(0f);
