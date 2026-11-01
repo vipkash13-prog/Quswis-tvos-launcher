@@ -450,7 +450,7 @@ public class MainActivity extends Activity {
         if (folderMode) {
             folderMode = false;
             syncFootballVisibility();
-            syncClassicGlassOnScroll();
+            // Shared overlay is temporarily disabled; do not reposition it on scroll.
             switcher.setAlpha(1f);
             weatherCard.setAlpha(weatherAlpha());
             launchTile = null;
@@ -1141,7 +1141,8 @@ public class MainActivity extends Activity {
                         .setDuration(230).setInterpolator(EASE).start();
                 silverFocus.animate().cancel();
                 silverFocus.animate().alpha(0.12f).setDuration(160).setInterpolator(EASE).start();
-                moveClassicGlassTo(v);
+                // Disable the detached shared overlay until its coordinate system is fixed.
+                if (movingClassicGlass != null) movingClassicGlass.setVisibility(View.INVISIBLE);
                 onTileFocused(index);
             } else {
                 cell.setTranslationZ(0);
