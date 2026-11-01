@@ -3351,6 +3351,37 @@ public class MainActivity extends Activity {
             }
             return super.dispatchKeyEvent(ev);
         }
+        // Let the remote reach the fixed football lens from the main TV interface.
+        // The regular shelf and scene key handlers otherwise consume DPAD navigation.
+        if (footballShortcut != null && footballShortcut.getVisibility() == View.VISIBLE
+                && pickerLayer == null && menuLayer == null && !folderMode) {
+            int fk = ev.getKeyCode();
+            boolean pressed = ev.getAction() == KeyEvent.ACTION_DOWN;
+            View focused = getCurrentFocus();
+            if (focused == footballShortcut) {
+                if (fk == KeyEvent.KEYCODE_DPAD_CENTER || fk == KeyEvent.KEYCODE_ENTER
+                        || fk == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+                    if (pressed && ev.getRepeatCount() == 0) showFootballPanel();
+                    return true;
+                }
+                if (fk == KeyEvent.KEYCODE_DPAD_DOWN) {
+                    if (pressed && prayerCard != null && prayerCard.getVisibility() == View.VISIBLE)
+                        prayerCard.requestFocus();
+                    return true;
+                }
+                if (fk == KeyEvent.KEYCODE_DPAD_UP || fk == KeyEvent.KEYCODE_DPAD_LEFT
+                        || fk == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                    if (pressed && prayerCard != null && prayerCard.getVisibility() == View.VISIBLE)
+                        prayerCard.requestFocus();
+                    return true;
+                }
+            }
+            // From the prayer shortcut, DOWN selects the football shortcut.
+            if (focused == prayerCard && fk == KeyEvent.KEYCODE_DPAD_DOWN) {
+                if (pressed) footballShortcut.requestFocus();
+                return true;
+            }
+        }
         if (Scenes.isScenesLook(this) && sceneHome != null) {
             if (sceneHome.dispatchKey(ev)) return true;
             return super.dispatchKeyEvent(ev);
