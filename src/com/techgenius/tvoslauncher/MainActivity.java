@@ -234,7 +234,7 @@ public class MainActivity extends Activity {
                 movingClassicGlass.setVisibility(View.VISIBLE);
             }
             movingClassicGlass.animate().cancel();
-            movingClassicGlass.animate().x(x).y(y).alpha(1f)
+            movingClassicGlass.animate().x(x).y(y).alpha(0.6f)
                     .setDuration(245).setInterpolator(EASE).start();
         });
     }
