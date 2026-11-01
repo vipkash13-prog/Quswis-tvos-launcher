@@ -466,7 +466,7 @@ public class MainActivity extends Activity {
             getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
         updateWeather();
-        if (prayerCard != null) PrayerTimes.refresh(this, prayerCard, false);
+        if (prayerCard != null) prayerCard.setVisibility(PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
         if (footballCard != null) FootballScores.refresh(this, footballCard, false);
         handler.removeCallbacks(footballTick);
         handler.postDelayed(footballTick, 120000L);
@@ -826,12 +826,14 @@ public class MainActivity extends Activity {
         wlp.leftMargin = dockOuter;
         root.addView(weatherCard, wlp);
 
-        prayerCard = PrayerTimes.createView(this);
+        // Compact prayer shortcut immediately below the classic weather card.
+        prayerCard = PrayerShortcut.create(this);
         FrameLayout.LayoutParams prayerLp = new FrameLayout.LayoutParams(
-                Math.min(dp(630), screenW * 54 / 100), dp(76), Gravity.TOP | Gravity.LEFT);
-        prayerLp.topMargin = dp(24);
-        prayerLp.leftMargin = dp(24);
+                dp(WeatherView.COMPACT_W), dp(WeatherView.COMPACT_H), Gravity.TOP | Gravity.START);
+        prayerLp.topMargin = dp(24 + WeatherView.COMPACT_H + 12);
+        prayerLp.leftMargin = dockOuter;
         root.addView(prayerCard, prayerLp);
+        prayerCard.setVisibility(PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
 
         footballCard = FootballScores.createView(this);
         // Compact match panel on the right: leave the center clear for the clock
@@ -850,7 +852,7 @@ public class MainActivity extends Activity {
         prayerCard.bringToFront();
         footballCard.bringToFront();
         updateWeather();
-        PrayerTimes.refresh(this, prayerCard, true);
+
         FootballScores.refresh(this, footballCard, true);
 
         setContentView(root);
