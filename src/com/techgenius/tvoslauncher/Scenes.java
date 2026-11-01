@@ -907,7 +907,7 @@ public final class Scenes {
             float datePx = 13.5f * u;
             boolean isCustomRight = isCustomId(sp.id) && CLOCK_POS_RIGHT.equals(getCustomClockPos(ctx));
             float topOffsetU = isCustomRight ? 62f : 19f;
-            float dateBaselineY = isCustomRight ? Math.max((46f + topOffsetU) * u, (sp.dateTopU + topOffsetU) * u) : 124f * u;
+            float dateBaselineY = Math.max((46f + topOffsetU) * u, (sp.dateTopU + topOffsetU) * u);
             float greetBaselineY = dateBaselineY - (18.5f * u);
 
             clockFillPaint.getTextBounds("0847", 0, 4, digitBounds);
@@ -930,11 +930,6 @@ public final class Scenes {
                 }
             } else {
                 clockX = sp.leftAlign ? (sp.clockLeftU * u) : ((w - textW) * 0.5f);
-            }
-
-            // 4. Foreground cutout (mountain ridge / volcano / fog hills / rainforest canopy)
-            if (ls.fg != null) {
-                drawCenterCrop(canvas, ls.fg, w, h);
             }
 
             if (ls.glassShader != null && ls.glassBaked != null) {
@@ -988,6 +983,11 @@ public final class Scenes {
             } else {
                 drawStylizedClock(canvas, timeStr, clockX, baselineY, scaleY, rawCapH, clockPx, u,
                         isDuo, isRounded, false, ls, sp.darkClock);
+            }
+
+            // 4. Foreground cutout (mountain ridge / volcano / fog hills / rainforest canopy)
+            if (ls.fg != null) {
+                drawCenterCrop(canvas, ls.fg, w, h);
             }
 
             // 5. Line 1 (Greeting with person name) + Line 2 (Date & Weather) above the clock
