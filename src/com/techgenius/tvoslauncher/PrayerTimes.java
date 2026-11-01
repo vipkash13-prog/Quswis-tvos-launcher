@@ -81,11 +81,11 @@ final class PrayerTimes {
   }
  }
  static void refresh(Context context,LinearLayout view,boolean force){
-  if(view==null)return;if(!enabled(context)){view.setVisibility(View.GONE);return;}view.setVisibility(View.VISIBLE);
+  if(!enabled(context)){if(view!=null)view.setVisibility(View.GONE);return;}if(view!=null)view.setVisibility(View.VISIBLE);
   SharedPreferences p=prefs(context);String key=city(context)+"|"+countryApi(context);
   String cached=p.getString(K_DATA,null);long at=p.getLong(K_AT,0);
-  if(cached!=null&&key.equals(p.getString(K_KEY,"")))show(view,cached);
-  else show(view,"{}");
+  if(view!=null&&cached!=null&&key.equals(p.getString(K_KEY,"")))show(view,cached);
+  else if(view!=null)show(view,"{}");
   if(busy||(!force&&key.equals(p.getString(K_KEY,""))&&System.currentTimeMillis()-at<3600000L))return;
   busy=true;Context app=context.getApplicationContext();
   new Thread(()->{
@@ -100,7 +100,8 @@ final class PrayerTimes {
      StringBuilder b=new StringBuilder();String line;while((line=r.readLine())!=null)b.append(line);r.close();
      JSONObject root=new JSONObject(b.toString());
      if(root.optInt("code")==200){data=root.getJSONObject("data").getJSONObject("timings").toString();
-      p.edit().putString(K_DATA,data).putLong(K_AT,System.currentTimeMillis()).putString(K_KEY,key).apply();}
+      p.edit().putString(K_DATA,data).putLong(K_AT,System.currentTimeMillis()).putString(K_KEY,key).apply();
+      PrayerScheduler.schedule(app);}
     }
    }catch(Exception ignored){}finally{if(conn!=null)conn.disconnect();}
    final String shown=data!=null?data:(key.equals(p.getString(K_KEY,""))?p.getString(K_DATA,null):null);
