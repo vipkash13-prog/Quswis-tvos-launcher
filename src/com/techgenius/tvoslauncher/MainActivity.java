@@ -2623,13 +2623,21 @@ public class MainActivity extends Activity {
                 || (k == KeyEvent.KEYCODE_DPAD_LEFT && i % COLS == 0))) {
             return true;
         }
-        if (k == KeyEvent.KEYCODE_DPAD_UP && i >= 0 && i < COLS && (hasDock() || i < COLS)) {
+        // Route vertical movement explicitly inside the app grid. Android's
+        // spatial focus search can otherwise jump to the fixed prayer HUD and
+        // fight smoothScrollTo, especially in the leftmost column.
+        if (i >= 0 && (k == KeyEvent.KEYCODE_DPAD_UP || k == KeyEvent.KEYCODE_DPAD_DOWN)) {
             if (down) {
-                if (heroActive) {
-                    heroRequested = true;
-                    shelfView.requestFocus();
-                } else {
-                    focusTop();
+                int next = i + (k == KeyEvent.KEYCODE_DPAD_UP ? -COLS : COLS);
+                if (next >= 0 && next < tiles.size()) {
+                    focusIndex(next);
+                } else if (k == KeyEvent.KEYCODE_DPAD_UP && i < COLS) {
+                    if (heroActive) {
+                        heroRequested = true;
+                        shelfView.requestFocus();
+                    } else {
+                        focusTop();
+                    }
                 }
             }
             return true;
