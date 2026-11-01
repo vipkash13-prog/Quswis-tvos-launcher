@@ -665,6 +665,12 @@ public class SettingsActivity extends Activity {
                             .putString("adhan_audio", which == 1 ? "cc0" : "system").apply();
                         rebuildMainRows();
                     }).show());
+        row("تجربة صوت الأذان الآن",
+                () -> "اضغط للاستماع",
+                () -> AdhanAudio.play(this));
+        row("إيقاف صوت الأذان",
+                () -> "إيقاف التشغيل",
+                () -> AdhanAudio.stop());
         row("تنبيه الإقامة",
                 () -> PrayerTimes.prefs(this).getBoolean("iqama_enabled", false) ? "مفعّل" : "متوقف",
                 () -> {
