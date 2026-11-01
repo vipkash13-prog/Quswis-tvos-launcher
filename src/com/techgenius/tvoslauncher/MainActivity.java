@@ -3346,6 +3346,24 @@ public class MainActivity extends Activity {
             }
             return true;
         }
+        // Deterministic navigation between app tiles. Only consume a direction when
+        // a real adjacent tile exists; otherwise let Android reach weather/status controls.
+        if (down && (k == KeyEvent.KEYCODE_DPAD_LEFT || k == KeyEvent.KEYCODE_DPAD_RIGHT
+                || k == KeyEvent.KEYCODE_DPAD_UP || k == KeyEvent.KEYCODE_DPAD_DOWN)) {
+            int current = tiles.indexOf(getCurrentFocus());
+            if (current >= 0) {
+                int next = -1;
+                if (k == KeyEvent.KEYCODE_DPAD_LEFT && current % COLS > 0) next = current - 1;
+                if (k == KeyEvent.KEYCODE_DPAD_RIGHT && current % COLS < COLS - 1
+                        && current + 1 < tiles.size()) next = current + 1;
+                if (k == KeyEvent.KEYCODE_DPAD_UP && current >= COLS) next = current - COLS;
+                if (k == KeyEvent.KEYCODE_DPAD_DOWN && current + COLS < tiles.size()) next = current + COLS;
+                if (next >= 0 && next < tiles.size()) {
+                    tiles.get(next).requestFocus();
+                    return true;
+                }
+            }
+        }
         return super.dispatchKeyEvent(ev);
     }
 
