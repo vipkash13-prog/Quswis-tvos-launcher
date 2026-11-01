@@ -65,6 +65,8 @@ final class SceneHome {
 
     LinearLayout dockContainer;
     LinearLayout dockBox;
+    FrameLayout dockFocusLayer;
+    View movingFocusGlass;
     TextView dockLabel;
     final List<View> dockTiles = new ArrayList<>();
     final List<MainActivity.AppEntry> dockEntries = new ArrayList<>();
@@ -677,7 +679,20 @@ final class SceneHome {
         dockBox.setBackground(dockGlass);
         dockBox.setElevation(dp(8));
 
-        dockContainer.addView(dockBox, new LinearLayout.LayoutParams(
+        // Independent overlay host: no icon-row layout space is consumed by the moving focus.
+        dockFocusLayer = new FrameLayout(host);
+        dockFocusLayer.setClipChildren(false);
+        dockFocusLayer.setClipToPadding(false);
+        dockFocusLayer.addView(dockBox, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        movingFocusGlass = new View(host);
+        movingFocusGlass.setFocusable(false);
+        movingFocusGlass.setClickable(false);
+        movingFocusGlass.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        movingFocusGlass.setVisibility(View.INVISIBLE);
+        FrameLayout.LayoutParams focusLp = new FrameLayout.LayoutParams(dp(60), dp(60));
+        dockFocusLayer.addView(movingFocusGlass, focusLp);
+        dockContainer.addView(dockFocusLayer, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         FrameLayout.LayoutParams dlp = new FrameLayout.LayoutParams(
