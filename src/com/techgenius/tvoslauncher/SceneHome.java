@@ -65,33 +65,6 @@ final class SceneHome {
 
     LinearLayout dockContainer;
     LinearLayout dockBox;
-    FrameLayout dockFocusLayer;
-    View movingFocusGlass;
-    private void moveGlassToDockTile(View tile) {
-        if (dockFocusLayer == null || movingFocusGlass == null || tile == null) return;
-        final View glass = movingFocusGlass;
-        tile.post(() -> {
-            if (!tile.isFocused() || glass.getParent() != dockFocusLayer) return;
-            int[] pos = new int[2], base = new int[2];
-            tile.getLocationOnScreen(pos);
-            dockFocusLayer.getLocationOnScreen(base);
-            glass.getLayoutParams().width = tile.getWidth() + dp(6);
-            glass.getLayoutParams().height = tile.getHeight() + dp(6);
-            glass.requestLayout();
-            float x = pos[0] - base[0] - dp(3);
-            float y = pos[1] - base[1] - dp(3);
-            if (glass.getVisibility() != View.VISIBLE) {
-                glass.setX(x);
-                glass.setY(y);
-                glass.setVisibility(View.VISIBLE);
-                glass.setAlpha(0f);
-            }
-            glass.animate().cancel();
-            glass.animate().x(x).y(y).alpha(1f)
-                    .setDuration(245).setInterpolator(MainActivity.EASE).start();
-        });
-    }
-
     TextView dockLabel;
     final List<View> dockTiles = new ArrayList<>();
     final List<MainActivity.AppEntry> dockEntries = new ArrayList<>();
@@ -704,27 +677,7 @@ final class SceneHome {
         dockBox.setBackground(dockGlass);
         dockBox.setElevation(dp(8));
 
-        // Independent overlay host: no icon-row layout space is consumed by the moving focus.
-        dockFocusLayer = new FrameLayout(host);
-        dockFocusLayer.setClipChildren(false);
-        dockFocusLayer.setClipToPadding(false);
-        dockFocusLayer.addView(dockBox, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        movingFocusGlass = new View(host);
-        GradientDrawable movingPaint = new GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                new int[]{0x42F4FAFF, 0x0FFFFFFF, 0x31B7DEFF});
-        movingPaint.setCornerRadius(dp(16));
-        movingPaint.setStroke(dp(2), 0x92FFFFFF);
-        movingFocusGlass.setBackground(movingPaint);
-        movingFocusGlass.setFocusable(false);
-        movingFocusGlass.setClickable(false);
-        movingFocusGlass.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        movingFocusGlass.setVisibility(View.INVISIBLE);
-        FrameLayout.LayoutParams focusLp = new FrameLayout.LayoutParams(dp(60), dp(60));
-        // Draw the moving glass underneath the app artwork, not over the logos.
-        dockFocusLayer.addView(movingFocusGlass, focusLp);
-        dockContainer.addView(dockFocusLayer, new LinearLayout.LayoutParams(
+        dockContainer.addView(dockBox, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         FrameLayout.LayoutParams dlp = new FrameLayout.LayoutParams(
@@ -837,7 +790,6 @@ final class SceneHome {
         if (dockBox == null) return;
         int savedFocusIdx = focusedDockIdx;
         stopDockWiggle();
-        if (movingFocusGlass != null) movingFocusGlass.setVisibility(View.INVISIBLE);
         dockBox.removeAllViews();
         dockTiles.clear();
         dockEntries.clear();
@@ -973,17 +925,6 @@ final class SceneHome {
             }
         }
 
-        // Translucent frosted highlight is clipped to the existing rounded app icon.
-        View frostFocus = new View(host);
-        GradientDrawable frostPaint = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{0x78F4FAFF, 0x20FFFFFF, 0x45B9DEFF});
-        frostPaint.setCornerRadius(rad);
-        frostFocus.setBackground(frostPaint);
-        frostFocus.setAlpha(0f);
-        frostFocus.setFocusable(false);
-        frostFocus.setClickable(false);
-        if (!isGear && !isMore) tile.addView(frostFocus, host.match());
-
         GradientDrawable focusRing = new GradientDrawable();
         focusRing.setCornerRadius(rad);
         focusRing.setColor(Color.TRANSPARENT);
@@ -995,9 +936,9 @@ final class SceneHome {
         focusHolder.setClipToPadding(false);
         focusHolder.addView(tile, new FrameLayout.LayoutParams(size, size));
         GradientDrawable glassShape = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{0x66FFFFFF, 0x19FFFFFF, 0x50DCEEFF});
+                new int[]{0x35FFFFFF, 0x09FFFFFF, 0x32C6E3FF});
         glassShape.setCornerRadius(rad + dp(4));
-        glassShape.setStroke(dp(1), 0x38FFFFFF);
+        glassShape.setStroke(dp(3), 0xFFF7FAFF);
         View glassOverlay = new View(host);
         glassOverlay.setBackground(glassShape);
         glassOverlay.setAlpha(0f);
@@ -1007,42 +948,15 @@ final class SceneHome {
         rimLp.leftMargin = -dp(4);
         rimLp.topMargin = -dp(4);
         if (!isGear && !isMore) focusHolder.addView(glassOverlay, rimLp);
-        // A narrow silver reflection sweeps across the selected icon's outer glass rim.
-        View focusGlint = new View(host);
-        GradientDrawable glintPaint = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
-                new int[]{0x00FFFFFF, 0xB8FFFFFF, 0x00FFFFFF});
-        glintPaint.setCornerRadius(dp(4));
-        focusGlint.setBackground(glintPaint);
-        focusGlint.setAlpha(0f);
-        focusGlint.setFocusable(false);
-        focusGlint.setClickable(false);
-        FrameLayout.LayoutParams glintLp = new FrameLayout.LayoutParams(dp(16), size);
-        glintLp.leftMargin = 0;
-        if (!isGear && !isMore) focusHolder.addView(focusGlint, glintLp);
-
 
         tile.setOnFocusChangeListener((v, has) -> {
-            focusHolder.setPivotX(size / 2f);
-            focusHolder.setPivotY(size / 2f);
+            v.setPivotX(v.getWidth() > 0 ? v.getWidth() / 2f : size / 2f);
+            v.setPivotY(v.getHeight() > 0 ? v.getHeight() / 2f : size / 2f);
             v.setForeground((isGear || isMore) && has ? focusRing : null);
-            focusGlint.animate().cancel();
-            if (has && !isGear && !isMore) {
-                focusGlint.setTranslationX(0f);
-                focusGlint.setAlpha(0.8f);
-                focusGlint.animate().translationX(size - dp(16)).alpha(0f).setDuration(420).start();
-            } else focusGlint.setAlpha(0f);
-            frostFocus.animate().cancel();
-            if (!isGear && !isMore) {
-                if (has) frostFocus.setTranslationX(index >= focusedDockIdx ? dp(9) : -dp(9));
-                frostFocus.animate().translationX(0f).alpha(has ? 0.48f : 0f)
-                        .setDuration(has ? 230 : 130).setInterpolator(MainActivity.EASE).start();
-            }
             glassOverlay.animate().cancel();
-            if (!isGear && !isMore) glassOverlay.animate().alpha(has ? 0.08f : 0f)
+            if (!isGear && !isMore) glassOverlay.animate().alpha(has ? 1f : 0f)
                     .setDuration(140).setInterpolator(MainActivity.EASE).start();
             if (has) {
-                // Keep focus glass clipped to the actual app tile; no detached overlay.
-                if (movingFocusGlass != null) movingFocusGlass.setVisibility(View.INVISIBLE);
                 focusedDockIdx = index;
                 host.prefs.edit().putInt("last_dock_idx", index).apply();
                 if (moveDockIdx >= 0) {
@@ -1052,12 +966,12 @@ final class SceneHome {
                 } else {
                     updateDockTooltip(v, a.label);
                 }
-                focusHolder.animate().withLayer().scaleX(1.13f).scaleY(1.13f)
+                v.animate().withLayer().scaleX(1.13f).scaleY(1.13f)
                         .translationY(0f)
                         .translationZ(isGear || isMore ? 0f : dp(8))
                         .setDuration(190).setInterpolator(MainActivity.LIFT).start();
             } else {
-                focusHolder.animate().withLayer().scaleX(1f).scaleY(1f)
+                v.animate().withLayer().scaleX(1f).scaleY(1f)
                         .translationY(0f)
                         .translationZ(0f)
                         .setDuration(150).setInterpolator(MainActivity.EASE).start();
