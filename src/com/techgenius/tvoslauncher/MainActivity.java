@@ -833,6 +833,8 @@ public class MainActivity extends Activity {
         prayerLp.topMargin = dp(24 + WeatherView.COMPACT_H + 12);
         prayerLp.leftMargin = dockOuter;
         root.addView(prayerCard, prayerLp);
+        prayerCard.bringToFront();
+        prayerCard.setOnClickListener(v -> showPrayerPanel());
         prayerCard.setVisibility(PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
 
         footballCard = FootballScores.createView(this);
@@ -4589,6 +4591,35 @@ public class MainActivity extends Activity {
             if (nd != null && panel.isAttachedToWindow()) panel.setData(nd);
             updateWeather();
         });
+    }
+
+    /** Prayer popover uses the same fixed root layer and animation as the weather forecast. */
+    void showPrayerPanel() {
+        dropPicker();
+        stopSway(null);
+        popoverReturn = prayerCard;
+        FrameLayout layer = new FrameLayout(this);
+        layer.setClickable(true);
+        View shade = new View(this);
+        shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{0xA6000000, 0x4D000000, 0x00000000}));
+        layer.addView(shade, new FrameLayout.LayoutParams(screenW * 3 / 5, -1, Gravity.START));
+        View panel = PrayerShortcut.createPanel(this);
+        FrameLayout.LayoutParams plp = new FrameLayout.LayoutParams(dp(WeatherView.FULL_W), dp(WeatherView.FULL_H),
+                Gravity.TOP | Gravity.START);
+        plp.topMargin = dp(24);
+        plp.leftMargin = dockOuter;
+        layer.addView(panel, plp);
+        root.addView(layer, match());
+        pickerLayer = layer;
+        pickerCells = new ArrayList<>();
+        pickerCells.add(panel);
+        layer.setAlpha(0f);
+        panel.setTranslationY(-dp(10));
+        layer.animate().alpha(1f).setDuration(200).start();
+        panel.animate().translationY(0).setDuration(260).setInterpolator(EASE).start();
+        panel.requestFocus();
+        PrayerTimes.refresh(this, null, false);
     }
 
     // ---------------------------------------------------------------- profiles
