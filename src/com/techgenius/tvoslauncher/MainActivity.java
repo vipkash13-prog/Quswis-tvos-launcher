@@ -177,7 +177,7 @@ public class MainActivity extends Activity {
         }
     };
     boolean shouldShowFootball() {
-        return FootballScores.enabled(this) && !folderMode && (sceneHome == null || !sceneHome.moreExpanded) && (scroll == null || scroll.getScrollY() < dp(65));
+        return FootballScores.enabled(this) && !folderMode && (Scenes.isScenesLook(this) || sceneHome == null || !sceneHome.moreExpanded) && (scroll == null || scroll.getScrollY() < dp(65));
     }
     void syncFootballVisibility() {
         if (footballCard != null) footballCard.setVisibility(pickerLayer != null && shouldShowFootball() ? View.VISIBLE : View.GONE);
