@@ -217,71 +217,6 @@ public class MainActivity extends Activity {
     };
     ShelfScrollView scroll;
     LinearLayout content;
-    View movingClassicGlass;
-    View classicGlassTarget;
-    private void syncClassicGlassOnScroll() {
-        if (movingClassicGlass == null || classicGlassTarget == null) return;
-        View target = classicGlassTarget;
-        if (!target.isFocused()) {
-            movingClassicGlass.setVisibility(View.INVISIBLE);
-            return;
-        }
-        android.graphics.Rect rect = new android.graphics.Rect();
-        if (!target.getGlobalVisibleRect(rect) || rect.isEmpty()) {
-            movingClassicGlass.setVisibility(View.INVISIBLE);
-            return;
-        }
-        int[] origin = new int[2];
-        root.getLocationOnScreen(origin);
-        movingClassicGlass.animate().cancel();
-        movingClassicGlass.setX(rect.left - origin[0] - dp(3));
-        movingClassicGlass.setY(rect.top - origin[1] - dp(3));
-        ViewGroup.LayoutParams params = movingClassicGlass.getLayoutParams();
-        int w = rect.width() + dp(6), h = rect.height() + dp(6);
-        if (params.width != w || params.height != h) {
-            params.width = w;
-            params.height = h;
-            movingClassicGlass.setLayoutParams(params);
-        }
-    }
-
-    private void moveClassicGlassTo(View tile) {
-        if (root == null || movingClassicGlass == null || tile == null) return;
-        classicGlassTarget = tile;
-        tile.post(() -> {
-            if (!tile.isFocused() || movingClassicGlass == null) return;
-            int[] pos = new int[2], base = new int[2];
-            tile.getLocationOnScreen(pos);
-            root.getLocationOnScreen(base);
-            // Convert screen coordinates into the root's drawing space.
-            // This also accounts for the current scroll offset.
-            android.graphics.Rect visible = new android.graphics.Rect();
-            if (!tile.getGlobalVisibleRect(visible)) {
-                movingClassicGlass.setVisibility(View.INVISIBLE);
-                return;
-            }
-            float x = visible.left - base[0] - dp(3);
-            float y = visible.top - base[1] - dp(3);
-            ViewGroup.LayoutParams glassParams = movingClassicGlass.getLayoutParams();
-            int targetW = visible.width() + dp(6);
-            int targetH = visible.height() + dp(6);
-            if (glassParams.width != targetW || glassParams.height != targetH) {
-                glassParams.width = targetW;
-                glassParams.height = targetH;
-                movingClassicGlass.setLayoutParams(glassParams);
-            }
-            if (movingClassicGlass.getVisibility() != View.VISIBLE) {
-                movingClassicGlass.setX(x);
-                movingClassicGlass.setY(y);
-                movingClassicGlass.setAlpha(0f);
-                movingClassicGlass.setVisibility(View.VISIBLE);
-            }
-            movingClassicGlass.animate().cancel();
-            movingClassicGlass.animate().x(x).y(y).alpha(0.6f)
-                    .setDuration(245).setInterpolator(EASE).start();
-        });
-    }
-
     LinearLayout clockBox;
     LinearLayout titleBox;
     View chevron;
@@ -450,7 +385,6 @@ public class MainActivity extends Activity {
         if (folderMode) {
             folderMode = false;
             syncFootballVisibility();
-            // Shared overlay is temporarily disabled; do not reposition it on scroll.
             switcher.setAlpha(1f);
             weatherCard.setAlpha(weatherAlpha());
             launchTile = null;
@@ -675,20 +609,6 @@ public class MainActivity extends Activity {
         scroll.addView(content, new ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         root.addView(scroll, match());
-        // A single moving glass focus surface shared by every classic tile.
-        movingClassicGlass = new View(this);
-        GradientDrawable sharedGlass = new GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                new int[]{0x4EF4FAFF, 0x10FFFFFF, 0x35B8DFFF});
-        sharedGlass.setCornerRadius(radius + dp(5));
-        sharedGlass.setStroke(dp(2), 0x8CFFFFFF);
-        movingClassicGlass.setBackground(sharedGlass);
-        movingClassicGlass.setFocusable(false);
-        movingClassicGlass.setClickable(false);
-        movingClassicGlass.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        movingClassicGlass.setVisibility(View.INVISIBLE);
-        root.addView(movingClassicGlass, new FrameLayout.LayoutParams(tileW + dp(10), tileH + dp(10)));
-
 
         // Top shelf: header shown only inside the More Apps folder.
         FrameLayout shelf = new FrameLayout(this);
@@ -1055,17 +975,6 @@ public class MainActivity extends Activity {
             tile.addView(iv, new FrameLayout.LayoutParams(s, s, Gravity.CENTER));
         }
 
-        // Frosted focus layer stays INSIDE the clipped artwork, preserving the app's shape.
-        View frostFocus = new View(this);
-        GradientDrawable frostPaint = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{0x69F4FAFF, 0x1AFFFFFF, 0x3CBBDFFF});
-        frostPaint.setCornerRadius(radius);
-        frostFocus.setBackground(frostPaint);
-        frostFocus.setAlpha(0f);
-        frostFocus.setFocusable(false);
-        frostFocus.setClickable(false);
-        tile.addView(frostFocus, match());
-
         // tvOS focus has no outline ring: a soft top sheen on the hardware-cached tile.
         View topSheen = new View(this);
         topSheen.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
@@ -1079,9 +988,9 @@ public class MainActivity extends Activity {
         focusHolder.setClipToPadding(false);
         focusHolder.addView(tile, new FrameLayout.LayoutParams(tileW, tileH));
         GradientDrawable silverGlass = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{0x66FFFFFF, 0x19FFFFFF, 0x50DCEEFF});
+                new int[]{0x35FFFFFF, 0x09FFFFFF, 0x32C6E3FF});
         silverGlass.setCornerRadius(radius + dp(4));
-        silverGlass.setStroke(dp(1), 0x4AFFFFFF);
+        silverGlass.setStroke(dp(3), 0xFFF7FAFF);
         View silverFocus = new View(this);
         silverFocus.setBackground(silverGlass);
         silverFocus.setAlpha(0f);
@@ -1091,19 +1000,6 @@ public class MainActivity extends Activity {
         ringLp.leftMargin = -dp(4);
         ringLp.topMargin = -dp(4);
         focusHolder.addView(silverFocus, ringLp);
-        // A narrow silver reflection sweeps across the selected icon's outer glass rim.
-        View focusGlint = new View(this);
-        GradientDrawable glintPaint = new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
-                new int[]{0x00FFFFFF, 0xB8FFFFFF, 0x00FFFFFF});
-        glintPaint.setCornerRadius(dp(4));
-        focusGlint.setBackground(glintPaint);
-        focusGlint.setAlpha(0f);
-        focusGlint.setFocusable(false);
-        focusGlint.setClickable(false);
-        FrameLayout.LayoutParams glintLp = new FrameLayout.LayoutParams(dp(16), tileH);
-        glintLp.leftMargin = 0;
-        focusHolder.addView(focusGlint, glintLp);
-
 
         TextView label = text(15, Ui.font(this, "medium"), 0f);
         label.setText(a.label);
@@ -1119,42 +1015,27 @@ public class MainActivity extends Activity {
                 cell.setTranslationZ(dp(10));
                 if (moveIndex >= 0) {
                     // Rebuilt while moving: appear already lifted, or every step would "pop".
-                    focusHolder.setScaleX(1.035f);
-                    focusHolder.setScaleY(1.035f);
-                    focusHolder.setTranslationZ(dp(18));
+                    v.setScaleX(1.035f);
+                    v.setScaleY(1.035f);
+                    v.setTranslationZ(dp(18));
                     label.setAlpha(1f);
                     label.setTranslationY(tileH * (FOCUS_SCALE - 1f) / 2f);
                 } else {
-                    focusHolder.animate().scaleX(1.035f).scaleY(1.035f).translationZ(dp(18)).setDuration(110)
+                    v.animate().scaleX(1.035f).scaleY(1.035f).translationZ(dp(18)).setDuration(110)
                             .setInterpolator(LIFT).start();
                     label.animate().alpha(1f).translationY(tileH * (FOCUS_SCALE - 1f) / 2f).setDuration(160).start();
                 }
                 topSheen.setAlpha(0f);
-                focusGlint.animate().cancel();
-                focusGlint.setTranslationX(0f);
-                focusGlint.setAlpha(0.8f);
-                focusGlint.animate().translationX(tileW - dp(16)).alpha(0f).setDuration(420).start();
-                frostFocus.animate().cancel();
-                // Directional glass arrival: slides into place while fading in.
-                frostFocus.setTranslationX(index >= focusedIndex ? dp(11) : -dp(11));
-                frostFocus.animate().translationX(0f).alpha(0.50f)
-                        .setDuration(230).setInterpolator(EASE).start();
                 silverFocus.animate().cancel();
-                silverFocus.animate().alpha(0.06f).setDuration(160).setInterpolator(EASE).start();
-                // Disable the detached shared overlay until its coordinate system is fixed.
-                if (movingClassicGlass != null) movingClassicGlass.setVisibility(View.INVISIBLE);
+                silverFocus.animate().alpha(1f).setDuration(160).setInterpolator(EASE).start();
                 onTileFocused(index);
             } else {
                 cell.setTranslationZ(0);
                 stopSway(v);
-                focusHolder.animate().scaleX(1f).scaleY(1f).translationZ(0).setDuration(140).setInterpolator(EASE).start();
+                v.animate().scaleX(1f).scaleY(1f).translationZ(0).setDuration(140).setInterpolator(EASE).start();
                 label.animate().alpha(0f).translationY(0).setDuration(120).start();
                 topSheen.setAlpha(0f);
-                frostFocus.animate().cancel();
-                frostFocus.animate().alpha(0f).translationX(0f).setDuration(130).setInterpolator(EASE).start();
                 silverFocus.animate().cancel();
-                focusGlint.animate().cancel();
-                focusGlint.setAlpha(0f);
                 silverFocus.animate().alpha(0f).setDuration(110).setInterpolator(EASE).start();
             }
         });
@@ -3073,16 +2954,7 @@ public class MainActivity extends Activity {
         focusedIndex = index;
         boolean dock = hasDock() && index < COLS;
         setHeroShown(dock && !heroItems.isEmpty());
-        // Avoid repeated competing smooth-scroll animations during rapid D-pad focus changes.
-        // Only scroll when the focused tile is outside the currently visible viewport.
-        View focusedTile = index >= 0 && index < tiles.size() ? tiles.get(index) : null;
-        if (focusedTile != null && scroll != null) {
-            android.graphics.Rect visible = new android.graphics.Rect();
-            boolean onScreen = focusedTile.getGlobalVisibleRect(visible);
-            if (!onScreen || visible.height() < focusedTile.getHeight() / 2) {
-                scrollToRow(index / COLS);
-            }
-        }
+        scrollToRow(index / COLS);
         handler.removeCallbacks(shelfUpdate);
         handler.postDelayed(shelfUpdate, 90);
     }
@@ -3345,24 +3217,6 @@ public class MainActivity extends Activity {
                 else goTop();
             }
             return true;
-        }
-        // Deterministic navigation between app tiles. Only consume a direction when
-        // a real adjacent tile exists; otherwise let Android reach weather/status controls.
-        if (down && (k == KeyEvent.KEYCODE_DPAD_LEFT || k == KeyEvent.KEYCODE_DPAD_RIGHT
-                || k == KeyEvent.KEYCODE_DPAD_UP || k == KeyEvent.KEYCODE_DPAD_DOWN)) {
-            int current = tiles.indexOf(getCurrentFocus());
-            if (current >= 0) {
-                int next = -1;
-                if (k == KeyEvent.KEYCODE_DPAD_LEFT && current % COLS > 0) next = current - 1;
-                if (k == KeyEvent.KEYCODE_DPAD_RIGHT && current % COLS < COLS - 1
-                        && current + 1 < tiles.size()) next = current + 1;
-                if (k == KeyEvent.KEYCODE_DPAD_UP && current >= COLS) next = current - COLS;
-                if (k == KeyEvent.KEYCODE_DPAD_DOWN && current + COLS < tiles.size()) next = current + COLS;
-                if (next >= 0 && next < tiles.size()) {
-                    tiles.get(next).requestFocus();
-                    return true;
-                }
-            }
         }
         return super.dispatchKeyEvent(ev);
     }
