@@ -16,6 +16,9 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 /** Prayer times from AlAdhan for a selected country and city. */
 final class PrayerTimes {
@@ -82,17 +85,28 @@ final class PrayerTimes {
  }
  static void refresh(Context context,LinearLayout view,boolean force){
   if(!enabled(context)){if(view!=null)view.setVisibility(View.GONE);return;}if(view!=null)view.setVisibility(View.VISIBLE);
-  SharedPreferences p=prefs(context);String key=city(context)+"|"+countryApi(context);
+  SharedPreferences p=prefs(context);String key=city(context)+"|"+countryApi(context)+"|"+prefs(context).getString("latitude","")+"|"+prefs(context).getString("longitude","");
   String cached=p.getString(K_DATA,null);long at=p.getLong(K_AT,0);
+  String today=new SimpleDateFormat("yyyy-MM-dd",Locale.US).format(new Date());
+  boolean sameDay=today.equals(p.getString("cache_date",""));
   if(view!=null&&cached!=null&&key.equals(p.getString(K_KEY,"")))show(view,cached);
   else if(view!=null)show(view,"{}");
-  if(busy||(!force&&key.equals(p.getString(K_KEY,""))&&System.currentTimeMillis()-at<3600000L))return;
+  if(busy||(!force&&sameDay&&key.equals(p.getString(K_KEY,""))&&System.currentTimeMillis()-at<3600000L))return;
   busy=true;Context app=context.getApplicationContext();
   new Thread(()->{
    String data=null;HttpURLConnection conn=null;
    try{
-    String url="https://api.aladhan.com/v1/timingsByCity?city="+URLEncoder.encode(cityApi(app),"UTF-8")+
-      "&country="+URLEncoder.encode(countryApi(app),"UTF-8")+"&method=4";
+    SharedPreferences current=prefs(app);
+    String latitude=current.getString("latitude","");
+    String longitude=current.getString("longitude","");
+    String url;
+    if(!latitude.isEmpty()&&!longitude.isEmpty()){
+     url="https://api.aladhan.com/v1/timings?latitude="+URLEncoder.encode(latitude,"UTF-8")+
+       "&longitude="+URLEncoder.encode(longitude,"UTF-8")+"&method=4";
+    }else{
+     url="https://api.aladhan.com/v1/timingsByCity?city="+URLEncoder.encode(cityApi(app),"UTF-8")+
+       "&country="+URLEncoder.encode(countryApi(app),"UTF-8")+"&method=4";
+    }
     conn=(HttpURLConnection)new URL(url).openConnection();conn.setConnectTimeout(10000);conn.setReadTimeout(10000);
     conn.setRequestProperty("User-Agent",Weather.UA);
     if(conn.getResponseCode()==200){
@@ -100,7 +114,7 @@ final class PrayerTimes {
      StringBuilder b=new StringBuilder();String line;while((line=r.readLine())!=null)b.append(line);r.close();
      JSONObject root=new JSONObject(b.toString());
      if(root.optInt("code")==200){data=root.getJSONObject("data").getJSONObject("timings").toString();
-      p.edit().putString(K_DATA,data).putLong(K_AT,System.currentTimeMillis()).putString(K_KEY,key).apply();
+      p.edit().putString(K_DATA,data).putLong(K_AT,System.currentTimeMillis()).putString(K_KEY,key).putString("cache_date",new SimpleDateFormat("yyyy-MM-dd",Locale.US).format(new Date())).apply();
       PrayerScheduler.schedule(app);}
     }
    }catch(Exception ignored){}finally{if(conn!=null)conn.disconnect();}
