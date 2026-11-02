@@ -4662,8 +4662,38 @@ public class MainActivity extends Activity {
 
     boolean weatherOpen;
 
+    /** True while the system Control Panel window is open over Home: the info shortcuts must not show through it. */
+    boolean infoHudHidden;
+
+    /** Hides or restores the weather / prayer / football shortcuts while the Control Panel window is open. */
+    void hideInfoHud(boolean hide) {
+        infoHudHidden = hide;
+        View[] hud = {weatherCard, prayerCard, footballShortcut};
+        for (View v : hud) {
+            if (v == null) continue;
+            v.animate().cancel();
+            if (v.getVisibility() == View.VISIBLE) v.setAlpha(hide ? 0f : weatherAlpha());
+        }
+    }
+
+    /** Draws Home for a blurred backdrop without the info shortcuts, so they are not baked into the blur. */
+    void drawRootWithoutInfoHud(Canvas c) {
+        View[] hud = {weatherCard, prayerCard, footballShortcut};
+        float[] saved = new float[hud.length];
+        for (int i = 0; i < hud.length; i++) {
+            if (hud[i] == null) continue;
+            saved[i] = hud[i].getAlpha();
+            hud[i].setAlpha(0f);
+        }
+        try {
+            root.draw(c);
+        } finally {
+            for (int i = 0; i < hud.length; i++) if (hud[i] != null) hud[i].setAlpha(saved[i]);
+        }
+    }
+
     float weatherAlpha() {
-        if (folderMode || weatherOpen || pickerLayer != null || menuLayer != null) return 0f;
+        if (infoHudHidden || folderMode || weatherOpen || pickerLayer != null || menuLayer != null) return 0f;
         return Scenes.isScenesLook(this) ? 1f : clockAlpha();
     }
 
@@ -4823,7 +4853,7 @@ public class MainActivity extends Activity {
             Bitmap snap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
             Canvas c = new Canvas(snap);
             c.scale(w / (float) screenW, h / (float) screenH);
-            root.draw(c);
+            drawRootWithoutInfoHud(c);
             Bitmap blurred = Ui.blur(snap, w / 2, h / 2, 4, 3);
             snap.recycle();
             if (blurred != null) iv.setImageBitmap(blurred);

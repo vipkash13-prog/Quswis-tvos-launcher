@@ -347,6 +347,12 @@ public class SettingsActivity extends Activity {
         sideLabels.clear();
         sidePillBgs.clear();
 
+        // Fit every section on screen: the rows share the height left under the title, so the last
+        // ones are never pushed off the bottom or under the hint bar.
+        int sideAvail = Ui.screen(this).y - u(28) - u(22) - u(56) - u(12);
+        int sideSlot = sideAvail / Math.max(1, SIDEBAR_SECTIONS.length);
+        final int sideRowH = Math.max(u(24), Math.min(u(33), sideSlot - u(2)));
+
         for (int i = 0; i < SIDEBAR_SECTIONS.length; i++) {
             final String secKey = SIDEBAR_SECTIONS[i][0];
             final String glyphName = SIDEBAR_SECTIONS[i][1];
@@ -356,7 +362,7 @@ public class SettingsActivity extends Activity {
             row.setGravity(Gravity.CENTER_VERTICAL);
             row.setFocusable(true);
             row.setClickable(true);
-            row.setPadding(u(8), u(5), u(14), u(5));
+            row.setPadding(u(8), u(2), u(14), u(2));
 
             GradientDrawable pillBg = new GradientDrawable();
             pillBg.setCornerRadius(u(12));
@@ -396,7 +402,7 @@ public class SettingsActivity extends Activity {
                     if (!secKey.equals(currentSection) || showingHiddenApps) {
                         showingHiddenApps = false;
                         currentSection = secKey;
-                        rebuildMainRows();
+                        scheduleRebuild();
                     }
                     updateSidebarStyles();
                     updateHintText(false);
@@ -410,7 +416,7 @@ public class SettingsActivity extends Activity {
             row.setOnClickListener(v -> focusFirstRow());
 
             LinearLayout.LayoutParams rlp = new LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT, u(33));
+                    ViewGroup.LayoutParams.MATCH_PARENT, sideRowH);
             rlp.bottomMargin = u(2);
             sideList.addView(row, rlp);
 
@@ -478,11 +484,33 @@ public class SettingsActivity extends Activity {
         }
     }
 
+    private final android.os.Handler uiHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private boolean rebuildPending = false;
+    private final Runnable rebuildTask = () -> {
+        rebuildPending = false;
+        rebuildMainRows();
+    };
+
+    /** Moving quickly through the sidebar only builds the page you stop on, so the remote stays responsive. */
+    private void scheduleRebuild() {
+        uiHandler.removeCallbacks(rebuildTask);
+        rebuildPending = true;
+        uiHandler.postDelayed(rebuildTask, 90);
+    }
+
+    private void flushRebuild() {
+        if (!rebuildPending) return;
+        uiHandler.removeCallbacks(rebuildTask);
+        rebuildPending = false;
+        rebuildMainRows();
+    }
+
     private void focusFirstRow() {
         focusRowAtIndex(0);
     }
 
     private void focusRowAtIndex(int targetIdx) {
+        flushRebuild();
         View target = null;
         int count = 0;
         for (int i = 0; i < list.getChildCount(); i++) {
@@ -2856,6 +2884,7 @@ public class SettingsActivity extends Activity {
         MainActivity.navSound(this, ev);
         int k = ev.getKeyCode();
         boolean down = ev.getAction() == KeyEvent.ACTION_DOWN;
+        if (k != KeyEvent.KEYCODE_DPAD_UP && k != KeyEvent.KEYCODE_DPAD_DOWN) flushRebuild();
 
         // If a scene row is picked up for moving, Up/Down moves it in the scene list
         if (liftedSceneId != null) {
@@ -3022,6 +3051,7 @@ public class SettingsActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        uiHandler.removeCallbacks(rebuildTask);
         ButtonMapper.captureListener = null;
         super.onDestroy();
     }

@@ -118,6 +118,7 @@ public final class ControlPanelOverlay {
             try {
                 wm.removeViewImmediate(root);
             } catch (Exception ignored) { }
+            if (MainActivity.activeInstance != null) MainActivity.activeInstance.hideInfoHud(false);
         }
     }
 
@@ -138,7 +139,7 @@ public final class ControlPanelOverlay {
                         w, h, android.graphics.Bitmap.Config.ARGB_8888);
                 android.graphics.Canvas cv = new android.graphics.Canvas(snap);
                 cv.scale(w / (float) screenW, h / (float) screenH);
-                MainActivity.activeInstance.root.draw(cv);
+                MainActivity.activeInstance.drawRootWithoutInfoHud(cv);
                 android.graphics.Bitmap blurred = Ui.blur(snap, w / 2, h / 2, 4, 3);
                 snap.recycle();
                 if (blurred != null) return blurred;
@@ -269,6 +270,8 @@ public final class ControlPanelOverlay {
         activeWm = wm;
         activeRoot = layer;
         activeCells = cells;
+        // Home's weather / prayer / football shortcuts must not show through the panel.
+        if (MainActivity.activeInstance != null) MainActivity.activeInstance.hideInfoHud(true);
 
         layer.setAlpha(0f);
         panel.setTranslationY(-Math.round(10 * unit));
