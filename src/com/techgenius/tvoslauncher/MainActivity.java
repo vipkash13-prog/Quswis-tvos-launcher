@@ -3351,6 +3351,12 @@ public class MainActivity extends Activity {
             }
             return super.dispatchKeyEvent(ev);
         }
+        // Scenes owns all home D-pad routes, including the top-right controls.
+        // The classic lens handler below otherwise consumes RIGHT/UP first.
+        if (Scenes.isScenesLook(this) && sceneHome != null) {
+            if (sceneHome.dispatchKey(ev)) return true;
+            return super.dispatchKeyEvent(ev);
+        }
         // Let the remote reach the fixed football lens from the main TV interface.
         // The regular shelf and scene key handlers otherwise consume DPAD navigation.
         if (footballShortcut != null && footballShortcut.getVisibility() == View.VISIBLE
@@ -3393,10 +3399,6 @@ public class MainActivity extends Activity {
                 if (pressed) footballShortcut.requestFocus();
                 return true;
             }
-        }
-        if (Scenes.isScenesLook(this) && sceneHome != null) {
-            if (sceneHome.dispatchKey(ev)) return true;
-            return super.dispatchKeyEvent(ev);
         }
         if (heroKeys(ev)) return true;
         int k = ev.getKeyCode();

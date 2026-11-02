@@ -211,6 +211,8 @@ final class SceneHome {
         moonGlass.rimStrength = 0.45f;
         moonBtn.setBackground(moonGlass);
         moonBtn.setFocusable(true);
+        moonBtn.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
+        moonBtn.setContentDescription(I18n.s(host, "Control Panel", "Kontrol Paneli"));
         moonBtn.setClickable(true);
         moonBtn.setLongClickable(true);
 
@@ -1922,10 +1924,17 @@ final class SceneHome {
                 return true;
             }
             if (k == KeyEvent.KEYCODE_DPAD_UP) {
-                if (down && f == football && prayerVisible) prayer.requestFocus();
+                if (down) {
+                    if (f == football && prayerVisible) prayer.requestFocus();
+                    else moonBtn.requestFocus();
+                }
                 return true;
             }
-            if (k == KeyEvent.KEYCODE_DPAD_LEFT || k == KeyEvent.KEYCODE_DPAD_RIGHT) return true;
+            if (k == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                if (down) moonBtn.requestFocus();
+                return true;
+            }
+            if (k == KeyEvent.KEYCODE_DPAD_LEFT) return true;
         }
 
         if (k == KeyEvent.KEYCODE_MENU && !down) {
@@ -1958,14 +1967,25 @@ final class SceneHome {
         // Top Bar navigation
         boolean whoVisible = whoBar != null && whoBar.getVisibility() == View.VISIBLE;
         if (f == whoBar || f == moonBtn) {
+            if (f == moonBtn && (k == KeyEvent.KEYCODE_DPAD_CENTER
+                    || k == KeyEvent.KEYCODE_ENTER || k == KeyEvent.KEYCODE_NUMPAD_ENTER)) {
+                if (down && ev.getRepeatCount() == 0) moonBtn.performClick();
+                return true;
+            }
             if (k == KeyEvent.KEYCODE_DPAD_RIGHT && f == whoBar) {
                 if (down) moonBtn.requestFocus();
                 return true;
             }
             if (k == KeyEvent.KEYCODE_DPAD_LEFT && f == moonBtn) {
-                if (down && whoVisible) whoBar.requestFocus();
+                if (down) {
+                    if (whoVisible) whoBar.requestFocus();
+                    else if (prayerVisible) prayer.requestFocus();
+                    else if (footballVisible) football.requestFocus();
+                    else focusDock(focusedDockIdx);
+                }
                 return true;
             }
+            if (k == KeyEvent.KEYCODE_DPAD_RIGHT && f == moonBtn) return true;
             if (k == KeyEvent.KEYCODE_DPAD_DOWN) {
                 if (down) {
                     if (shelfBox.getVisibility() == View.VISIBLE && !shelfCards.isEmpty()) {
@@ -2009,7 +2029,10 @@ final class SceneHome {
                 return true;
             }
             if (k == KeyEvent.KEYCODE_DPAD_RIGHT) {
-                if (down && dIdx + 1 < dockTiles.size()) focusDock(dIdx + 1);
+                if (down) {
+                    if (dIdx + 1 < dockTiles.size()) focusDock(dIdx + 1);
+                    else moonBtn.requestFocus();
+                }
                 return true;
             }
             if (k == KeyEvent.KEYCODE_DPAD_UP) {
@@ -2017,6 +2040,9 @@ final class SceneHome {
                     if (moreExpanded && dIdx >= cols) {
                         // Inside the expanded apps grid, UP moves to the previous row.
                         focusDock(dIdx - cols);
+                    } else if (dIdx == dockTiles.size() - 1
+                            || (dIdx < dockEntries.size() && GEAR_KEY.equals(dockEntries.get(dIdx).key))) {
+                        moonBtn.requestFocus();
                     } else if (prayerVisible) prayer.requestFocus();
                     else if (footballVisible) football.requestFocus();
                     else if (dIdx >= cols) {
