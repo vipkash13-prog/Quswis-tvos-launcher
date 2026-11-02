@@ -15,11 +15,13 @@ import android.view.ViewTreeObserver;
 final class AppFocusIndicator extends View {
     private final MainActivity host;
     private final float unit;
-    private final RectF frame=new RectF(), from=new RectF(), destination=new RectF();
+    private final RectF frame=new RectF(), destination=new RectF(), anchorBounds=new RectF();
+    private final FocusSpring springX=new FocusSpring(),springY=new FocusSpring();
     private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);
-    private View target;
-    private ValueAnimator motion,fade;
-    private float progress=1f,opacity,corner,fromCorner,toCorner;
+    private View target,anchor;
+    private ValueAnimator fade;
+    private float opacity,corner,lastAnchorX,lastAnchorY;
+    private long lastFrameNanos;
     private boolean shown;
     private final ViewTreeObserver.OnPreDrawListener follow=this::followFocus;
     private final ViewTreeObserver.OnGlobalFocusChangeListener focusChanged=(oldView,newView)->invalidate();
@@ -40,7 +42,7 @@ final class AppFocusIndicator extends View {
             getViewTreeObserver().removeOnPreDrawListener(follow);
             getViewTreeObserver().removeOnGlobalFocusChangeListener(focusChanged);
         }
-        cancelMotion();if(fade!=null)fade.cancel();fade=null;target=null;shown=false;opacity=0;
+        if(fade!=null)fade.cancel();fade=null;target=null;anchor=null;shown=false;opacity=0;lastFrameNanos=0;
         super.onDetachedFromWindow();
     }
     private boolean allowed(){
@@ -56,55 +58,53 @@ final class AppFocusIndicator extends View {
         if(!allowed()){hide(true);return true;}
         View next=host.getCurrentFocus();
         if(!isApp(next)){hide(false);return true;}
-        boolean changed=next!=target||!shown;
-        if(changed){
-            cancelMotion();from.set(frame);fromCorner=corner;
-            target=next;shown=true;
+        boolean scenes=Scenes.isScenesLook(host);
+        View container=scenes?host.sceneHome.dockBox:host.content;
+        anchorBounds.setEmpty();
+        if(!mapToRoot(container,anchorBounds)){hide(true);return true;}
+        boolean sameSpace=anchor==container;
+        if(sameSpace){
+            // Move both spring positions with the content immediately. Scrolling is not a new spring target.
+            springX.shift(anchorBounds.left-lastAnchorX);
+            springY.shift(anchorBounds.top-lastAnchorY);
         }
-        if(!measureTarget(next)){hide(true);return true;}
-        toCorner=(Scenes.isScenesLook(host)?13f*unit:host.radius)*Math.max(next.getScaleX(),next.getScaleY())+3f*unit;
-        if(changed){
-            if(opacity<0.01f||frame.isEmpty()){
-                frame.set(destination);corner=toCorner;progress=1f;
-            }else{
-                progress=0f;
-                ValueAnimator animation=ValueAnimator.ofFloat(0f,1f);motion=animation;
-                animation.setDuration(220);animation.setInterpolator(MainActivity.EASE);
-                animation.addUpdateListener(a->{progress=(float)a.getAnimatedValue();postInvalidateOnAnimation();});
-                animation.addListener(new AnimatorListenerAdapter(){
-                    @Override public void onAnimationEnd(Animator a){if(motion==a){motion=null;progress=1f;}}
-                });
-                animation.start();
-            }
-            fadeTo(1f,130);
+        lastAnchorX=anchorBounds.left;lastAnchorY=anchorBounds.top;anchor=container;
+        destination.set(0,0,next.getWidth(),next.getHeight());
+        if(!mapToRoot(next,destination)){hide(true);return true;}
+        float cx=destination.centerX(),cy=destination.centerY();
+        // Fit the final zoomed artwork immediately, as in the reference launcher.
+        float scale=scenes?1.13f:1.035f;
+        float width=destination.width()/Math.max(0.1f,next.getScaleX())*scale+6f*unit;
+        float height=destination.height()/Math.max(0.1f,next.getScaleY())*scale+6f*unit;
+        corner=(scenes?13f*unit:host.radius)*scale+3f*unit;
+        long now=android.os.SystemClock.elapsedRealtimeNanos();
+        double dt=lastFrameNanos==0?0:(now-lastFrameNanos)/1_000_000_000.0;
+        if(next!=target&&dt>0.1)dt=0; // no first-frame jump after a long idle
+        dt=Math.max(0,Math.min(0.064,dt));
+        if(!shown||!sameSpace){
+            springX.snap(cx);springY.snap(cy);fadeTo(1f,180);
         }
-        updateFrame();
+        shown=true;target=next;lastFrameNanos=now;
+        boolean settledX=springX.advance(cx,dt,0.2f*unit);
+        boolean settledY=springY.advance(cy,dt,0.2f*unit);
+        frame.set((float)springX.position-width/2f,(float)springY.position-height/2f,
+                (float)springX.position+width/2f,(float)springY.position+height/2f);
+        if(!settledX||!settledY)postInvalidateOnAnimation();
         return true;
     }
-    /** Map all ancestor matrices and scroll offsets into the root's coordinate space. */
-    private boolean measureTarget(View view){
-        destination.set(0,0,view.getWidth(),view.getHeight());View node=view;
+    /** Map ancestor transforms and scrolling into the root's coordinate space. */
+    private boolean mapToRoot(View view,RectF bounds){
+        if(view==null)return false;View node=view;
         while(node!=host.root){
-            node.getMatrix().mapRect(destination);destination.offset(node.getLeft(),node.getTop());
+            node.getMatrix().mapRect(bounds);bounds.offset(node.getLeft(),node.getTop());
             ViewParent parent=node.getParent();if(!(parent instanceof View))return false;
-            node=(View)parent;destination.offset(-node.getScrollX(),-node.getScrollY());
+            node=(View)parent;bounds.offset(-node.getScrollX(),-node.getScrollY());
         }
-        destination.inset(-3f*unit,-3f*unit);return true;
+        return true;
     }
-    private void updateFrame(){
-        if(!shown)return;
-        if(motion==null){frame.set(destination);corner=toCorner;}
-        else{
-            frame.set(lerp(from.left,destination.left),lerp(from.top,destination.top),
-                    lerp(from.right,destination.right),lerp(from.bottom,destination.bottom));
-            corner=lerp(fromCorner,toCorner);
-        }
-    }
-    private float lerp(float a,float b){return a+(b-a)*progress;}
-    private void cancelMotion(){if(motion!=null)motion.cancel();motion=null;}
     private void hide(boolean immediate){
         if(!shown&&(!immediate||opacity==0))return;
-        shown=false;target=null;cancelMotion();
+        shown=false;target=null;anchor=null;lastFrameNanos=0;
         if(immediate){if(fade!=null)fade.cancel();fade=null;opacity=0;invalidate();}
         else fadeTo(0f,100);
     }
@@ -118,7 +118,6 @@ final class AppFocusIndicator extends View {
     private void color(int argb){paint.setColor(argb);paint.setAlpha(Math.round(Color.alpha(argb)*opacity));}
     @Override protected void onDraw(Canvas canvas){
         super.onDraw(canvas);if(opacity<=0||frame.isEmpty())return;
-        updateFrame();
         // A transparent centre preserves the app art; contrasting rims stay visible on white and dark icons.
         paint.setStyle(Paint.Style.FILL);color(0x12FFFFFF);canvas.drawRoundRect(frame,corner,corner,paint);
         paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(5f*unit);color(0x30D6ECFF);canvas.drawRoundRect(frame,corner,corner,paint);
