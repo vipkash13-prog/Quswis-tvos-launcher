@@ -182,7 +182,7 @@ public class MainActivity extends Activity {
         }
     };
     boolean shouldShowFootball() {
-        return FootballScores.enabled(this) && !folderMode && (Scenes.isScenesLook(this) || sceneHome == null || !sceneHome.moreExpanded) && (scroll == null || scroll.getScrollY() < dp(65));
+        return FootballScores.enabled(this) && !folderMode && (Scenes.isScenesLook(this) || sceneHome == null || !sceneHome.moreExpanded);
     }
     void syncFootballVisibility() {
         if (footballCard != null) footballCard.setVisibility(pickerLayer != null && shouldShowFootball() ? View.VISIBLE : View.GONE);
@@ -469,6 +469,7 @@ public class MainActivity extends Activity {
             getWindow().addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
         updateWeather();
+        layoutInfoShortcuts();
         if (prayerCard != null) prayerCard.setVisibility(PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
         if (footballShortcut != null) footballShortcut.setVisibility(shouldShowFootball() ? View.VISIBLE : View.GONE);
         handler.removeCallbacks(footballTick);
@@ -829,8 +830,8 @@ public class MainActivity extends Activity {
         prayerCard.setBackground(prayerGlass);
         prayerCard.setElevation(dp(12));
         // The prayer shortcut is a fixed HUD item, not an app-grid tile.
-        // Match the weather/clock visibility while the shelf scrolls, so it never
-        // floats over app icons when the grid occupies the top of the screen.
+        // Fixed shortcuts stay visible while browsing; modal overlays hide them.
+        // The Classic viewport reserves their row above the app grid.
         root.getViewTreeObserver().addOnPreDrawListener(() -> {
             if (prayerCard != null && prayerCard.getVisibility() == View.VISIBLE) {
                 float alpha = (pickerLayer != null ? 0f : weatherAlpha());
@@ -951,10 +952,11 @@ public class MainActivity extends Activity {
         clockBox.setVisibility(scenes ? View.GONE : View.VISIBLE);
         if (!scenes) clockBox.setAlpha(1f);
         if (weatherCard != null) {
-            weatherCard.setVisibility(scenes ? View.GONE : (Weather.enabled(this) && Weather.cached(this) != null ? View.VISIBLE : View.GONE));
+            weatherCard.setVisibility(scenes ? View.GONE : (Weather.enabled(this) ? View.VISIBLE : View.GONE));
         }
         if (prayerCard != null) prayerCard.setVisibility(PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
         syncFootballVisibility();
+        layoutInfoShortcuts();
         if (weatherCard != null) weatherCard.bringToFront();
         if (prayerCard != null) prayerCard.bringToFront();
         if (footballCard != null) footballCard.bringToFront();
@@ -2045,6 +2047,8 @@ public class MainActivity extends Activity {
 
     /** Down from the status row: the tab bar, or (when it's hidden) the carousel or the dock. */
     void focusBelowStatus() {
+        List<View> info = classicInfoViews();
+        if (!info.isEmpty()) { info.get(0).requestFocus(); return; }
         if (switcher != null && switcher.getVisibility() == View.VISIBLE) {
             switcher.requestFocus();
         } else if (shelfView.isFocusable() && !folderMode) {
@@ -2682,12 +2686,12 @@ public class MainActivity extends Activity {
                 if (next >= 0 && next < tiles.size()) {
                     focusIndex(next);
                 } else if (k == KeyEvent.KEYCODE_DPAD_UP && i < COLS) {
-                    if (heroActive) {
+                    List<View> info = classicInfoViews();
+                    if (!info.isEmpty()) info.get(Math.min(info.size() - 1, i * info.size() / COLS)).requestFocus();
+                    else if (heroActive) {
                         heroRequested = true;
                         shelfView.requestFocus();
-                    } else {
-                        focusTop();
-                    }
+                    } else focusTop();
                 }
             }
             return true;
@@ -3107,7 +3111,7 @@ public class MainActivity extends Activity {
                 : row == 0 ? firstTop
                 : shelfH + tileH + 2 * dockPadV + dockGapBelow() + (row - 1) * rowH;
         int bottom = top + tileH + (hasDock() && row == 0 ? 0 : labelH);
-        int safeTop = dp(80), safeBottom = scroll.getHeight() - dp(24);
+        int safeTop = dp(classicInfoEnabled() ? 148 : 80), safeBottom = scroll.getHeight() - dp(24);
         int maximum = Math.max(0, content.getHeight() - scroll.getHeight());
         int minimum = Math.max(0, firstTop - dp(8) - safeTop);
         int reference = gridScrollAnimator == null ? scroll.getScrollY() : gridScrollTarget;
@@ -3348,50 +3352,8 @@ public class MainActivity extends Activity {
             if (sceneHome.dispatchKey(ev)) return true;
             return super.dispatchKeyEvent(ev);
         }
-        // Let the remote reach the fixed football lens from the main TV interface.
-        // The regular shelf and scene key handlers otherwise consume DPAD navigation.
-        if (footballShortcut != null && footballShortcut.getVisibility() == View.VISIBLE
-                && pickerLayer == null && menuLayer == null && !folderMode) {
-            int fk = ev.getKeyCode();
-            boolean pressed = ev.getAction() == KeyEvent.ACTION_DOWN;
-            View focused = getCurrentFocus();
-            if (focused == footballShortcut) {
-                if (fk == KeyEvent.KEYCODE_DPAD_CENTER || fk == KeyEvent.KEYCODE_ENTER
-                        || fk == KeyEvent.KEYCODE_NUMPAD_ENTER) {
-                    if (pressed && ev.getRepeatCount() == 0) showFootballPanel();
-                    return true;
-                }
-                if (fk == KeyEvent.KEYCODE_DPAD_DOWN) {
-                    if (pressed && sceneHome != null && Scenes.isScenesLook(this))
-                        sceneHome.focusDock(sceneHome.focusedDockIdx);
-                    else if (pressed && weatherCard != null) weatherCard.requestFocus();
-                    return true;
-                }
-                if (fk == KeyEvent.KEYCODE_DPAD_UP || fk == KeyEvent.KEYCODE_DPAD_LEFT
-                        || fk == KeyEvent.KEYCODE_DPAD_RIGHT) {
-                    if (pressed && prayerCard != null && prayerCard.getVisibility() == View.VISIBLE)
-                        prayerCard.requestFocus();
-                    return true;
-                }
-            }
-            // Traverse the three compact lenses in visual top-to-bottom order.
-            if (focused == weatherCard && fk == KeyEvent.KEYCODE_DPAD_DOWN) {
-                if (pressed && prayerCard != null && prayerCard.getVisibility() == View.VISIBLE)
-                    prayerCard.requestFocus();
-                else if (pressed) footballShortcut.requestFocus();
-                return true;
-            }
-            if (focused == prayerCard && fk == KeyEvent.KEYCODE_DPAD_UP) {
-                if (pressed && weatherCard != null) weatherCard.requestFocus();
-                return true;
-            }
-            // From the prayer shortcut, DOWN selects the football shortcut.
-            if (focused == prayerCard && fk == KeyEvent.KEYCODE_DPAD_DOWN) {
-                if (pressed) footballShortcut.requestFocus();
-                return true;
-            }
-        }
         if (ev.getAction() == KeyEvent.ACTION_DOWN) restoreClassicFocus();
+        if (classicInfoKeys(ev)) return true;
         if (ev.getKeyCode() == KeyEvent.KEYCODE_MENU && moveIndex < 0) {
             if (ev.getAction() == KeyEvent.ACTION_UP) showControlCenter();
             return true;
@@ -4642,6 +4604,60 @@ public class MainActivity extends Activity {
         }
     };
 
+    boolean classicInfoEnabled() {
+        return !folderMode && (Weather.enabled(this) || PrayerTimes.enabled(this) || FootballScores.enabled(this));
+    }
+
+    void layoutInfoShortcuts() {
+        if (weatherCard == null || prayerCard == null || footballShortcut == null) return;
+        boolean scenes = Scenes.isScenesLook(this);
+        View[] views = {weatherCard, prayerCard, footballShortcut};
+        boolean[] enabled = {Weather.enabled(this), PrayerTimes.enabled(this), FootballScores.enabled(this)};
+        int slot = 0;
+        for (int i = 0; i < views.length; i++) {
+            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) views[i].getLayoutParams();
+            int left = scenes ? dockOuter : dockOuter + slot * dp(WeatherView.COMPACT_W + 12);
+            int top = scenes ? dp(24 + i * (WeatherView.COMPACT_H + 12)) : dp(80);
+            int gravity = Gravity.TOP | (scenes ? Gravity.START : Gravity.LEFT);
+            if (lp.leftMargin != left || lp.topMargin != top || lp.gravity != gravity) {
+                lp.leftMargin = left; lp.topMargin = top; lp.gravity = gravity; views[i].setLayoutParams(lp);
+            }
+            if (enabled[i]) slot++;
+        }
+    }
+
+    List<View> classicInfoViews() {
+        List<View> views = new ArrayList<>();
+        if (Scenes.isScenesLook(this) || folderMode) return views;
+        if (Weather.enabled(this) && visibleClassicFocus(weatherCard)) views.add(weatherCard);
+        if (PrayerTimes.enabled(this) && visibleClassicFocus(prayerCard)) views.add(prayerCard);
+        if (FootballScores.enabled(this) && visibleClassicFocus(footballShortcut)) views.add(footballShortcut);
+        return views;
+    }
+
+    boolean classicInfoKeys(KeyEvent ev) {
+        List<View> info = classicInfoViews();
+        int index = info.indexOf(getCurrentFocus());
+        if (index < 0) return false;
+        int key = ev.getKeyCode(); boolean down = ev.getAction() == KeyEvent.ACTION_DOWN;
+        if (key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT) {
+            if (down) {
+                int next = index + (key == KeyEvent.KEYCODE_DPAD_RIGHT ? 1 : -1);
+                if (next >= 0 && next < info.size()) info.get(next).requestFocus();
+                else if (key == KeyEvent.KEYCODE_DPAD_RIGHT) focusTop();
+            }
+            return true;
+        }
+        if (key == KeyEvent.KEYCODE_DPAD_UP) { if (down) focusTop(); return true; }
+        if (key == KeyEvent.KEYCODE_DPAD_DOWN || key == KeyEvent.KEYCODE_BACK) {
+            if (down) focusIndex(Math.min(focusedIndex, COLS - 1)); return true;
+        }
+        if (key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER || key == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+            if (down && ev.getRepeatCount() == 0) info.get(index).performClick(); return true;
+        }
+        return false;
+    }
+
     boolean weatherShown() {
         return weatherCard != null && weatherCard.getVisibility() == View.VISIBLE && weatherAlpha() > 0.5f;
     }
@@ -4649,7 +4665,7 @@ public class MainActivity extends Activity {
     boolean weatherOpen;
 
     float weatherAlpha() {
-        return folderMode || weatherOpen ? 0f : clockAlpha();
+        return folderMode || weatherOpen || pickerLayer != null || menuLayer != null ? 0f : 1f;
     }
 
     /** Shows the cached forecast (hidden when weather is off or nothing has loaded yet). */
@@ -4663,7 +4679,7 @@ public class MainActivity extends Activity {
                 sceneHome.sceneView.setWeather(null, null, -1);
             }
         }
-        boolean show = d != null && !Scenes.isScenesLook(this);
+        boolean show = Weather.enabled(this) && !Scenes.isScenesLook(this);
         if (!show && weatherCard.isFocused()) focusTop();
         weatherCard.setVisibility(show ? View.VISIBLE : View.GONE);
         weatherCard.setData(d);

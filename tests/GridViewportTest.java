@@ -24,6 +24,10 @@ public class GridViewportTest {
   check(GridViewport.target(548,300,1200,950,1060,80,512),548);
   // Geometry scales consistently at 720p, 1080p and 4K without changing the layout.
   for(int scale:new int[]{1,2,4})check(GridViewport.target(500*scale,300*scale,1200*scale,950*scale,1060*scale,80*scale,512*scale),548*scale);
+  // Enabled info shortcuts reserve their own row without covering apps.
+  check(GridViewport.target(0,258,1200,406,496,148,516),258);
+  check(GridViewport.target(500,258,1200,406,496,148,516),258);
+  check(GridViewport.target(258,258,1200,522,640,148,516),258);
   System.out.println("Grid viewport: "+checks+" checks passed");
  }
 }
