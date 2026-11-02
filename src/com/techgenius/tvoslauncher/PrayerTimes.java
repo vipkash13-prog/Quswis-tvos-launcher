@@ -24,7 +24,6 @@ import java.util.Locale;
 final class PrayerTimes {
  private static final String PREFS="prayer_times", K_DATA="data", K_AT="at", K_KEY="cache_key";
  static final String K_ENABLED="home_enabled", K_COUNTRY="country", K_CITY="city";
- private static volatile boolean busy;
  private PrayerTimes(){}
  static SharedPreferences prefs(Context c){return c.getSharedPreferences(PREFS,Context.MODE_PRIVATE);}
  static boolean enabled(Context c){return prefs(c).getBoolean(K_ENABLED,false);}
@@ -32,7 +31,7 @@ final class PrayerTimes {
  static String country(Context c){return prefs(c).getString(K_COUNTRY,"السعودية");}
  static String countryApi(Context c){return prefs(c).getString("country_api","Saudi Arabia");}
  static String city(Context c){return prefs(c).getString(K_CITY,"جدة");}
- private static String cityApi(Context c) {
+ static String cityApi(Context c) {
   String value=city(c);
   String[][] map={{"جدة","Jeddah"},{"الرياض","Riyadh"},{"مكة","Mecca"},{"مكة المكرمة","Mecca"},
    {"المدينة","Medina"},{"المدينة المنورة","Medina"},{"الدمام","Dammam"},{"الخبر","Khobar"},
@@ -44,6 +43,7 @@ final class PrayerTimes {
  }
  static void setLocation(Context c,String city,String country,String countryApi){
   prefs(c).edit().putString(K_CITY,city).putString(K_COUNTRY,country).putString("country_api",countryApi).remove(K_AT).apply();
+  PrayerScheduler.schedule(c);PrayerSyncService.request(c,true);
  }
  /** Detail content only; the host retains the release-182 fixed window bounds. */
  static View createPanel(Context c){return new DetailPanel(c);}
@@ -175,55 +175,11 @@ final class PrayerTimes {
   }
  }
  static void refresh(Context context,LinearLayout view,boolean force){
-  if(view!=null){if(!enabled(context)){view.setVisibility(View.GONE);}else view.setVisibility(View.VISIBLE);}
-  SharedPreferences p=prefs(context);String key=city(context)+"|"+countryApi(context)+"|"+prefs(context).getString("latitude","")+"|"+prefs(context).getString("longitude","");
-  String cached=p.getString(K_DATA,null);long at=p.getLong(K_AT,0);
-  String today=new SimpleDateFormat("yyyy-MM-dd",Locale.US).format(new Date());
-  boolean sameDay=today.equals(p.getString("cache_date",""));
-  if(view!=null&&cached!=null&&key.equals(p.getString(K_KEY,"")))show(view,cached);
-  else if(view!=null)show(view,"{}");
-  if(!force&&sameDay&&key.equals(p.getString(K_KEY,""))&&cached!=null) PrayerScheduler.schedule(context);
-  if(busy||(!force&&sameDay&&key.equals(p.getString(K_KEY,""))&&System.currentTimeMillis()-at<3600000L))return;
-  busy=true;Context app=context.getApplicationContext();
-  new Thread(()->{
-   String data=null;HttpURLConnection conn=null;
-   try{
-    SharedPreferences current=prefs(app);
-    String latitude=current.getString("latitude","");
-    String longitude=current.getString("longitude","");
-    String url;
-    if(!latitude.isEmpty()&&!longitude.isEmpty()){
-     url="https://api.aladhan.com/v1/timings?latitude="+URLEncoder.encode(latitude,"UTF-8")+
-       "&longitude="+URLEncoder.encode(longitude,"UTF-8")+"&method=4";
-    }else{
-     url="https://api.aladhan.com/v1/timingsByCity?city="+URLEncoder.encode(cityApi(app),"UTF-8")+
-       "&country="+URLEncoder.encode(countryApi(app),"UTF-8")+"&method=4";
-    }
-    conn=(HttpURLConnection)new URL(url).openConnection();conn.setConnectTimeout(10000);conn.setReadTimeout(10000);
-    conn.setRequestProperty("User-Agent",Weather.UA);
-    if(conn.getResponseCode()==200){
-     BufferedReader r=new BufferedReader(new InputStreamReader(conn.getInputStream(),"UTF-8"));
-     StringBuilder b=new StringBuilder();String line;while((line=r.readLine())!=null)b.append(line);r.close();
-     JSONObject root=new JSONObject(b.toString());
-     if(root.optInt("code")==200){data=root.getJSONObject("data").getJSONObject("timings").toString();
-      JSONObject result=root.getJSONObject("data"),details=new JSONObject();
-      JSONObject meta=result.optJSONObject("meta"),date=result.optJSONObject("date");
-      if(meta!=null)details.put("timezone",meta.optString("timezone",java.util.TimeZone.getDefault().getID()));
-      if(date!=null){
-       JSONObject gregorian=date.optJSONObject("gregorian"),hijri=date.optJSONObject("hijri");
-       if(gregorian!=null){String d=gregorian.optString("date","");if(d.matches("\\d{2}-\\d{2}-\\d{4}"))details.put("day",d.substring(6)+"-"+d.substring(3,5)+"-"+d.substring(0,2));}
-       if(hijri!=null)details.put("hijri",hijri.optString("date",""));
-      }
-      p.edit().putString("detail_metadata",details.toString()).apply();
-      p.edit().putString(K_DATA,data).putLong(K_AT,System.currentTimeMillis()).putString(K_KEY,key).putString("cache_date",new SimpleDateFormat("yyyy-MM-dd",Locale.US).format(new Date())).apply();
-      PrayerScheduler.schedule(app);}
-    }
-   }catch(Exception ignored){}finally{if(conn!=null)conn.disconnect();}
-   final String shown=data!=null?data:(key.equals(p.getString(K_KEY,""))?p.getString(K_DATA,null):null);
-   new Handler(Looper.getMainLooper()).post(()->{busy=false;if(view!=null&&enabled(view.getContext())){
-    view.setVisibility(View.VISIBLE);show(view,shown==null?"{}":shown);
-   }});
-  },"prayer-times-refresh").start();
+  Context app=context.getApplicationContext();PrayerCalendar.applyToday(app);
+  if(view!=null){view.setVisibility(enabled(app)?View.VISIBLE:View.GONE);show(view,prefs(app).getString(K_DATA,"{}"));}
+  PrayerScheduler.schedule(app);
+  boolean needs=force||PrayerCalendar.days(app).length()<28||System.currentTimeMillis()-prefs(app).getLong("calendar_at",0)>6*3600000L;
+  PrayerSyncService.request(app,needs);
  }
  private static String format(Context c,String raw){
   try{

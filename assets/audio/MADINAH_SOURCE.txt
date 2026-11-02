@@ -1,0 +1,14 @@
+Title: Adhan - Madinah (the Prophet's Mosque)
+Muezzin: Assem Bukhrare (عاصم بخاري), attribution as listed by Assabile.
+Publisher/source: Assabile (السبيل), recording a129.
+Source page: https://www.assabile.com/adhan-call-prayer/madinah
+Published audio URL: https://media.assabile.com/assabile/adhan_3435370/7487fa449eeb.mp3
+Retrieved: 2026-11-02
+Duration: 281.836 seconds. MP3, mono, 16000 Hz, 16 kbps.
+SHA-256: d4085827cd4cd0d51b4b598af9ac4905191b0e90429d689265293b47420a79ad
+Changes: none. Original MP3 bytes retained. No trimming or denoising.
+Recording date: NOT documented. Download date does not establish recording year.
+This is not labelled as a 2026 recording. Original Makkah default is retained.
+Rights: source offers listening/download; no Creative Commons license is stated.
+Credit remains with performer/rightsholders. No CC license is asserted.
+No claim of complete background-noise absence or full listening review.

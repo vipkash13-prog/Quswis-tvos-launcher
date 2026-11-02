@@ -656,13 +656,42 @@ public class SettingsActivity extends Activity {
                             checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                         requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 9030);
                     }
-                    PrayerScheduler.schedule(this);
+                    PrayerTimes.refresh(this, null, true);
                     rebuildMainRows();
                 });
-        row("صوت الأذان", () -> "الحرم المكي • الشيخ علي ملا",
-                () -> dialog("مصدر تسجيل الأذان")
-                    .setMessage("الشيخ علي بن أحمد ملا — أذان الحرم المكي\nالمصدر: السبيل (Assabile)\nhttps://www.assabile.com/adhan-call-prayer/makkah\nتسجيل صوتي مستقل مدته نحو 4 دقائق و6 ثوانٍ. تاريخ التسجيل غير موثق. الملف الأصلي دون قص أو فلاتر.")
-                    .setPositiveButton("حسناً", null).show());
+        row("حالة جدولة الأذان", () -> PrayerScheduler.diagnostic(this),
+                () -> dialog("حالة الأذان والخلفية").setMessage(
+                    PrayerScheduler.diagnostic(this) + "\n" + PrayerTimes.prefs(this).getString("calendar_status", "لم يحمّل التقويم بعد") +
+                    "\nتوقيت المدينة: " + PrayerScheduler.zone(this) + "\n" + PrayerTimes.prefs(this).getString("last_alarm_status", "لم يصل تنبيه بعد") +
+                    "\nتأخر آخر تنبيه بالثواني: " + PrayerTimes.prefs(this).getLong("last_alarm_delay_ms", 0)/1000 +
+                    "\nآخر خطأ: " + PrayerTimes.prefs(this).getString("alarm_error", "لا يوجد خطأ مسجل"))
+                    .setPositiveButton("تحديث التقويم", (d,w) -> {
+                        PrayerTimes.prefs(this).edit().putLong("calendar_at", 0).apply();
+                        PrayerTimes.refresh(this, null, true); Toast.makeText(this,"جارٍ تحديث تقويم الشهر الحالي والقادم",Toast.LENGTH_LONG).show();
+                    }).setNegativeButton("إغلاق", null).show());
+        row("اختبار الأذان في الخلفية بعد دقيقتين", () -> "نفس مسار المنبه الحقيقي",
+                () -> {
+                    boolean armed=PrayerScheduler.test(this);
+                    Toast.makeText(this, armed ? "تم حجز الاختبار بعد دقيقتين. شغّل فيديو أو أغلق الشاشة مع بقاء الجهاز قيد التشغيل." : "اسمح بالمنبهات الدقيقة أولاً", Toast.LENGTH_LONG).show();
+                });
+        row("تشغيل الأذان في الخلفية", () -> "إعدادات توفير الطاقة",
+                () -> {
+                    try { startActivity(new Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)); }
+                    catch (Exception e) { Toast.makeText(this,"افتح إعدادات طاقة التطبيق في الجهاز",Toast.LENGTH_LONG).show(); }
+                });
+        row("مستوى صوت المنبّه", () -> {
+                    android.media.AudioManager a=(android.media.AudioManager)getSystemService(AUDIO_SERVICE);
+                    return a.getStreamVolume(android.media.AudioManager.STREAM_ALARM)+" / "+a.getStreamMaxVolume(android.media.AudioManager.STREAM_ALARM);
+                }, () -> { try { startActivity(new Intent(android.provider.Settings.ACTION_SOUND_SETTINGS)); } catch(Exception ignored){} });
+        row("صوت الأذان", () -> AdhanRecording.title(this),
+                () -> dialog("اختيار صوت الأذان")
+                    .setSingleChoiceItems(AdhanRecording.TITLES, AdhanRecording.index(this), (d,w) -> {
+                        PrayerTimes.prefs(this).edit().putInt("adhan_recording",w).apply();d.dismiss();refreshAll();
+                    }).setNegativeButton("إغلاق",null).show());
+        row("مصدر تسجيلات الأذان", () -> "السبيل • تاريخ التسجيل غير موثّق",
+                () -> dialog("مصدر تسجيلات الأذان")
+                    .setMessage("الحرم المكي: الشيخ علي ملا — التسجيل المعتمد سابقاً\nالمسجد النبوي: عاصم بخاري\nالمصدر: Assabile (السبيل)\nwww.assabile.com/adhan-call-prayer/makkah\nwww.assabile.com/adhan-call-prayer/madinah\nتاريخ التسجيلين غير موثّق؛ لا ننسبهما لعام 2026. الملفان الأصليان مضمّنان دون قص أو فلاتر ويعملان دون إنترنت.")
+                    .setPositiveButton("حسناً",null).show());
         row("صلاحية التحكم بوسائط التطبيقات",
                 () -> MediaWatchService.granted(this) ? "مسموح" : "السماح بالوصول إلى الإشعارات",
                 () -> {
@@ -689,7 +718,7 @@ public class SettingsActivity extends Activity {
                 () -> {
                     boolean enabled = !PrayerTimes.prefs(this).getBoolean("iqama_enabled", false);
                     PrayerTimes.prefs(this).edit().putBoolean("iqama_enabled", enabled).apply();
-                    PrayerScheduler.schedule(this);
+                    PrayerTimes.refresh(this, null, true);
                     rebuildMainRows();
                 });
         row("الدولة",
