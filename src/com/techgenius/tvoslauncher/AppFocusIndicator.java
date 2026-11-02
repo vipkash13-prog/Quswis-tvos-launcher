@@ -48,7 +48,7 @@ final class AppFocusIndicator extends View {
     private boolean allowed(){
         return host.resumed&&hasWindowFocus()&&!host.idle&&!host.ambientShowcase
                 &&host.pickerLayer==null&&host.menuLayer==null&&host.launchOverlay==null
-                &&(host.sceneHome==null||!host.sceneHome.isSheetOpen());
+                &&(!Scenes.isScenesLook(host)||host.sceneHome==null||!host.sceneHome.isSheetOpen());
     }
     private boolean isApp(View view){
         if(view==null||!view.isAttachedToWindow()||!view.isShown()||view.getWidth()==0||view.getHeight()==0)return false;

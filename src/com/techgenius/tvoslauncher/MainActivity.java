@@ -169,6 +169,8 @@ public class MainActivity extends Activity {
     final List<AppEntry> shown = new ArrayList<>();
     final List<View> tiles = new ArrayList<>();
     final Handler handler = new Handler(Looper.getMainLooper());
+    View classicPressedApp;
+    boolean classicLongPress;
     ValueAnimator gridScrollAnimator;
     int gridScrollTarget;
     final Runnable gridScrollRequest = this::scrollFocusedAppIntoView;
@@ -473,6 +475,7 @@ public class MainActivity extends Activity {
         handler.postDelayed(footballTick, 120000L);
         refreshAvatar();
         applyTabs();
+        if (!Scenes.isScenesLook(this)) root.post(this::restoreClassicFocus);
         resetIdle();
         // Opened from the app list while another launcher is the home screen: offer once to take over.
         if (SetupActivity.done(this) && !Perms.isDefaultHome(this) && !prefs.getBoolean("asked_default_home", false)) {
@@ -591,9 +594,8 @@ public class MainActivity extends Activity {
             if (y == oy) return;
             syncFootballVisibility();
             float ca = clockAlpha();
-            if (launchOverlay == null && !statusFocused() && Math.abs(clockBox.getAlpha() - ca) > 0.005f) {
-                clockBox.setAlpha(ca);
-            }
+            // The app grid now stays near the top; keep its escape/settings controls visible.
+            if (!Scenes.isScenesLook(this) && !ambientShowcase && launchOverlay == null) clockBox.setAlpha(1f);
             if (launchOverlay == null && !switcher.isFocused()) {
                 float sa = folderMode ? 0f : ca;
                 if (Math.abs(switcher.getAlpha() - sa) > 0.005f) switcher.setAlpha(sa);
@@ -947,6 +949,7 @@ public class MainActivity extends Activity {
         heroDots.setVisibility(scenes ? View.GONE : View.VISIBLE);
         if (switcher != null) switcher.setVisibility(scenes || !tabsShown() ? View.GONE : View.VISIBLE);
         clockBox.setVisibility(scenes ? View.GONE : View.VISIBLE);
+        if (!scenes) clockBox.setAlpha(1f);
         if (weatherCard != null) {
             weatherCard.setVisibility(scenes ? View.GONE : (Weather.enabled(this) && Weather.cached(this) != null ? View.VISIBLE : View.GONE));
         }
@@ -2054,7 +2057,38 @@ public class MainActivity extends Activity {
 
     /** Up from the shelf/dock: the tab bar, or the status row when the tab bar is hidden. */
     void focusTop() {
-        (switcher != null && switcher.getVisibility() == View.VISIBLE ? switcher : ccButton).requestFocus();
+        if (clockBox != null) { clockBox.animate().cancel(); clockBox.setAlpha(1f); clockBox.setVisibility(View.VISIBLE); }
+        (switcher != null && switcher.isShown() && switcher.getAlpha() > 0.5f ? switcher : ccButton).requestFocus();
+    }
+
+    boolean visibleClassicFocus(View view) {
+        if (view == null || !view.isAttachedToWindow() || !view.isShown()) return false;
+        View node = view;
+        while (node != null) {
+            if (node.getAlpha() < 0.05f) return false;
+            if (node == root) return true;
+            android.view.ViewParent parent = node.getParent();
+            node = parent instanceof View ? (View) parent : null;
+        }
+        return false;
+    }
+
+    void restoreClassicFocus() {
+        if (!resumed || Scenes.isScenesLook(this) || pickerLayer != null || menuLayer != null
+                || launchOverlay != null || ambientShowcase || idle) return;
+        if (clockBox != null) { clockBox.animate().cancel(); clockBox.setAlpha(1f); clockBox.setVisibility(View.VISIBLE); }
+        View focused = getCurrentFocus();
+        boolean known = tiles.contains(focused) || statusFocused() || focused == shelfView
+                || focused == switcher || focused == weatherCard || focused == prayerCard || focused == footballShortcut;
+        if (!known || !visibleClassicFocus(focused)) {
+            if (!tiles.isEmpty()) focusIndex(focusedIndex);
+            else if (ccButton != null) ccButton.requestFocus();
+        }
+    }
+
+    @Override public void onWindowFocusChanged(boolean focused) {
+        super.onWindowFocusChanged(focused);
+        if (focused && root != null) root.post(this::restoreClassicFocus);
     }
 
     boolean continueMode() {
@@ -2623,8 +2657,20 @@ public class MainActivity extends Activity {
             }
         }
         int i = tiles.indexOf(f);
-        if (i >= 0 && ((k == KeyEvent.KEYCODE_DPAD_RIGHT && (i % COLS == COLS - 1 || i == tiles.size() - 1))
-                || (k == KeyEvent.KEYCODE_DPAD_LEFT && i % COLS == 0))) {
+        if (i >= 0 && (k == KeyEvent.KEYCODE_DPAD_RIGHT || k == KeyEvent.KEYCODE_DPAD_LEFT)) {
+            int next = i + (k == KeyEvent.KEYCODE_DPAD_RIGHT ? 1 : -1);
+            if (down && next >= 0 && next < tiles.size() && next / COLS == i / COLS) focusIndex(next);
+            return true;
+        }
+        if (i >= 0 && (k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER
+                || k == KeyEvent.KEYCODE_NUMPAD_ENTER)) {
+            if (down && ev.getRepeatCount() == 0) { classicPressedApp = f; classicLongPress = false; }
+            else if (down && ev.getRepeatCount() > 0 && !classicLongPress && classicPressedApp == f) {
+                classicLongPress = true; f.performLongClick();
+            } else if (!down) {
+                if (!ev.isCanceled() && classicPressedApp == f && !classicLongPress) f.performClick();
+                classicPressedApp = null; classicLongPress = false;
+            }
             return true;
         }
         // Route vertical movement explicitly inside the app grid. Android's
@@ -2783,7 +2829,7 @@ public class MainActivity extends Activity {
         scroll.setScaleY(1.06f);
         scroll.animate().withLayer().scaleX(1f).scaleY(1f).alpha(1f).setDuration(420).setInterpolator(EASE)
                 .setUpdateListener(null).withEndAction(this::invalidateGlass).start();
-        clockBox.animate().alpha(clockAlpha()).setDuration(420).start();
+        clockBox.animate().alpha(1f).setDuration(420).start();
         switcher.animate().alpha(folderMode ? 0f : clockAlpha()).setDuration(420).start();
         weatherCard.animate().alpha(weatherAlpha()).setDuration(420).start();
         if (tile != null) tile.animate().alpha(1f).setDuration(300).start();
@@ -3345,6 +3391,11 @@ public class MainActivity extends Activity {
                 return true;
             }
         }
+        if (ev.getAction() == KeyEvent.ACTION_DOWN) restoreClassicFocus();
+        if (ev.getKeyCode() == KeyEvent.KEYCODE_MENU && moveIndex < 0) {
+            if (ev.getAction() == KeyEvent.ACTION_UP) showControlCenter();
+            return true;
+        }
         if (heroKeys(ev)) return true;
         int k = ev.getKeyCode();
         boolean down = ev.getAction() == KeyEvent.ACTION_DOWN;
@@ -3372,7 +3423,7 @@ public class MainActivity extends Activity {
         if (k == KeyEvent.KEYCODE_BACK) {
             if (!down) {
                 if (folderMode) exitFolder();
-                else goTop();
+                else { cancelGridScroll(); focusTop(); }
             }
             return true;
         }
