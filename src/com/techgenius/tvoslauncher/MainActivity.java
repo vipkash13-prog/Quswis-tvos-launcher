@@ -4754,10 +4754,10 @@ public class MainActivity extends Activity {
         handler.postDelayed(new Runnable() {
             @Override public void run() {
                 if (pickerLayer != layer || !panel.isAttachedToWindow()) return;
-                FootballScores.refresh(MainActivity.this, panel, true);
-                handler.postDelayed(this, 60000L);
+                if (resumed) FootballScores.refresh(MainActivity.this, panel, true);
+                handler.postDelayed(this, FootballScores.REFRESH_MS);
             }
-        }, 60000L);
+        }, FootballScores.REFRESH_MS);
     }
 
     void showPrayerPanel() {

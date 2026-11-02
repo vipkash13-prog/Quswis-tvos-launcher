@@ -26,11 +26,9 @@ import java.util.TimeZone;
 /** Football scores filtered by the selected league and team. */
 final class FootballScores {
  private static final String PREFS="football_scores",K_DATA="data",K_AT="at",K_LEAGUE="league",K_TEAM_ID="team_id",K_TEAM="team";
- private static final long CACHE_MS=60000L;private static volatile boolean busy;
  static final String[][] LEAGUES={{"ksa.1","دوري روشن السعودي"},{"eng.1","الدوري الإنجليزي"},{"esp.1","الدوري الإسباني"},{"ita.1","الدوري الإيطالي"},{"fra.1","الدوري الفرنسي"},{"ger.1","الدوري الألماني"},{"afc.champions","دوري أبطال آسيا للنخبة"},{"uefa.champions","دوري أبطال أوروبا"}};
  static final class Team{final String id,name;Team(String i,String n){id=i;name=n;}}
  interface TeamsCallback{void onLoaded(List<Team> teams,String error);}
- private static final class Match{String date,home,away,homeId,awayId,hs,as,status;}
  private FootballScores(){}
  static boolean enabled(Context c){return prefs(c).getBoolean("enabled",false);}
  static void setEnabled(Context c,boolean value){prefs(c).edit().putBoolean("enabled",value).apply();}
@@ -93,371 +91,200 @@ final class FootballScores {
    final String err=error;new Handler(Looper.getMainLooper()).post(()->cb.onLoaded(out,err));
   },"football-team-list").start();
  }
- static android.widget.LinearLayout createView(Context c){
-  android.widget.LinearLayout panel=new android.widget.LinearLayout(c);
-  panel.setOrientation(android.widget.LinearLayout.VERTICAL);
-  panel.setPadding(Ui.px(c,14),Ui.px(c,10),Ui.px(c,14),Ui.px(c,12));
-  GradientDrawable glass=new GradientDrawable();glass.setColor(0x554C7B91);
-  glass.setCornerRadius(Ui.px(c,22));glass.setStroke(Ui.px(c,1),0xAADDFAFF);
-  panel.setBackground(glass);
-  TextView title=new TextView(c);title.setText("المباريات القادمة");title.setTextSize(18);
-  title.setTypeface(Typeface.DEFAULT_BOLD);title.setTextColor(Color.WHITE);
-  title.setGravity(Gravity.CENTER);panel.addView(title,new android.widget.LinearLayout.LayoutParams(-1,Ui.px(c,34)));
-  for(int i=0;i<5;i++){
-   android.widget.LinearLayout line=new android.widget.LinearLayout(c);
-   line.setOrientation(android.widget.LinearLayout.HORIZONTAL);
-   line.setLayoutDirection(android.view.View.LAYOUT_DIRECTION_RTL);
-   line.setGravity(Gravity.CENTER_VERTICAL);
-   line.setPadding(Ui.px(c,8),Ui.px(c,4),Ui.px(c,8),Ui.px(c,4));
-   GradientDrawable bg=new GradientDrawable();bg.setColor(0x66557E94);
-   bg.setCornerRadius(Ui.px(c,12));bg.setStroke(Ui.px(c,1),0x77FFFFFF);
-   line.setBackground(bg);
-   android.widget.ImageView home=new android.widget.ImageView(c),away=new android.widget.ImageView(c);
-   home.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
-   away.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
-   TextView homeName=new TextView(c),awayName=new TextView(c),time=new TextView(c);
-   for(TextView t:new TextView[]{homeName,awayName,time}){
-    t.setTextColor(Color.WHITE);t.setTextSize(11);t.setSingleLine(true);
-    t.setEllipsize(android.text.TextUtils.TruncateAt.END);t.setGravity(Gravity.CENTER);
+ static final long REFRESH_MS=30000L;
+ private static final Handler MAIN=new Handler(Looper.getMainLooper());
+ private static final java.util.concurrent.ExecutorService LOGOS=java.util.concurrent.Executors.newFixedThreadPool(2);
+ private static final android.util.LruCache<String,android.graphics.Bitmap> LOGO_CACHE=new android.util.LruCache<String,android.graphics.Bitmap>(2*1024*1024){
+  @Override protected int sizeOf(String key,android.graphics.Bitmap image){return image.getByteCount();}
+ };
+ private static final class MatchRow {
+  android.widget.LinearLayout root;
+  android.widget.ImageView homeLogo,awayLogo;
+  TextView home,away,score,meta,event;
+  JSONObject match;
+ }
+ private static final class MatchPanel extends android.widget.LinearLayout {
+  final MatchRow[] rows=new MatchRow[FootballData.LIMIT];
+  final TextView title,footer;
+  final Handler ticker=new Handler(Looper.getMainLooper());
+  volatile boolean loading;
+  final Runnable rotate=new Runnable(){public void run(){
+   for(MatchRow row:rows)if(row.match!=null){
+    JSONArray events=row.match.optJSONArray("events");
+    if(events!=null&&events.length()>0){int index=(int)((android.os.SystemClock.elapsedRealtime()/5000L)%events.length());row.event.setText(events.optString(index));}
    }
-   time.setTypeface(Typeface.DEFAULT_BOLD);time.setTextSize(12);time.setSingleLine(true);time.setEllipsize(android.text.TextUtils.TruncateAt.END);time.setGravity(Gravity.CENTER);
-   line.addView(home,new android.widget.LinearLayout.LayoutParams(Ui.px(c,30),Ui.px(c,30)));
-   line.addView(homeName,new android.widget.LinearLayout.LayoutParams(0,-2,1));
-   line.addView(time,new android.widget.LinearLayout.LayoutParams(Ui.px(c,112),-2));
-   line.addView(awayName,new android.widget.LinearLayout.LayoutParams(0,-2,1));
-   line.addView(away,new android.widget.LinearLayout.LayoutParams(Ui.px(c,30),Ui.px(c,30)));
-   android.widget.LinearLayout.LayoutParams lp=new android.widget.LinearLayout.LayoutParams(-1,0,1);
-   lp.bottomMargin=Ui.px(c,5);panel.addView(line,lp);
-  }
-  // Hold OK on the match panel to run a read-only provider connectivity test.
-  panel.setFocusable(true);
-  panel.setOnLongClickListener(v->{probeMatchGrind(c);return true;});
-  showMessage(panel,"جارٍ جلب المباريات...");
-  return panel;
- }
- private static void probeMatchGrind(Context c){
-  android.widget.Toast.makeText(c,"جارٍ فحص مصدر المباريات البديل...",android.widget.Toast.LENGTH_SHORT).show();
-  new Thread(()->{
-   StringBuilder report=new StringBuilder("اختبار MatchGrind (بدون تغيير المصدر الحالي)\\n");
-   for(String league:new String[]{"ksa.1","eng.1"}){
-    HttpURLConnection conn=null;
-    try{
-     String day=espnDay(0);
-     String endpoint="https://api.matchgrind.space/get/soccer/"+league+"/scoreboard?dates="+day;
-     conn=(HttpURLConnection)new URL(endpoint).openConnection();
-     conn.setConnectTimeout(7000);conn.setReadTimeout(7000);
-     conn.setRequestProperty("Accept","application/json");
-     int code=conn.getResponseCode();
-     String body="";
-     if(code==200){
-      BufferedReader reader=new BufferedReader(new InputStreamReader(conn.getInputStream(),"UTF-8"));
-      StringBuilder b=new StringBuilder();String line;
-      while((line=reader.readLine())!=null&&b.length()<200000)b.append(line);
-      reader.close();body=b.toString();
-     }
-     if(code!=200){report.append(league).append(": HTTP ").append(code).append("\\n");continue;}
-     JSONObject json=new JSONObject(body);
-     JSONArray events=json.optJSONArray("events");
-     if(events==null){JSONObject data=json.optJSONObject("data");if(data!=null)events=data.optJSONArray("events");}
-     report.append(league).append(": HTTP 200، مباريات: ").append(events==null?"تنسيق غير معروف":events.length()).append("\\n");
-     if(events!=null&&events.length()>0){JSONObject event=events.optJSONObject(0);if(event!=null)report.append("حالة أول مباراة: ").append(event.optJSONObject("status")).append("\\n");}
-    }catch(Exception e){report.append(league).append(": ").append(e.getClass().getSimpleName()).append(" - ").append(e.getMessage()).append("\\n");}
-    finally{if(conn!=null)conn.disconnect();}
+   ticker.postDelayed(this,5000L);
+  }};
+  MatchPanel(Context c){
+   super(c);setOrientation(VERTICAL);setPadding(Ui.px(c,14),Ui.px(c,10),Ui.px(c,14),Ui.px(c,12));
+   GradientDrawable glass=new GradientDrawable();glass.setColor(0x554C7B91);glass.setCornerRadius(Ui.px(c,22));glass.setStroke(Ui.px(c,1),0xAADDFAFF);setBackground(glass);
+   title=text(c,18,true);title.setText("المباريات القادمة");addView(title,new LayoutParams(-1,Ui.px(c,34)));
+   for(int i=0;i<rows.length;i++){
+    MatchRow row=new MatchRow();rows[i]=row;
+    row.root=new android.widget.LinearLayout(c);row.root.setOrientation(VERTICAL);row.root.setGravity(Gravity.CENTER_VERTICAL);
+    row.root.setPadding(Ui.px(c,8),Ui.px(c,2),Ui.px(c,8),Ui.px(c,2));
+    GradientDrawable bg=new GradientDrawable();bg.setColor(0x66557E94);bg.setCornerRadius(Ui.px(c,12));bg.setStroke(Ui.px(c,1),0x77FFFFFF);row.root.setBackground(bg);
+    android.widget.LinearLayout main=new android.widget.LinearLayout(c);main.setOrientation(HORIZONTAL);main.setGravity(Gravity.CENTER_VERTICAL);
+    main.setLayoutDirection(android.view.View.LAYOUT_DIRECTION_RTL);
+    row.homeLogo=new android.widget.ImageView(c);row.awayLogo=new android.widget.ImageView(c);
+    row.homeLogo.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);row.awayLogo.setScaleType(android.widget.ImageView.ScaleType.FIT_CENTER);
+    row.home=text(c,11,false);row.away=text(c,11,false);row.score=text(c,13,true);row.score.setTextDirection(android.view.View.TEXT_DIRECTION_LTR);
+    main.addView(row.homeLogo,new LayoutParams(Ui.px(c,20),Ui.px(c,20)));
+    main.addView(row.home,new LayoutParams(0,-1,1));main.addView(row.score,new LayoutParams(Ui.px(c,62),-1));
+    main.addView(row.away,new LayoutParams(0,-1,1));main.addView(row.awayLogo,new LayoutParams(Ui.px(c,20),Ui.px(c,20)));
+    row.root.addView(main,new LayoutParams(-1,Ui.px(c,22)));
+    row.meta=text(c,9,false);row.meta.setTextColor(0xFFFFE8A3);row.root.addView(row.meta,new LayoutParams(-1,Ui.px(c,11)));
+    row.event=text(c,9,false);row.event.setTextColor(0xFFDDEAF2);row.root.addView(row.event,new LayoutParams(-1,Ui.px(c,11)));
+    LayoutParams lp=new LayoutParams(-1,0,1);lp.bottomMargin=Ui.px(c,5);addView(row.root,lp);
    }
-   String result=report.toString();
-   new Handler(Looper.getMainLooper()).post(()->{
-    if(c instanceof android.app.Activity && !((android.app.Activity)c).isFinishing())
-     new android.app.AlertDialog.Builder(c).setTitle("فحص مصدر المباريات").setMessage(result).setPositiveButton("موافق",null).show();
-   });
-  },"matchgrind-diagnostic").start();
+   footer=text(c,9,false);footer.setTextColor(0xFFCFD8E3);addView(footer,new LayoutParams(-1,Ui.px(c,16)));
+   setFocusable(true);setOnLongClickListener(v->{refresh(c,this,true);return true;});
+   showMessage(this,"جارٍ جلب المباريات...");
+  }
+  @Override protected void onAttachedToWindow(){super.onAttachedToWindow();ticker.removeCallbacks(rotate);ticker.post(rotate);}
+  @Override protected void onDetachedFromWindow(){ticker.removeCallbacksAndMessages(null);super.onDetachedFromWindow();}
  }
- private static void showMessage(android.widget.LinearLayout panel,String msg){
-  for(int i=0;i<5;i++){
-   android.widget.LinearLayout line=(android.widget.LinearLayout)panel.getChildAt(i+1);
-   ((android.widget.ImageView)line.getChildAt(0)).setImageDrawable(null);
-   ((android.widget.ImageView)line.getChildAt(4)).setImageDrawable(null);
-   ((TextView)line.getChildAt(1)).setText("");
-   ((TextView)line.getChildAt(2)).setText(i==0?msg:"");
-   ((TextView)line.getChildAt(3)).setText("");
-   line.setVisibility(i==0?android.view.View.VISIBLE:android.view.View.INVISIBLE);
+ private static TextView text(Context c,float size,boolean bold){
+  TextView t=new TextView(c);Ui.textSize(t,size);t.setTextColor(Color.WHITE);t.setSingleLine(true);t.setIncludeFontPadding(false);
+  t.setEllipsize(android.text.TextUtils.TruncateAt.END);t.setGravity(Gravity.CENTER);if(bold)t.setTypeface(Typeface.DEFAULT_BOLD);return t;
+ }
+ static android.widget.LinearLayout createView(Context c){return new MatchPanel(c);}
+ private static void showMessage(MatchPanel panel,String msg){
+  panel.title.setText("المباريات القادمة");
+  for(int i=0;i<panel.rows.length;i++){
+   MatchRow r=panel.rows[i];r.match=null;r.root.setVisibility(i==0?android.view.View.VISIBLE:android.view.View.INVISIBLE);
+   r.home.setText("");r.away.setText("");r.score.setText("—");r.meta.setText(i==0?msg:"");r.event.setText("");loadLogo(r.homeLogo,"");loadLogo(r.awayLogo,"");
   }
  }
- private static void showFixtures(android.widget.LinearLayout panel,java.util.List<JSONObject> matches){
-  for(int i=0;i<5;i++){
-   android.widget.LinearLayout line=(android.widget.LinearLayout)panel.getChildAt(i+1);
-   if(i>=matches.size()){line.setVisibility(android.view.View.INVISIBLE);continue;}
-   line.setVisibility(android.view.View.VISIBLE);
-   JSONObject item=matches.get(i);
-   JSONObject teams=item.optJSONObject("teams"),fixture=item.optJSONObject("fixture"),goals=item.optJSONObject("goals");
-   JSONObject home=teams==null?null:teams.optJSONObject("home"),away=teams==null?null:teams.optJSONObject("away");
-   if(home==null||away==null)continue;
-   String when=fixture==null?"--:--":fixtureTime(fixture.optString("date",""));
-   String state=fixture==null?"pre":fixture.optString("state","pre");
-   String score="in".equals(state)&&goals!=null&&!goals.isNull("home")?"🔴 مباشر "+goals.optString("home")+" - "+goals.optString("away")+(fixture.optString("clock","").isEmpty()?"":"  "+fixture.optString("clock","")):when;
-   JSONObject lg=item.optJSONObject("league");
-   String leagueLabel=lg==null?"":lg.optString("name","");
-   
-   ((TextView)line.getChildAt(1)).setText(arabicTeam(home.optString("name","")));
-   ((TextView)line.getChildAt(2)).setText(score);
-   ((TextView)line.getChildAt(3)).setText(arabicTeam(away.optString("name","")));
-   loadLogo((android.widget.ImageView)line.getChildAt(0),home.optString("logo",""));
-   loadLogo((android.widget.ImageView)line.getChildAt(4),away.optString("logo",""));
+ private static void showFixtures(MatchPanel panel,List<JSONObject> matches){
+  panel.title.setText("المباريات القادمة • "+matches.size());
+  for(int i=0;i<panel.rows.length;i++){
+   MatchRow row=panel.rows[i];row.match=i<matches.size()?matches.get(i):null;
+   row.root.setVisibility(row.match==null?android.view.View.INVISIBLE:android.view.View.VISIBLE);if(row.match==null)continue;
+   JSONObject m=row.match,f=m.optJSONObject("fixture"),teams=m.optJSONObject("teams"),goals=m.optJSONObject("goals"),league=m.optJSONObject("league");
+   JSONObject home=teams.optJSONObject("home"),away=teams.optJSONObject("away");
+   row.home.setText(arabicTeam(home.optString("name")));row.away.setText(arabicTeam(away.optString("name")));
+   Date date=FootballData.parseDate(f.optString("date"));
+   boolean hasScore=f.optBoolean("hasScore",false)&&goals!=null&&!goals.isNull("home")&&!goals.isNull("away");
+   // The home team is physically on the right in this RTL row.
+   row.score.setText(hasScore?goals.optString("away")+" - "+goals.optString("home"):
+     (f.optBoolean("hasScore",false)?"—":(f.optBoolean("timeTbd",false)?"يحدد لاحقاً":format(date,"HH:mm"))));
+   boolean stale=f.optBoolean("stale",false),live="in".equals(f.optString("state"));
+   row.score.setTextColor(live&&!stale?0xFFFFE8A3:Color.WHITE);
+   String state=f.optString("status","لم تبدأ")+(live?" "+f.optString("clock",""):"");
+   String when=format(date,"dd/MM HH:mm");
+   row.meta.setText((stale?"محفوظ • ":"")+league.optString("name")+" • "+state+" • "+when);
+   JSONArray events=m.optJSONArray("events");
+   row.event.setText(events!=null&&events.length()>0?events.optString(0):("pre".equals(f.optString("state"))?"الموعد حسب توقيت الجهاز":"تفاصيل الأحداث غير متاحة من المصدر"));
+   row.root.setContentDescription(row.home.getText()+" "+(hasScore?goals.optString("home"):"")+"، "+row.away.getText()+" "+(hasScore?goals.optString("away"):"")+"، "+row.meta.getText());
+   loadLogo(row.homeLogo,home.optString("logo"));loadLogo(row.awayLogo,away.optString("logo"));
   }
  }
+ private static String format(Date date,String pattern){if(date==null)return "--:--";SimpleDateFormat f=new SimpleDateFormat(pattern,Locale.US);return f.format(date);}
  private static void loadLogo(android.widget.ImageView target,String url){
-  target.setImageDrawable(null);
-  if(!url.startsWith("https://"))return;
-  new Thread(()->{
+  if(url.equals(target.getTag()))return;target.setTag(url);target.setImageDrawable(null);if(!url.startsWith("https://"))return;
+  android.graphics.Bitmap cached=LOGO_CACHE.get(url);if(cached!=null){target.setImageBitmap(cached);return;}
+  LOGOS.execute(()->{
    HttpURLConnection conn=null;
    try{
-    conn=(HttpURLConnection)new URL(url).openConnection();
-    conn.setConnectTimeout(5000);conn.setReadTimeout(5000);
+    conn=(HttpURLConnection)new URL(url).openConnection();conn.setConnectTimeout(4000);conn.setReadTimeout(4000);
     if(conn.getResponseCode()!=200)return;
-    final android.graphics.Bitmap bitmap=android.graphics.BitmapFactory.decodeStream(conn.getInputStream());
-    new Handler(Looper.getMainLooper()).post(()->target.setImageBitmap(bitmap));
+    android.graphics.BitmapFactory.Options options=new android.graphics.BitmapFactory.Options();options.inSampleSize=4;
+    android.graphics.Bitmap image=android.graphics.BitmapFactory.decodeStream(conn.getInputStream(),null,options);
+    if(image!=null){LOGO_CACHE.put(url,image);MAIN.post(()->{if(url.equals(target.getTag()))target.setImageBitmap(image);});}
    }catch(Exception ignored){}finally{if(conn!=null)conn.disconnect();}
-  },"football-logo").start();
+  });
+ }
+ private static final class LeagueResult {
+  final String id;final List<JSONObject> matches=new ArrayList<>();boolean received,complete=true;
+  LeagueResult(String id){this.id=id;}
+ }
+ private static JSONObject getJson(String endpoint) throws Exception {
+  HttpURLConnection conn=(HttpURLConnection)new URL(endpoint).openConnection();
+  try{
+   conn.setConnectTimeout(4500);conn.setReadTimeout(5000);conn.setRequestProperty("User-Agent",Weather.UA);conn.setRequestProperty("Accept","application/json");
+   if(conn.getResponseCode()!=200)throw new java.io.IOException("HTTP "+conn.getResponseCode());
+   try(BufferedReader r=new BufferedReader(new InputStreamReader(conn.getInputStream(),"UTF-8"))){
+    StringBuilder body=new StringBuilder();String line;
+    while((line=r.readLine())!=null){body.append(line);if(body.length()>4_000_000)throw new java.io.IOException("Response too large");}
+    return new JSONObject(body.toString());
+   }
+  }finally{conn.disconnect();}
+ }
+ private static LeagueResult fetchLeague(String id,String name,long now,TimeZone zone,long deadline){
+  LeagueResult result=new LeagueResult(id);int eligible=0;
+  int[] days={0,-1,1,2,3,4,5,6,7};
+  for(int offset:days){
+   if(Thread.currentThread().isInterrupted()||System.currentTimeMillis()>=deadline){result.complete=false;break;}
+   java.util.Calendar day=java.util.Calendar.getInstance(zone);day.setTimeInMillis(now);day.add(java.util.Calendar.DAY_OF_MONTH,offset);
+   try{
+    JSONObject response=getJson("https://site.api.espn.com/apis/site/v2/sports/soccer/"+id+"/scoreboard?dates="+FootballData.day(day.getTimeInMillis(),zone)+"&limit=100");
+    List<JSONObject> matches=FootballData.parse(response,id,name);result.received=true;result.matches.addAll(matches);
+    for(JSONObject m:matches)if(!"post".equals(m.getJSONObject("fixture").optString("state"))&&offset>=0)eligible++;
+   }catch(Exception e){result.complete=false;}
+   if(offset>=0&&offset!=0&&eligible>=FootballData.LIMIT)break;
+  }
+  return result;
+ }
+ private static String selectionKey(Context c){return "espn-seven-v1|"+android.text.TextUtils.join("|",new java.util.TreeSet<>(selectedLeagues(c)))+"|"+TimeZone.getDefault().getID()+"|"+FootballData.day(System.currentTimeMillis(),TimeZone.getDefault());}
+ private static List<JSONObject> cachedMatches(SharedPreferences p,List<String> leagues,boolean forceStale){
+  List<JSONObject> all=new ArrayList<>();
+  for(String id:leagues){
+   try{
+    JSONArray data=new JSONArray(p.getString("espn_league_"+id,"[]"));
+    boolean stale=forceStale||p.getBoolean("espn_failed_"+id,false)||System.currentTimeMillis()-p.getLong("espn_at_"+id,0)>REFRESH_MS*2;
+    for(int i=0;i<data.length();i++){JSONObject m=data.getJSONObject(i);m.getJSONObject("fixture").put("stale",stale);all.add(m);}
+   }catch(Exception ignored){}
+  }
+  return all;
  }
  static void refresh(Context c,android.widget.LinearLayout view,boolean force){
-  if(view==null)return;
-  Context app=c.getApplicationContext();
-  if(!enabled(app)){view.setVisibility(android.view.View.GONE);return;}
-  MainActivity active=MainActivity.activeInstance;
-  view.setVisibility(active!=null&&!active.shouldShowFootball()?android.view.View.GONE:android.view.View.VISIBLE);
-  java.util.Set<String> selected=selectedLeagues(app);
-  if(selected.isEmpty()){showMessage(view,"اختر الدوريات من الإعدادات");return;}
-  String token="";
-  SharedPreferences p=prefs(app);
-  String key=android.text.TextUtils.join("|",new java.util.TreeSet<>(selected))+"|"+apiDay(0)+"|"+"all-teams";
-  String cached=p.getString("fixtures_json",null);
-  long at=p.getLong(K_AT,0);
-  if(cached!=null&&key.equals(p.getString("cache_key",""))&&System.currentTimeMillis()-at<CACHE_MS){
-   try{JSONArray arr=new JSONArray(cached);java.util.List<JSONObject> list=new java.util.ArrayList<>();
-    for(int i=0;i<arr.length();i++)list.add(arr.getJSONObject(i));showFixtures(view,list);
-   }catch(Exception ignored){}
-  }else showMessage(view,"جارٍ تحديث مباريات اليوم...");
-  if(busy||(!force&&cached!=null&&key.equals(p.getString("cache_key",""))&&System.currentTimeMillis()-at<CACHE_MS))return;
-  busy=true;
-  new Thread(()->{
-   java.util.List<JSONObject> matches=new java.util.ArrayList<>();
-   String error=null;boolean success=false;
-   // Prefer 365Scores for Saudi and AFC Elite fixtures; retain ESPN as fallback.
-   java.util.Set<String> from365=new java.util.HashSet<>();
-   for(String[] league:LEAGUES){
-    if(!selected.contains(league[0]))continue;
-    int compId="ksa.1".equals(league[0])?649:("afc.champions".equals(league[0])?623:0);
-    if(compId==0)continue;
-    int countBefore365=matches.size();
-    try{
-     String base="https://webws.365scores.com/web/games/";
-     String common="appTypeId=5&langId=1&timezoneName=Asia%2FRiyadh&sports=1&showOdds=false";
-     java.text.SimpleDateFormat fmt=new java.text.SimpleDateFormat("dd/MM/yyyy",Locale.US);
-     fmt.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));
-     String start=fmt.format(new Date()),end=fmt.format(new Date(System.currentTimeMillis()+7L*86400000L));
-     String[] endpoints={base+"allscores/?"+common+"&startDate="+start+"&endDate="+end+"&competitions="+compId,
-       base+"fixtures/?"+common+"&competitions="+compId};
-     for(String endpoint:endpoints){
-      HttpURLConnection conn=null;
-      try{
-       conn=(HttpURLConnection)new URL(endpoint).openConnection();conn.setConnectTimeout(6500);conn.setReadTimeout(6500);
-       conn.setRequestProperty("User-Agent","Mozilla/5.0 (Linux; Android TV) AppleWebKit/537.36");
-       conn.setRequestProperty("Origin","https://www.365scores.com");conn.setRequestProperty("Referer","https://www.365scores.com/");
-       if(conn.getResponseCode()!=200)continue;
-       BufferedReader reader=new BufferedReader(new InputStreamReader(conn.getInputStream(),"UTF-8"));
-       StringBuilder body=new StringBuilder();String line;
-       while((line=reader.readLine())!=null&&body.length()<3000000)body.append(line);reader.close();
-       JSONObject root=new JSONObject(body.toString());JSONArray games=root.optJSONArray("games");if(games==null)continue;
-       for(int i=0;i<games.length();i++){
-        JSONObject g=games.optJSONObject(i);if(g==null||g.optInt("competitionId")!=compId)continue;
-        JSONObject home=g.optJSONObject("homeCompetitor"),away=g.optJSONObject("awayCompetitor");
-        if(home==null||away==null)continue;
-        String date=g.optString("startTime","");if(parseMatchDate(date)==null)continue;
-        String status=(g.optString("statusText","")+" "+g.optString("shortStatusText","")).toLowerCase(Locale.US);
-        int group=g.optInt("statusGroup",0);
-        if(group==4||status.contains("ended")||status.contains("full time")||status.contains("انتهت"))continue;
-        JSONObject item=new JSONObject(),fixture=new JSONObject(),teams=new JSONObject(),lg=new JSONObject(),goals=new JSONObject();
-        fixture.put("date",date);fixture.put("leagueId",league[0]);
-        String state=group==3?"in":"pre";fixture.put("state",state);
-        fixture.put("clock",g.optString("gameTimeDisplay",g.optString("shortStatusText","")));
-        if("in".equals(state)){goals.put("home",home.optInt("score",0));goals.put("away",away.optInt("score",0));}
-        teams.put("home",new JSONObject().put("name",home.optString("name","")).put("logo",logo365(home)));
-        teams.put("away",new JSONObject().put("name",away.optString("name","")).put("logo",logo365(away)));
-        lg.put("name",league[1]);item.put("fixture",fixture).put("teams",teams).put("goals",goals).put("league",lg);
-        matches.add(item);
-       }
-      }finally{if(conn!=null)conn.disconnect();}
-     }
-     if(matches.size()>countBefore365)from365.add(league[0]);
-    }catch(Exception ignored){}
-   }
-   // Public ESPN scoreboard fallback, without API key. It includes team logos.
-   {
-    for(String[] league:LEAGUES){
-     if(!selected.contains(league[0])||from365.contains(league[0]))continue;
-     int beforeLeague=matches.size();
-     for(int offset=0;offset<=7;offset++){
-     HttpURLConnection conn=null;
-     try{
-      String endpoint="https://site.api.espn.com/apis/site/v2/sports/soccer/"+league[0]+"/scoreboard?dates="+espnDay(offset)+"&limit=100";
-      conn=(HttpURLConnection)new URL(endpoint).openConnection();
-      conn.setConnectTimeout(8000);conn.setReadTimeout(8000);
-      conn.setRequestProperty("User-Agent",Weather.UA);
-      if(conn.getResponseCode()!=200)continue;
-      BufferedReader reader=new BufferedReader(new InputStreamReader(conn.getInputStream(),"UTF-8"));
-      StringBuilder body=new StringBuilder();String line;
-      while((line=reader.readLine())!=null)body.append(line);reader.close();
-      JSONArray events=new JSONObject(body.toString()).optJSONArray("events");
-      if(events==null)continue;
-      success=true;
-      for(int i=0;i<events.length();i++){
-       JSONObject event=events.optJSONObject(i);if(event==null)continue;
-       String date=event.optString("date","");
-       if(date.isEmpty())continue;
-       JSONArray competitions=event.optJSONArray("competitions");
-       JSONObject competition=competitions==null?null:competitions.optJSONObject(0);
-       JSONArray competitors=competition==null?null:competition.optJSONArray("competitors");
-       if(competitors==null||competitors.length()<2)continue;
-       JSONObject home=null,away=null;
-       for(int j=0;j<competitors.length();j++){
-        JSONObject t=competitors.optJSONObject(j);if(t==null)continue;
-        if("home".equals(t.optString("homeAway")))home=t;else away=t;
-       }
-       if(home==null||away==null)continue;
-       JSONObject status=event.optJSONObject("status");
-       JSONObject type=status==null?null:status.optJSONObject("type");
-       if(type!=null&&"post".equals(type.optString("state")))continue;
-       java.util.Set<String> wanted=java.util.Collections.emptySet();
-       JSONObject ht=home.optJSONObject("team"),awayTeam=away.optJSONObject("team");
-       if(!wanted.isEmpty()&&(ht==null||!wanted.contains(ht.optString("id")))&&(awayTeam==null||!wanted.contains(awayTeam.optString("id"))))continue;
-       JSONObject item=new JSONObject(),fixture=new JSONObject(),teams=new JSONObject(),leagueObj=new JSONObject();
-       fixture.put("date",date);fixture.put("leagueId",league[0]);
-       String matchState=type==null?"pre":type.optString("state","pre");
-       fixture.put("state",matchState);
-       fixture.put("clock",status==null?"":status.optString("displayClock",""));
-       JSONObject goals=new JSONObject();
-       if("in".equals(matchState)){goals.put("home",home.optString("score","0"));goals.put("away",away.optString("score","0"));}
-       item.put("goals",goals);
-       teams.put("home",espnTeam(home));teams.put("away",espnTeam(away));
-       leagueObj.put("name",league[1]);
-       item.put("fixture",fixture);item.put("teams",teams);item.put("league",leagueObj);
-       matches.add(item);
-      }
-     }catch(Exception ignored){}finally{if(conn!=null)conn.disconnect();}
-     if(matches.size()-beforeLeague>=12)break;
-     }
-    }
-   }
-   java.util.Collections.sort(matches,(a,b)->{
-    JSONObject af=a.optJSONObject("fixture"),bf=b.optJSONObject("fixture");
-    return (af==null?"":af.optString("date","")).compareTo(bf==null?"":bf.optString("date",""));
-   });
-   // Prioritize today's fixtures from all selected leagues, then upcoming games.
-   java.util.List<JSONObject> todays=new java.util.ArrayList<>(),upcoming=new java.util.ArrayList<>();
-   String today=apiDay(0);
-   java.util.Set<String> seen=new java.util.HashSet<>();
-   for(JSONObject m:matches){
-    JSONObject f=m.optJSONObject("fixture");
-    String d=f==null?"":f.optString("date","");
-    String leagueId=f==null?"":f.optString("leagueId","");
-    if(!selected.contains(leagueId))continue;
-    Date kickoff=parseMatchDate(d);
-    if(kickoff==null || (kickoff.getTime()<System.currentTimeMillis()-10800000L && !"in".equals(f.optString("state"))) || kickoff.getTime()>System.currentTimeMillis()+8L*86400000L)continue;
-    JSONObject ts=m.optJSONObject("teams");
-    JSONObject h=ts==null?null:ts.optJSONObject("home"),a=ts==null?null:ts.optJSONObject("away");
-    String unique=leagueId+"|"+d+"|"+(h==null?"":h.optString("name"))+"|"+(a==null?"":a.optString("name"));
-    if(!seen.add(unique))continue;
-    String localDay=riyadhDay(d);
-    if(today.equals(localDay))todays.add(m);else upcoming.add(m);
-   }
-   // Live games take priority over upcoming fixtures; retain league rotation for the rest.
-   java.util.List<JSONObject> live=new java.util.ArrayList<>();
-   for(JSONObject m:todays){JSONObject f=m.optJSONObject("fixture");if(f!=null&&"in".equals(f.optString("state")))live.add(m);}
-   todays.removeAll(live);
-   // Fair rotation: when multiple leagues are selected, show matches from each.
-   java.util.List<JSONObject> ordered=new java.util.ArrayList<>();
-   java.util.Map<String,java.util.List<JSONObject>> byLeague=new java.util.LinkedHashMap<>();
-   for(String[] league:LEAGUES)if(selected.contains(league[0]))byLeague.put(league[0],new java.util.ArrayList<>());
-   for(JSONObject m:todays){JSONObject f=m.optJSONObject("fixture");String id=f==null?"":f.optString("leagueId","");if(byLeague.containsKey(id))byLeague.get(id).add(m);}
-   boolean added=true;
-   while(added){added=false;for(java.util.List<JSONObject> group:byLeague.values())if(!group.isEmpty()){ordered.add(group.remove(0));added=true;}}
-   byLeague.clear();
-   for(String[] league:LEAGUES)if(selected.contains(league[0]))byLeague.put(league[0],new java.util.ArrayList<>());
-   for(JSONObject m:upcoming){JSONObject f=m.optJSONObject("fixture");String id=f==null?"":f.optString("leagueId","");if(byLeague.containsKey(id))byLeague.get(id).add(m);}
-   added=true;
-   while(added){added=false;for(java.util.List<JSONObject> group:byLeague.values())if(!group.isEmpty()){ordered.add(group.remove(0));added=true;}}
-   ordered.addAll(0,live);
-   final java.util.List<JSONObject> top=new java.util.ArrayList<>(ordered.subList(0,Math.min(5,ordered.size())));
-   if(success&&!top.isEmpty()){
-    JSONArray saved=new JSONArray();for(JSONObject m:top)saved.put(m);
-    p.edit().putString("fixtures_json",saved.toString()).putString("cache_key",key).putLong(K_AT,System.currentTimeMillis()).apply();
-   }
-   final String message=success?"لا توجد مباريات قادمة للدوريات المختارة":(error==null?"تعذر جلب المباريات":error);
-   new Handler(Looper.getMainLooper()).post(()->{
-    busy=false;if(view==null)return;
-    if(!top.isEmpty())showFixtures(view,top);
-    else showMessage(view,message);
-   });
-  },"football-api-refresh").start();
- }
- private static String selectedTeamCacheKey(Context c,java.util.Set<String> leagues){
-  StringBuilder b=new StringBuilder();
-  for(String l:new java.util.TreeSet<>(leagues))b.append(l).append(":").append(new java.util.TreeSet<>(selectedTeams(c,l))).append(";");
-  return b.toString();
- }
- private static JSONObject espnTeam(JSONObject competitor) throws Exception{
-  JSONObject t=competitor.optJSONObject("team");
-  JSONObject out=new JSONObject();
-  out.put("name",t==null?"فريق":t.optString("displayName","فريق"));
-  String logo=t==null?"":t.optString("logo","");
-  if(logo.isEmpty()&&t!=null){
-   JSONArray logos=t.optJSONArray("logos");
-   if(logos!=null&&logos.length()>0){JSONObject first=logos.optJSONObject(0);if(first!=null)logo=first.optString("href","");}
+  if(!(view instanceof MatchPanel))return;MatchPanel panel=(MatchPanel)view;Context app=c.getApplicationContext();
+  if(!enabled(app)){panel.setVisibility(android.view.View.GONE);return;}panel.setVisibility(android.view.View.VISIBLE);
+  List<String> selected=new ArrayList<>();for(String[] league:LEAGUES)if(isLeagueSelected(app,league[0]))selected.add(league[0]);
+  if(selected.isEmpty()){showMessage(panel,"اختر الدوريات من الإعدادات");panel.footer.setText("");return;}
+  SharedPreferences p=prefs(app);String key=selectionKey(app);long now=System.currentTimeMillis();TimeZone zone=TimeZone.getDefault();
+  List<JSONObject> cache=FootballData.select(cachedMatches(p,selected,false),selected,now,zone);
+  if(!cache.isEmpty()){showFixtures(panel,cache);panel.footer.setText("ESPN • بيانات محفوظة • جارٍ التحقق من التحديث");}
+  else showMessage(panel,"جارٍ تحديث المباريات...");
+  if(panel.loading)return;
+  if(!force&&key.equals(p.getString("espn_refresh_key",""))&&now-p.getLong(K_AT,0)<REFRESH_MS){
+   panel.footer.setText(p.getString("espn_footer","ESPN"));return;
   }
-  out.put("logo",logo);return out;
+  panel.loading=true;
+  new Thread(()->{
+   java.util.concurrent.ExecutorService pool=java.util.concurrent.Executors.newFixedThreadPool(4);
+   List<java.util.concurrent.Callable<LeagueResult>> jobs=new ArrayList<>();long deadline=System.currentTimeMillis()+40000L;
+   for(String[] league:LEAGUES)if(selected.contains(league[0]))jobs.add(()->fetchLeague(league[0],league[1],now,zone,deadline));
+   List<JSONObject> all=new ArrayList<>();List<String> failed=new ArrayList<>();int ok=0;
+   try{
+    List<java.util.concurrent.Future<LeagueResult>> results=pool.invokeAll(jobs,45,java.util.concurrent.TimeUnit.SECONDS);
+    for(int i=0;i<results.size();i++){
+     LeagueResult result=null;try{result=results.get(i).get();}catch(Exception ignored){}
+     String id=selected.get(i);
+     if(result!=null&&result.received){
+      p.edit().putBoolean("espn_failed_"+id,!result.complete).apply();
+      // Merge partial responses with marked cached entries instead of erasing a league.
+      if(!result.complete){failed.add(id);all.addAll(cachedMatches(p,Collections.singletonList(id),true));}
+      all.addAll(0,result.matches);ok++;
+      if(result.complete){JSONArray data=new JSONArray();for(JSONObject m:result.matches)data.put(m);p.edit().putString("espn_league_"+id,data.toString()).putLong("espn_at_"+id,System.currentTimeMillis()).apply();}
+     }else{p.edit().putBoolean("espn_failed_"+id,true).apply();failed.add(id);all.addAll(cachedMatches(p,Collections.singletonList(id),true));}
+    }
+   }catch(InterruptedException e){Thread.currentThread().interrupt();failed.addAll(selected);all.addAll(cachedMatches(p,selected,true));}
+   finally{pool.shutdownNow();}
+   List<JSONObject> top=FootballData.select(all,selected,System.currentTimeMillis(),zone);
+   String status=failed.isEmpty()?"تحديث "+format(new Date(),"HH:mm:ss"):
+    (ok==0?"تعذر التحديث"+(top.isEmpty()?"":" • بيانات محفوظة"):"تحديث جزئي "+ok+"/"+selected.size()+" • قد تظهر بيانات محفوظة");
+   final String footer="ESPN • "+status+" • "+zone.getID();
+   boolean changed=!key.equals(selectionKey(app));
+   if(!changed)p.edit().putString("espn_refresh_key",key).putLong(K_AT,System.currentTimeMillis()).putString("espn_footer",footer).apply();
+   final boolean any=ok>0;
+   MAIN.post(()->{
+    panel.loading=false;if(!panel.isAttachedToWindow())return;
+    if(!key.equals(selectionKey(app))){refresh(app,panel,true);return;}
+    if(!top.isEmpty())showFixtures(panel,top);else showMessage(panel,any?"لا توجد مباريات ضمن الأيام الثمانية القادمة":"تعذر التحديث • تحقق من الإنترنت");
+    panel.footer.setText(footer);panel.footer.setContentDescription(footer+(failed.isEmpty()?"":" • تعذر تحديث "+android.text.TextUtils.join("، ",failed)));
+   });
+  },"football-espn-refresh").start();
  }
- private static String espnDay(int offset){
-  java.text.SimpleDateFormat f=new java.text.SimpleDateFormat("yyyyMMdd",Locale.US);
-  f.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));
-  return f.format(new Date(System.currentTimeMillis()+offset*86400000L));
- }
- private static String apiDay(int offset){
-  java.text.SimpleDateFormat f=new java.text.SimpleDateFormat("yyyy-MM-dd",Locale.US);
-  f.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));
-  return f.format(new Date(System.currentTimeMillis()+offset*86400000L));
- }
- private static String logo365(JSONObject competitor){
-  int id=competitor.optInt("id",0),version=competitor.optInt("imageVersion",1);
-  return id<=0?"":"https://imagecache.365scores.com/image/upload/f_png,w_96,h_96,c_limit,q_auto:eco,dpr_2,d_Competitors:default1.png/v"+version+"/Competitors/"+id;
- }
- private static Date parseMatchDate(String raw){
-  if(raw==null||raw.trim().isEmpty())return null;
-  try{return Date.from(java.time.Instant.parse(raw.trim()));}catch(Exception ignored){}
-  try{return Date.from(java.time.OffsetDateTime.parse(raw.trim()).toInstant());}catch(Exception ignored){}
-  try{return Date.from(java.time.LocalDateTime.parse(raw.trim()).toInstant(java.time.ZoneOffset.UTC));}catch(Exception ignored){}
-  try{
-   String v=raw.trim().replace(" ","T");
-   if(v.endsWith("Z")&&v.length()==17)v=v.substring(0,v.length()-1)+":00Z";
-   return Date.from(java.time.Instant.parse(v));
-  }catch(Exception ignored){}
-  return null;
- }
- private static String riyadhDay(String raw){
-  Date d=parseMatchDate(raw);if(d==null)return "";
-  SimpleDateFormat f=new SimpleDateFormat("yyyy-MM-dd",Locale.US);f.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));return f.format(d);
- }
- private static String fixtureTime(String raw){
-  Date d=parseMatchDate(raw);if(d==null)return "--:--";
-  SimpleDateFormat f=new SimpleDateFormat("HH:mm",Locale.US);f.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));return f.format(d);
- }
- private static int apiLeague(String id){
-  switch(id){case "ksa.1":return 307;case "eng.1":return 39;case "esp.1":return 140;
-   case "ita.1":return 135;case "fra.1":return 61;case "afc.champions":return 17;case "uefa.champions":return 2;default:return 0;}
- }
- private static int season(String id){
-  java.util.Calendar c=java.util.Calendar.getInstance(TimeZone.getTimeZone("Asia/Riyadh"));
-  int year=c.get(java.util.Calendar.YEAR),month=c.get(java.util.Calendar.MONTH);
-  return month>=java.util.Calendar.JULY?year:year-1;
- }
- private static String name(JSONObject c){JSONObject t=c.optJSONObject("team");return t==null?"فريق":t.optString("displayName","فريق");}
- private static String date(String raw){try{SimpleDateFormat in=new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'",Locale.US);in.setTimeZone(TimeZone.getTimeZone("UTC"));Date d=in.parse(raw.substring(0,16)+"Z");SimpleDateFormat out=new SimpleDateFormat("EEE HH:mm",new Locale("ar"));out.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));return out.format(d);}catch(Exception e){return "";}}
 }

@@ -1,0 +1,470 @@
+{
+  "events": [
+    {
+      "id": "401879246",
+      "date": "2026-11-01T16:30Z",
+      "status": {
+        "clock": 5400.0,
+        "displayClock": "90'+7'",
+        "period": 2,
+        "type": {
+          "id": "28",
+          "name": "STATUS_FULL_TIME",
+          "state": "post",
+          "completed": true,
+          "description": "Full Time",
+          "detail": "FT",
+          "shortDetail": "FT"
+        }
+      },
+      "competitions": [
+        {
+          "status": {
+            "clock": 5400.0,
+            "displayClock": "90'+7'",
+            "period": 2,
+            "type": {
+              "id": "28",
+              "name": "STATUS_FULL_TIME",
+              "state": "post",
+              "completed": true,
+              "description": "Full Time",
+              "detail": "FT",
+              "shortDetail": "FT"
+            }
+          },
+          "competitors": [
+            {
+              "id": "364",
+              "homeAway": "home",
+              "score": "0",
+              "team": {
+                "id": "364",
+                "displayName": "Liverpool",
+                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/364.png"
+              }
+            },
+            {
+              "id": "359",
+              "homeAway": "away",
+              "score": "1",
+              "team": {
+                "id": "359",
+                "displayName": "Arsenal",
+                "logo": "https://a.espncdn.com/i/teamlogos/soccer/500/359.png"
+              }
+            }
+          ],
+          "details": [
+            {
+              "type": {
+                "id": "70",
+                "text": "Goal"
+              },
+              "clock": {
+                "value": 930.0,
+                "displayValue": "16'"
+              },
+              "team": {
+                "id": "359"
+              },
+              "scoreValue": 1,
+              "scoringPlay": true,
+              "redCard": false,
+              "yellowCard": false,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "shootout": false,
+              "athletesInvolved": [
+                {
+                  "id": "231182",
+                  "displayName": "Kai Havertz",
+                  "shortName": "K. Havertz",
+                  "fullName": "Kai Havertz",
+                  "jersey": "29",
+                  "team": {
+                    "id": "359"
+                  },
+                  "links": [
+                    {
+                      "rel": [
+                        "playercard",
+                        "desktop",
+                        "athlete"
+                      ],
+                      "href": "https://www.espn.com/soccer/player/_/id/231182/kai-havertz",
+                      "isHidden": false
+                    }
+                  ],
+                  "position": "F"
+                }
+              ]
+            },
+            {
+              "type": {
+                "id": "94",
+                "text": "Yellow Card"
+              },
+              "clock": {
+                "value": 2700.0,
+                "displayValue": "45'+2'"
+              },
+              "team": {
+                "id": "364"
+              },
+              "scoreValue": 0,
+              "scoringPlay": false,
+              "redCard": false,
+              "yellowCard": true,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "shootout": false,
+              "athletesInvolved": [
+                {
+                  "id": "328238",
+                  "displayName": "Bradley Barcola",
+                  "shortName": "B. Barcola",
+                  "fullName": "Bradley Barcola",
+                  "jersey": "29",
+                  "team": {
+                    "id": "364"
+                  },
+                  "links": [
+                    {
+                      "rel": [
+                        "playercard",
+                        "desktop",
+                        "athlete"
+                      ],
+                      "href": "https://www.espn.com/soccer/player/_/id/328238/bradley-barcola",
+                      "isHidden": false
+                    }
+                  ],
+                  "position": "AM-L"
+                }
+              ]
+            },
+            {
+              "type": {
+                "id": "94",
+                "text": "Yellow Card"
+              },
+              "clock": {
+                "value": 3295.0,
+                "displayValue": "55'"
+              },
+              "team": {
+                "id": "359"
+              },
+              "scoreValue": 0,
+              "scoringPlay": false,
+              "redCard": false,
+              "yellowCard": true,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "shootout": false,
+              "athletesInvolved": [
+                {
+                  "id": "293236",
+                  "displayName": "Noni Madueke",
+                  "shortName": "N. Madueke",
+                  "fullName": "Noni Madueke",
+                  "jersey": "20",
+                  "team": {
+                    "id": "359"
+                  },
+                  "headshot": "https://a.espncdn.com/i/headshots/soccer/players/full/293236.png",
+                  "links": [
+                    {
+                      "rel": [
+                        "playercard",
+                        "desktop",
+                        "athlete"
+                      ],
+                      "href": "https://www.espn.com/soccer/player/_/id/293236/noni-madueke",
+                      "isHidden": false
+                    }
+                  ],
+                  "position": "AM-R"
+                }
+              ]
+            },
+            {
+              "type": {
+                "id": "94",
+                "text": "Yellow Card"
+              },
+              "clock": {
+                "value": 3966.0,
+                "displayValue": "67'"
+              },
+              "team": {
+                "id": "364"
+              },
+              "scoreValue": 0,
+              "scoringPlay": false,
+              "redCard": false,
+              "yellowCard": true,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "shootout": false,
+              "athletesInvolved": [
+                {
+                  "id": "323110",
+                  "displayName": "Milos Kerkez",
+                  "shortName": "M. Kerkez",
+                  "fullName": "Milos Kerkez",
+                  "jersey": "6",
+                  "team": {
+                    "id": "364"
+                  },
+                  "links": [
+                    {
+                      "rel": [
+                        "playercard",
+                        "desktop",
+                        "athlete"
+                      ],
+                      "href": "https://www.espn.com/soccer/player/_/id/323110/milos-kerkez",
+                      "isHidden": false
+                    }
+                  ],
+                  "position": "LB"
+                }
+              ]
+            },
+            {
+              "type": {
+                "id": "94",
+                "text": "Yellow Card"
+              },
+              "clock": {
+                "value": 4285.0,
+                "displayValue": "72'"
+              },
+              "team": {
+                "id": "359"
+              },
+              "scoreValue": 0,
+              "scoringPlay": false,
+              "redCard": false,
+              "yellowCard": true,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "shootout": false,
+              "athletesInvolved": [
+                {
+                  "id": "352758",
+                  "displayName": "Myles Lewis-Skelly",
+                  "shortName": "M. Lewis-Skelly",
+                  "fullName": "Myles Lewis-Skelly",
+                  "jersey": "49",
+                  "team": {
+                    "id": "359"
+                  },
+                  "links": [
+                    {
+                      "rel": [
+                        "playercard",
+                        "desktop",
+                        "athlete"
+                      ],
+                      "href": "https://www.espn.com/soccer/player/_/id/352758/myles-lewis-skelly",
+                      "isHidden": false
+                    }
+                  ],
+                  "position": "SUB"
+                }
+              ]
+            },
+            {
+              "type": {
+                "id": "94",
+                "text": "Yellow Card"
+              },
+              "clock": {
+                "value": 4796.0,
+                "displayValue": "80'"
+              },
+              "team": {
+                "id": "359"
+              },
+              "scoreValue": 0,
+              "scoringPlay": false,
+              "redCard": false,
+              "yellowCard": true,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "shootout": false,
+              "athletesInvolved": [
+                {
+                  "id": "282716",
+                  "displayName": "Jurriën Timber",
+                  "shortName": "J. Timber",
+                  "fullName": "Jurriën Timber",
+                  "jersey": "12",
+                  "team": {
+                    "id": "359"
+                  },
+                  "headshot": "https://a.espncdn.com/i/headshots/soccer/players/full/282716.png",
+                  "links": [
+                    {
+                      "rel": [
+                        "playercard",
+                        "desktop",
+                        "athlete"
+                      ],
+                      "href": "https://www.espn.com/soccer/player/_/id/282716/jurrien-timber",
+                      "isHidden": false
+                    }
+                  ],
+                  "position": "RB"
+                }
+              ]
+            },
+            {
+              "type": {
+                "id": "94",
+                "text": "Yellow Card"
+              },
+              "clock": {
+                "value": 4799.0,
+                "displayValue": "80'"
+              },
+              "team": {
+                "id": "364"
+              },
+              "scoreValue": 0,
+              "scoringPlay": false,
+              "redCard": false,
+              "yellowCard": true,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "shootout": false,
+              "athletesInvolved": [
+                {
+                  "id": "249299",
+                  "displayName": "Alexis Mac Allister",
+                  "shortName": "A. Mac Allister",
+                  "fullName": "Alexis Mac Allister",
+                  "jersey": "10",
+                  "team": {
+                    "id": "364"
+                  },
+                  "links": [
+                    {
+                      "rel": [
+                        "playercard",
+                        "desktop",
+                        "athlete"
+                      ],
+                      "href": "https://www.espn.com/soccer/player/_/id/249299/alexis-mac-allister",
+                      "isHidden": false
+                    }
+                  ],
+                  "position": "RM"
+                }
+              ]
+            },
+            {
+              "type": {
+                "id": "94",
+                "text": "Yellow Card"
+              },
+              "clock": {
+                "value": 5400.0,
+                "displayValue": "90'+3'"
+              },
+              "team": {
+                "id": "359"
+              },
+              "scoreValue": 0,
+              "scoringPlay": false,
+              "redCard": false,
+              "yellowCard": true,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "shootout": false,
+              "athletesInvolved": [
+                {
+                  "id": "196176",
+                  "displayName": "David Raya",
+                  "shortName": "D. Raya",
+                  "fullName": "David Raya",
+                  "jersey": "1",
+                  "team": {
+                    "id": "359"
+                  },
+                  "links": [
+                    {
+                      "rel": [
+                        "playercard",
+                        "desktop",
+                        "athlete"
+                      ],
+                      "href": "https://www.espn.com/soccer/player/_/id/196176/david-raya",
+                      "isHidden": false
+                    }
+                  ],
+                  "position": "G"
+                }
+              ]
+            },
+            {
+              "type": {
+                "id": "94",
+                "text": "Yellow Card"
+              },
+              "clock": {
+                "value": 5400.0,
+                "displayValue": "90'+7'"
+              },
+              "team": {
+                "id": "364"
+              },
+              "scoreValue": 0,
+              "scoringPlay": false,
+              "redCard": false,
+              "yellowCard": true,
+              "penaltyKick": false,
+              "ownGoal": false,
+              "shootout": false,
+              "athletesInvolved": [
+                {
+                  "id": "157892",
+                  "displayName": "Virgil van Dijk",
+                  "shortName": "V. van Dijk",
+                  "fullName": "Virgil van Dijk",
+                  "jersey": "4",
+                  "team": {
+                    "id": "364"
+                  },
+                  "links": [
+                    {
+                      "rel": [
+                        "playercard",
+                        "desktop",
+                        "athlete"
+                      ],
+                      "href": "https://www.espn.com/soccer/player/_/id/157892/virgil-van-dijk",
+                      "isHidden": false
+                    }
+                  ],
+                  "position": "CD-L"
+                }
+              ]
+            }
+          ],
+          "venue": {
+            "id": "192",
+            "fullName": "Anfield",
+            "address": {
+              "city": "Liverpool",
+              "country": "England"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
