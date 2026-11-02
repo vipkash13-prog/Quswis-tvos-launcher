@@ -169,6 +169,9 @@ public class MainActivity extends Activity {
     final List<AppEntry> shown = new ArrayList<>();
     final List<View> tiles = new ArrayList<>();
     final Handler handler = new Handler(Looper.getMainLooper());
+    ValueAnimator gridScrollAnimator;
+    int gridScrollTarget;
+    final Runnable gridScrollRequest = this::scrollFocusedAppIntoView;
     final Runnable footballTick = new Runnable() {
         @Override public void run() {
             if (!resumed) return;
@@ -494,6 +497,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
+        cancelGridScroll();
         resumed = false;
         if (ambientShowcase && (android.os.SystemClock.uptimeMillis() - ambientEnterTime > 1000L)) {
             exitAmbientShowcase();
@@ -543,6 +547,7 @@ public class MainActivity extends Activity {
     // ---------------------------------------------------------------- layout
 
     void buildChrome() {
+        cancelGridScroll();
         root = new FrameLayout(this);
         root.setBackground(null);
 
@@ -906,6 +911,7 @@ public class MainActivity extends Activity {
 
     void applyLookMode() {
         boolean scenes = Scenes.isScenesLook(this);
+        if (scenes) cancelGridScroll();
         if (sceneHome != null) {
             sceneHome.sceneView.setVisibility(scenes ? View.VISIBLE : View.GONE);
             sceneHome.overlay.setVisibility(scenes ? View.VISIBLE : View.GONE);
@@ -959,6 +965,7 @@ public class MainActivity extends Activity {
     }
 
     void buildGrid() {
+        cancelGridScroll();
         syncFootballVisibility();
         stopWiggle();
         shown.clear();
@@ -2149,9 +2156,7 @@ public class MainActivity extends Activity {
             return;
         }
         View f = getCurrentFocus();
-        int i = tiles.indexOf(f);
-        boolean dock = f == shelfView || (hasDock() && i >= 0 && i < COLS);
-        setHeroShown(dock);
+        setHeroShown(f == shelfView || f == switcher);
         if (!(same && items.get(keep).title.equals(curTitle))) showHero(keep, 0);
         else for (int j = 0; j < heroDots.getChildCount(); j++) heroDots.getChildAt(j).setAlpha(j == keep ? 1f : 0.35f);
         List<Suggestions.Item> pre = items;
@@ -2400,6 +2405,7 @@ public class MainActivity extends Activity {
         }
         if (!has) heroRequested = false;
         if (has) {
+            cancelGridScroll();
             setHeroShown(true);
             heroButton.animate().scaleX(1.08f).scaleY(1.08f).setDuration(220).setInterpolator(LIFT).start();
             heroButton.setElevation(dp(10));
@@ -3020,24 +3026,64 @@ public class MainActivity extends Activity {
 
     void onTileFocused(int index) {
         focusedIndex = index;
-        boolean dock = hasDock() && index < COLS;
-        setHeroShown(dock && !heroItems.isEmpty());
-        scrollToRow(index / COLS);
+        // The hero opens explicitly with UP; app-to-app navigation keeps the grid stable.
+        setHeroShown(false);
+        scheduleGridScroll();
         handler.removeCallbacks(shelfUpdate);
         handler.postDelayed(shelfUpdate, 90);
     }
 
-    /**
-     * Row tops come from the fixed grid geometry rather than getTop(), so this also works right
-     * after buildGrid() (e.g. while moving a card), before the new rows have been laid out.
-     */
-    void scrollToRow(int row) {
+    /** Coalesce focus and layout requests into one animation, including rapid D-pad repeats. */
+    void scheduleGridScroll() {
+        if (scroll == null) return;
+        scroll.removeCallbacks(gridScrollRequest);
+        scroll.postOnAnimation(gridScrollRequest);
+    }
+
+    void cancelGridScroll() {
+        if (scroll != null) scroll.removeCallbacks(gridScrollRequest);
+        if (gridScrollAnimator != null) gridScrollAnimator.cancel();
+        gridScrollAnimator = null;
+    }
+
+    void scrollFocusedAppIntoView() {
+        if (!resumed || Scenes.isScenesLook(this) || scroll == null || content == null) return;
+        int index = tiles.indexOf(getCurrentFocus());
+        if (index < 0) return;
+        if (content.isLayoutRequested() || scroll.getHeight() == 0) {
+            scheduleGridScroll();
+            return;
+        }
+        int row = index / COLS;
         int rowH = tileH + labelH + gap / 2;
-        int rowTop = !hasDock() ? shelfH + row * rowH
-                : row == 0 ? shelfH
+        int firstTop = shelfH + (hasDock() ? dockPadV : 0);
+        int top = !hasDock() ? shelfH + row * rowH
+                : row == 0 ? firstTop
                 : shelfH + tileH + 2 * dockPadV + dockGapBelow() + (row - 1) * rowH;
-        int target = row == 0 ? 0 : rowTop - (int) (screenH * 0.30f);
-        scroll.smoothScrollTo(0, Math.max(0, target));
+        int bottom = top + tileH + (hasDock() && row == 0 ? 0 : labelH);
+        int safeTop = dp(80), safeBottom = scroll.getHeight() - dp(24);
+        int maximum = Math.max(0, content.getHeight() - scroll.getHeight());
+        int minimum = Math.max(0, firstTop - dp(8) - safeTop);
+        int reference = gridScrollAnimator == null ? scroll.getScrollY() : gridScrollTarget;
+        int destination = GridViewport.target(reference, minimum, maximum,
+                top - dp(8), bottom + dp(8), safeTop, safeBottom);
+        if (gridScrollAnimator != null && destination == gridScrollTarget) return;
+        if (gridScrollAnimator != null) gridScrollAnimator.cancel();
+        if (scroll.getScrollY() == destination) return;
+        // Stop a former ScrollView scroller before using a single, retargetable animator.
+        scroll.fling(0);
+        gridScrollTarget = destination;
+        ValueAnimator animation = ValueAnimator.ofInt(scroll.getScrollY(), destination);
+        gridScrollAnimator = animation;
+        animation.setDuration(260);
+        animation.setInterpolator(EASE);
+        animation.addUpdateListener(a -> scroll.scrollTo(0, (Integer) a.getAnimatedValue()));
+        animation.addListener(new AnimatorListenerAdapter() {
+            @Override public void onAnimationEnd(Animator a) {
+                if (gridScrollAnimator == a) gridScrollAnimator = null;
+            }
+        });
+        animation.start();
     }
 
     void updateShelf(AppEntry a) {
@@ -3050,8 +3096,7 @@ public class MainActivity extends Activity {
         tiles.get(i).requestFocus();
         focusedIndex = i;
         updateShelf(shown.get(i));
-        int row = i / COLS;
-        scroll.post(() -> scrollToRow(row));
+        scheduleGridScroll();
     }
 
     void goTop() {
