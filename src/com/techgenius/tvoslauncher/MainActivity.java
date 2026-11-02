@@ -173,6 +173,7 @@ public class MainActivity extends Activity {
     boolean classicLongPress;
     ValueAnimator gridScrollAnimator;
     int gridScrollTarget;
+    final Rect classicGridClip = new Rect();
     final Runnable gridScrollRequest = this::scrollFocusedAppIntoView;
     final Runnable footballTick = new Runnable() {
         @Override public void run() {
@@ -182,7 +183,8 @@ public class MainActivity extends Activity {
         }
     };
     boolean shouldShowFootball() {
-        return FootballScores.enabled(this) && !folderMode && (Scenes.isScenesLook(this) || sceneHome == null || !sceneHome.moreExpanded);
+        return FootballScores.enabled(this) && !folderMode && (Scenes.isScenesLook(this) || sceneHome == null || !sceneHome.moreExpanded)
+                && (Scenes.isScenesLook(this) || scroll == null || scroll.getScrollY() < dp(65));
     }
     void syncFootballVisibility() {
         if (footballCard != null) footballCard.setVisibility(pickerLayer != null && shouldShowFootball() ? View.VISIBLE : View.GONE);
@@ -265,6 +267,10 @@ public class MainActivity extends Activity {
         getWindow().setBackgroundDrawable(null);
         prefs = Profiles.homePrefs(this);
         focusedIndex = Math.max(0, prefs.getInt("last_classic_idx", 0));
+        if (!Scenes.isScenesLook(this) && prefs.getInt("home_layout_revision", 0) < 199) {
+            focusedIndex = 0;
+            prefs.edit().putInt("last_classic_idx", 0).putInt("home_layout_revision", 199).apply();
+        }
         activeLang = I18n.getLang(this);
         activeLook = Scenes.getLook(this);
 
@@ -594,8 +600,12 @@ public class MainActivity extends Activity {
         scroll.setOnScrollChangeListener((v, x, y, ox, oy) -> {
             if (y == oy) return;
             syncFootballVisibility();
+            if (y > dp(4) && !heroRequested) {
+                classicGridClip.set(0, dp(80), scroll.getWidth(), scroll.getHeight());
+                scroll.setClipBounds(classicGridClip);
+            } else scroll.setClipBounds(null);
             float ca = clockAlpha();
-            // The app grid now stays near the top; keep its escape/settings controls visible.
+            // Keep the settings/escape controls available even while browsing lower app rows.
             if (!Scenes.isScenesLook(this) && !ambientShowcase && launchOverlay == null) clockBox.setAlpha(1f);
             if (launchOverlay == null && !switcher.isFocused()) {
                 float sa = folderMode ? 0f : ca;
@@ -830,8 +840,8 @@ public class MainActivity extends Activity {
         prayerCard.setBackground(prayerGlass);
         prayerCard.setElevation(dp(12));
         // The prayer shortcut is a fixed HUD item, not an app-grid tile.
-        // Fixed shortcuts stay visible while browsing; modal overlays hide them.
-        // The Classic viewport reserves their row above the app grid.
+        // Match the original home shelf visibility. Lower app rows fade the HUD
+        // away so it cannot cover app icons; Back/Home restores the home shelf.
         root.getViewTreeObserver().addOnPreDrawListener(() -> {
             if (prayerCard != null && prayerCard.getVisibility() == View.VISIBLE) {
                 float alpha = (pickerLayer != null ? 0f : weatherAlpha());
@@ -2194,7 +2204,8 @@ public class MainActivity extends Activity {
             return;
         }
         View f = getCurrentFocus();
-        setHeroShown(f == shelfView || f == switcher);
+        int focusedApp = tiles.indexOf(f);
+        setHeroShown(f == shelfView || (hasDock() && focusedApp >= 0 && focusedApp < COLS));
         if (!(same && items.get(keep).title.equals(curTitle))) showHero(keep, 0);
         else for (int j = 0; j < heroDots.getChildCount(); j++) heroDots.getChildAt(j).setAlpha(j == keep ? 1f : 0.35f);
         List<Suggestions.Item> pre = items;
@@ -3076,8 +3087,8 @@ public class MainActivity extends Activity {
 
     void onTileFocused(int index) {
         focusedIndex = index;
-        // The hero opens explicitly with UP; app-to-app navigation keeps the grid stable.
-        setHeroShown(false);
+        boolean dock = hasDock() && index < COLS;
+        setHeroShown(dock && !heroItems.isEmpty());
         scheduleGridScroll();
         handler.removeCallbacks(shelfUpdate);
         handler.postDelayed(shelfUpdate, 90);
@@ -3106,17 +3117,12 @@ public class MainActivity extends Activity {
         }
         int row = index / COLS;
         int rowH = tileH + labelH + gap / 2;
-        int firstTop = shelfH + (hasDock() ? dockPadV : 0);
-        int top = !hasDock() ? shelfH + row * rowH
-                : row == 0 ? firstTop
+        // Release-182 geometry: original dock/home position, original grid-row anchor.
+        int rowTop = !hasDock() ? shelfH + row * rowH
+                : row == 0 ? shelfH
                 : shelfH + tileH + 2 * dockPadV + dockGapBelow() + (row - 1) * rowH;
-        int bottom = top + tileH + (hasDock() && row == 0 ? 0 : labelH);
-        int safeTop = dp(classicInfoEnabled() ? 148 : 80), safeBottom = scroll.getHeight() - dp(24);
         int maximum = Math.max(0, content.getHeight() - scroll.getHeight());
-        int minimum = Math.max(0, firstTop - dp(8) - safeTop);
-        int reference = gridScrollAnimator == null ? scroll.getScrollY() : gridScrollTarget;
-        int destination = GridViewport.target(reference, minimum, maximum,
-                top - dp(8), bottom + dp(8), safeTop, safeBottom);
+        int destination = GridViewport.homeTarget(row, rowTop, screenH, maximum);
         if (gridScrollAnimator != null && destination == gridScrollTarget) return;
         if (gridScrollAnimator != null) gridScrollAnimator.cancel();
         if (scroll.getScrollY() == destination) return;
@@ -3385,7 +3391,7 @@ public class MainActivity extends Activity {
         if (k == KeyEvent.KEYCODE_BACK) {
             if (!down) {
                 if (folderMode) exitFolder();
-                else { cancelGridScroll(); focusTop(); }
+                else { cancelGridScroll(); focusIndex(0); }
             }
             return true;
         }
@@ -4604,25 +4610,17 @@ public class MainActivity extends Activity {
         }
     };
 
-    boolean classicInfoEnabled() {
-        return !folderMode && (Weather.enabled(this) || PrayerTimes.enabled(this) || FootballScores.enabled(this));
-    }
-
     void layoutInfoShortcuts() {
         if (weatherCard == null || prayerCard == null || footballShortcut == null) return;
-        boolean scenes = Scenes.isScenesLook(this);
         View[] views = {weatherCard, prayerCard, footballShortcut};
-        boolean[] enabled = {Weather.enabled(this), PrayerTimes.enabled(this), FootballScores.enabled(this)};
-        int slot = 0;
         for (int i = 0; i < views.length; i++) {
             FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) views[i].getLayoutParams();
-            int left = scenes ? dockOuter : dockOuter + slot * dp(WeatherView.COMPACT_W + 12);
-            int top = scenes ? dp(24 + i * (WeatherView.COMPACT_H + 12)) : dp(80);
-            int gravity = Gravity.TOP | (scenes ? Gravity.START : Gravity.LEFT);
-            if (lp.leftMargin != left || lp.topMargin != top || lp.gravity != gravity) {
-                lp.leftMargin = left; lp.topMargin = top; lp.gravity = gravity; views[i].setLayoutParams(lp);
+            // Exact original weather / prayer / football shortcut positions.
+            int top = dp(24 + i * (WeatherView.COMPACT_H + 12));
+            int gravity = Gravity.TOP | Gravity.START;
+            if (lp.leftMargin != dockOuter || lp.topMargin != top || lp.gravity != gravity) {
+                lp.leftMargin = dockOuter; lp.topMargin = top; lp.gravity = gravity; views[i].setLayoutParams(lp);
             }
-            if (enabled[i]) slot++;
         }
     }
 
@@ -4640,18 +4638,18 @@ public class MainActivity extends Activity {
         int index = info.indexOf(getCurrentFocus());
         if (index < 0) return false;
         int key = ev.getKeyCode(); boolean down = ev.getAction() == KeyEvent.ACTION_DOWN;
-        if (key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT) {
+        if (key == KeyEvent.KEYCODE_DPAD_RIGHT) { if (down) focusTop(); return true; }
+        if (key == KeyEvent.KEYCODE_DPAD_LEFT) return true;
+        if (key == KeyEvent.KEYCODE_DPAD_UP || key == KeyEvent.KEYCODE_DPAD_DOWN) {
             if (down) {
-                int next = index + (key == KeyEvent.KEYCODE_DPAD_RIGHT ? 1 : -1);
+                int next = index + (key == KeyEvent.KEYCODE_DPAD_DOWN ? 1 : -1);
                 if (next >= 0 && next < info.size()) info.get(next).requestFocus();
-                else if (key == KeyEvent.KEYCODE_DPAD_RIGHT) focusTop();
+                else if (key == KeyEvent.KEYCODE_DPAD_UP) focusTop();
+                else focusIndex(Math.min(focusedIndex, COLS - 1));
             }
             return true;
         }
-        if (key == KeyEvent.KEYCODE_DPAD_UP) { if (down) focusTop(); return true; }
-        if (key == KeyEvent.KEYCODE_DPAD_DOWN || key == KeyEvent.KEYCODE_BACK) {
-            if (down) focusIndex(Math.min(focusedIndex, COLS - 1)); return true;
-        }
+        if (key == KeyEvent.KEYCODE_BACK) { if (down) focusIndex(0); return true; }
         if (key == KeyEvent.KEYCODE_DPAD_CENTER || key == KeyEvent.KEYCODE_ENTER || key == KeyEvent.KEYCODE_NUMPAD_ENTER) {
             if (down && ev.getRepeatCount() == 0) info.get(index).performClick(); return true;
         }
@@ -4665,7 +4663,8 @@ public class MainActivity extends Activity {
     boolean weatherOpen;
 
     float weatherAlpha() {
-        return folderMode || weatherOpen || pickerLayer != null || menuLayer != null ? 0f : 1f;
+        if (folderMode || weatherOpen || pickerLayer != null || menuLayer != null) return 0f;
+        return Scenes.isScenesLook(this) ? 1f : clockAlpha();
     }
 
     /** Shows the cached forecast (hidden when weather is off or nothing has loaded yet). */

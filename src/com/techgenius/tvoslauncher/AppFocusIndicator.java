@@ -118,10 +118,14 @@ final class AppFocusIndicator extends View {
     private void color(int argb){paint.setColor(argb);paint.setAlpha(Math.round(Color.alpha(argb)*opacity));}
     @Override protected void onDraw(Canvas canvas){
         super.onDraw(canvas);if(opacity<=0||frame.isEmpty())return;
+        int saved=canvas.save();
+        if(!Scenes.isScenesLook(host)&&host.scroll!=null&&host.scroll.getScrollY()>host.dp(4)&&!host.heroRequested)
+            canvas.clipRect(0,host.dp(80),getWidth(),getHeight());
         // A transparent centre preserves the app art; contrasting rims stay visible on white and dark icons.
         paint.setStyle(Paint.Style.FILL);color(0x12FFFFFF);canvas.drawRoundRect(frame,corner,corner,paint);
         paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(5f*unit);color(0x30D6ECFF);canvas.drawRoundRect(frame,corner,corner,paint);
         paint.setStrokeWidth(3.5f*unit);color(0x80405060);canvas.drawRoundRect(frame,corner,corner,paint);
         paint.setStrokeWidth(1.8f*unit);color(0xF5FFFFFF);canvas.drawRoundRect(frame,corner,corner,paint);
+        canvas.restoreToCount(saved);
     }
 }
