@@ -186,10 +186,6 @@ public class MainActivity extends Activity {
 
     View footballShortcut;
     FrameLayout root;
-    View classicGlassLens;
-    View classicLensTarget;
-    boolean classicLensPlaced;
-    int classicLastScrollY;
     ImageView wallView;
     /** Top shelf carousel: two crossfading backdrops + info panel. */
     ImageView heroBack, heroFront;
@@ -549,9 +545,6 @@ public class MainActivity extends Activity {
     void buildChrome() {
         root = new FrameLayout(this);
         root.setBackground(null);
-        classicLensPlaced = false;
-        classicLastScrollY = 0;
-        classicGlassLens = null;
 
         // One ambient wallpaper for every app. It is drawn tiny and upscaled, so it is already
         // soft; a slow drift keeps it alive without a per-frame blur on this weak GPU.
@@ -592,14 +585,6 @@ public class MainActivity extends Activity {
         scroll.setOnScrollChangeListener((v, x, y, ox, oy) -> {
             if (y == oy) return;
             syncFootballVisibility();
-            if (classicLensTarget != null && classicGlassLens != null && !Scenes.isScenesLook(this)) {
-                View target = classicLensTarget;
-                int[] a = new int[2], b = new int[2];
-                target.getLocationOnScreen(a);
-                root.getLocationOnScreen(b);
-                classicGlassLens.setX(a[0] - b[0] - dp(2));
-                classicGlassLens.setY(a[1] - b[1] - dp(2));
-            }
             float ca = clockAlpha();
             if (launchOverlay == null && !statusFocused() && Math.abs(clockBox.getAlpha() - ca) > 0.005f) {
                 clockBox.setAlpha(ca);
@@ -915,6 +900,7 @@ public class MainActivity extends Activity {
 
 
 
+        root.addView(new AppFocusIndicator(this), match());
         setContentView(root);
     }
 
@@ -993,8 +979,6 @@ public class MainActivity extends Activity {
         content.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
         while (content.getChildCount() > 1) content.removeViewAt(1);
         tiles.clear();
-        classicLensPlaced = false;
-        if (classicGlassLens != null) classicGlassLens.setAlpha(0f);
         LinearLayout row = null;
         for (int i = 0; i < shown.size(); i++) {
             if (i % COLS == 0) {
@@ -1061,25 +1045,11 @@ public class MainActivity extends Activity {
         topSheen.setAlpha(0f);
         tile.addView(topSheen, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, tileH / 2, Gravity.TOP));
 
-        // Floating outer silver ring: a sibling of the clipped artwork, not an overlay inside it.
+        // Artwork stays clipped; AppFocusIndicator draws the shared moving frame above the grid.
         FrameLayout focusHolder = new FrameLayout(this);
         focusHolder.setClipChildren(false);
         focusHolder.setClipToPadding(false);
         focusHolder.addView(tile, new FrameLayout.LayoutParams(tileW, tileH));
-        GradientDrawable silverGlass = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                new int[]{0x35FFFFFF, 0x09FFFFFF, 0x32C6E3FF});
-        silverGlass.setCornerRadius(radius + dp(4));
-        silverGlass.setStroke(dp(3), 0xFFF7FAFF);
-        View silverFocus = new View(this);
-        silverFocus.setBackground(silverGlass);
-        silverFocus.setAlpha(0f);
-        silverFocus.setFocusable(false);
-        silverFocus.setClickable(false);
-        FrameLayout.LayoutParams ringLp = new FrameLayout.LayoutParams(tileW + dp(8), tileH + dp(8));
-        ringLp.leftMargin = -dp(4);
-        ringLp.topMargin = -dp(4);
-        focusHolder.addView(silverFocus, ringLp);
-
         TextView label = text(15, Ui.font(this, "medium"), 0f);
         label.setText(a.label);
         label.setSingleLine(true);
@@ -1105,9 +1075,6 @@ public class MainActivity extends Activity {
                     label.animate().alpha(1f).translationY(tileH * (FOCUS_SCALE - 1f) / 2f).setDuration(160).start();
                 }
                 topSheen.setAlpha(0f);
-                silverFocus.animate().cancel();
-                silverFocus.setAlpha(0f);
-                moveClassicLens(v);
                 onTileFocused(index);
             } else {
                 cell.setTranslationZ(0);
@@ -1115,8 +1082,6 @@ public class MainActivity extends Activity {
                 v.animate().scaleX(1f).scaleY(1f).translationZ(0).setDuration(140).setInterpolator(EASE).start();
                 label.animate().alpha(0f).translationY(0).setDuration(120).start();
                 topSheen.setAlpha(0f);
-                silverFocus.animate().cancel();
-                silverFocus.animate().alpha(0f).setDuration(110).setInterpolator(EASE).start();
             }
         });
         tile.setCameraDistance(9000 * unit);
@@ -3052,71 +3017,6 @@ public class MainActivity extends Activity {
     }
 
     // ---------------------------------------------------------------- focus & shelf
-
-    // Classic-only focus lens: purely visual, never focusable and never intercepts D-pad events.
-    void moveClassicLens(View target) {
-        if (Scenes.isScenesLook(this) || root == null || target == null) return;
-        classicLensTarget = target;
-        if (classicGlassLens == null) {
-            classicGlassLens = new View(this);
-            // Three-layer glass rim: dark contrast on white icons, bright specular
-            // highlight on dark icons, and a soft diagonal sheen. Visual only.
-            GradientDrawable contrast = new GradientDrawable();
-            contrast.setColor(0x08000000);
-            contrast.setCornerRadius(dp(13));
-            contrast.setStroke(dp(2), 0xA04B6075);
-            GradientDrawable glass = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                    new int[]{0x3CFFFFFF, 0x08FFFFFF, 0x20D5E9FF});
-            glass.setCornerRadius(dp(11));
-            glass.setStroke(dp(2), 0xE8FFFFFF);
-            GradientDrawable shine = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
-                    new int[]{0x35FFFFFF, 0x00FFFFFF, 0x00FFFFFF});
-            shine.setCornerRadius(dp(11));
-            android.graphics.drawable.LayerDrawable rim = new android.graphics.drawable.LayerDrawable(
-                    new android.graphics.drawable.Drawable[]{contrast, glass, shine});
-            rim.setLayerInset(1, 0, 0, 0, 0);
-            rim.setLayerInset(2, dp(3), dp(3), dp(3), dp(3));
-            classicGlassLens.setBackground(rim);
-            classicGlassLens.setFocusable(false);
-            classicGlassLens.setClickable(false);
-            // Keep the lens attached to the icon while the classic grid scrolls.
-            root.getViewTreeObserver().addOnPreDrawListener(() -> {
-                if (classicGlassLens == null || classicLensTarget == null
-                        || Scenes.isScenesLook(this) || !classicLensTarget.isAttachedToWindow()) return true;
-                if (scroll != null && scroll.getScrollY() != classicLastScrollY) {
-                    classicLastScrollY = scroll.getScrollY();
-                    int[] a = new int[2], b = new int[2];
-                    classicLensTarget.getLocationOnScreen(a);
-                    root.getLocationOnScreen(b);
-                    classicGlassLens.animate().cancel();
-                    classicGlassLens.setX(a[0] - b[0] - dp(2));
-                    classicGlassLens.setY(a[1] - b[1] - dp(2));
-                }
-                return true;
-            });
-            classicGlassLens.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-            root.addView(classicGlassLens, new FrameLayout.LayoutParams(tileW + dp(4), tileH + dp(4)));
-        }
-        target.post(() -> {
-            if (classicLensTarget != target || !target.isAttachedToWindow() || Scenes.isScenesLook(this)) return;
-            classicLastScrollY = scroll == null ? 0 : scroll.getScrollY();
-            int[] a = new int[2], b = new int[2];
-            target.getLocationOnScreen(a);
-            root.getLocationOnScreen(b);
-            float x = a[0] - b[0] - dp(2);
-            float y = a[1] - b[1] - dp(2);
-            classicGlassLens.animate().cancel();
-            if (!classicLensPlaced) {
-                classicGlassLens.setX(x);
-                classicGlassLens.setY(y);
-                classicGlassLens.setAlpha(1f);
-                classicLensPlaced = true;
-            } else {
-                classicGlassLens.animate().x(x).y(y).alpha(1f)
-                        .setDuration(210).setInterpolator(LIFT).start();
-            }
-        });
-    }
 
     void onTileFocused(int index) {
         focusedIndex = index;

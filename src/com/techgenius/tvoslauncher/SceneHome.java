@@ -69,12 +69,6 @@ final class SceneHome {
     final List<View> dockTiles = new ArrayList<>();
     final List<MainActivity.AppEntry> dockEntries = new ArrayList<>();
 
-    /** One frosted-glass lens that slides between dock tiles (tvOS 26 style focus). */
-    View glassLens;
-    int lensSize;
-    boolean lensShown = false;
-    ValueAnimator lensAnim;
-
     private final Map<String, Bitmap> logoCache = new HashMap<>();
     private Bitmap demoArt1, demoArt2, demoArt3;
 
@@ -694,128 +688,6 @@ final class SceneHome {
         dlp.bottomMargin = dp(14);
         overlay.addView(dockContainer, dlp);
 
-        // The sliding glass lens sits above the whole dock (added last, so it draws on top).
-        lensSize = Math.round(dp(54) * 1.13f + dp(7));
-        glassLens = new View(host);
-        glassLens.setBackground(new GlassLensDrawable(dp(18), host.unit));
-        glassLens.setAlpha(0f);
-        glassLens.setFocusable(false);
-        glassLens.setClickable(false);
-        FrameLayout.LayoutParams lensLp = new FrameLayout.LayoutParams(lensSize, lensSize,
-                Gravity.TOP | Gravity.START);
-        overlay.addView(glassLens, lensLp);
-    }
-
-    /**
-     * Frosted glass lens (like tvOS 26 focus): a soft white wash that lets the icon show through,
-     * a bright glossy top, a thin luminous rim and a faint outer glow. Drawn with plain gradients,
-     * so it costs the GPU almost nothing.
-     */
-    private static final class GlassLensDrawable extends Drawable {
-        private final float r;
-        private final Paint fill = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint sheen = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint glow = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final Paint rim = new Paint(Paint.ANTI_ALIAS_FLAG);
-        private final RectF box = new RectF();
-
-        GlassLensDrawable(float radius, float unit) {
-            r = radius;
-            glow.setStyle(Paint.Style.STROKE);
-            glow.setStrokeWidth(4.5f * unit);
-            glow.setColor(0x26FFFFFF);
-            rim.setStyle(Paint.Style.STROKE);
-            rim.setStrokeWidth(1.7f * unit);
-        }
-
-        @Override
-        protected void onBoundsChange(Rect b) {
-            float inset = glow.getStrokeWidth() / 2f;
-            box.set(b.left + inset, b.top + inset, b.right - inset, b.bottom - inset);
-            float h = box.height();
-            fill.setShader(new LinearGradient(0, box.top, 0, box.bottom,
-                    new int[]{0x4CFFFFFF, 0x2ADCEBFF, 0x1CFFFFFF},
-                    new float[]{0f, 0.55f, 1f}, Shader.TileMode.CLAMP));
-            sheen.setShader(new LinearGradient(0, box.top, 0, box.top + h * 0.42f,
-                    0x3AFFFFFF, 0x00FFFFFF, Shader.TileMode.CLAMP));
-            rim.setShader(new LinearGradient(box.left, box.top, box.right, box.bottom,
-                    new int[]{0xFFFFFFFF, 0x80FFFFFF, 0x55FFFFFF, 0xD9FFFFFF},
-                    new float[]{0f, 0.3f, 0.7f, 1f}, Shader.TileMode.CLAMP));
-        }
-
-        @Override
-        public void draw(Canvas c) {
-            if (box.isEmpty()) return;
-            c.drawRoundRect(box, r, r, fill);
-            c.drawRoundRect(box, r, r, sheen);
-            c.drawRoundRect(box, r, r, glow);
-            c.drawRoundRect(box, r, r, rim);
-        }
-
-        @Override public void setAlpha(int a) { }
-        @Override public void setColorFilter(android.graphics.ColorFilter cf) { }
-        @Override public int getOpacity() { return android.graphics.PixelFormat.TRANSLUCENT; }
-    }
-
-    /** Slides (and gently stretches) the glass lens to the newly focused dock tile. */
-    private void moveLensTo(final View tile) {
-        if (glassLens == null || tile == null) return;
-        if (tile.getWidth() <= 0 || overlay.getWidth() <= 0) {
-            tile.post(() -> {
-                if (tile.isFocused()) moveLensTo(tile);
-            });
-            return;
-        }
-        int[] t = new int[2];
-        int[] o = new int[2];
-        tile.getLocationInWindow(t);
-        overlay.getLocationInWindow(o);
-        float cx = t[0] - o[0] + tile.getWidth() * tile.getScaleX() / 2f;
-        float cy = t[1] - o[1] + tile.getHeight() * tile.getScaleY() / 2f;
-        final float tx = cx - lensSize / 2f;
-        final float ty = cy - lensSize / 2f;
-
-        if (lensAnim != null) lensAnim.cancel();
-        glassLens.animate().cancel();
-
-        if (!lensShown) {
-            // First appearance: pop in right on the tile.
-            lensShown = true;
-            glassLens.setTranslationX(tx);
-            glassLens.setTranslationY(ty);
-            glassLens.setScaleX(0.88f);
-            glassLens.setScaleY(0.88f);
-            glassLens.animate().alpha(1f).scaleX(1f).scaleY(1f)
-                    .setDuration(170).setInterpolator(MainActivity.LIFT).start();
-            return;
-        }
-
-        final float fx = glassLens.getTranslationX();
-        final float fy = glassLens.getTranslationY();
-        final boolean horizontal = Math.abs(tx - fx) >= Math.abs(ty - fy);
-        glassLens.animate().alpha(1f).setDuration(120).start();
-
-        lensAnim = ValueAnimator.ofFloat(0f, 1f);
-        lensAnim.setDuration(280);
-        lensAnim.setInterpolator(MainActivity.EASE);
-        lensAnim.addUpdateListener(a -> {
-            float p = (float) a.getAnimatedValue();
-            glassLens.setTranslationX(fx + (tx - fx) * p);
-            glassLens.setTranslationY(fy + (ty - fy) * p);
-            // Liquid stretch along the direction of travel, settling back to 1.
-            float stretch = 1f + 0.16f * (float) Math.sin(Math.PI * p);
-            glassLens.setScaleX(horizontal ? stretch : 1f);
-            glassLens.setScaleY(horizontal ? 1f : stretch);
-        });
-        lensAnim.start();
-    }
-
-    private void hideLens() {
-        if (glassLens == null || !lensShown) return;
-        lensShown = false;
-        if (lensAnim != null) lensAnim.cancel();
-        glassLens.animate().cancel();
-        glassLens.animate().alpha(0f).scaleX(0.92f).scaleY(0.92f).setDuration(140).start();
     }
 
     private Drawable createMacTooltipDrawable() {
@@ -1056,7 +928,7 @@ final class SceneHome {
             }
         }
 
-        // The artwork stays clipped; the frosted glass lens is a separate sliding view (see moveLensTo).
+        // Artwork stays clipped; AppFocusIndicator follows this tile above the scene overlay.
         FrameLayout focusHolder = new FrameLayout(host);
         focusHolder.setClipChildren(false);
         focusHolder.setClipToPadding(false);
@@ -1079,7 +951,6 @@ final class SceneHome {
                         .translationY(0f)
                         .translationZ(isGear || isMore ? 0f : dp(8))
                         .setDuration(190).setInterpolator(MainActivity.LIFT).start();
-                moveLensTo(v);
             } else {
                 v.animate().withLayer().scaleX(1f).scaleY(1f)
                         .translationY(0f)
@@ -1088,7 +959,6 @@ final class SceneHome {
                 overlay.post(() -> {
                     if (!isAnyDockTileFocused()) {
                         updateDockTooltip(null, "");
-                        hideLens();
                     }
                 });
             }
