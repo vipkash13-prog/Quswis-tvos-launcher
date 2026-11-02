@@ -68,16 +68,17 @@ public final class PrayerScheduler extends BroadcastReceiver {
   if(!PrayerTimes.prefs(context).getBoolean(iqama?"iqama_enabled":"adhan_enabled",false))return;
   NotificationManager nm=(NotificationManager)context.getSystemService(Context.NOTIFICATION_SERVICE);
   if(nm==null)return;
+  String channelId=iqama?CHANNEL:"prayer_adhan_2012_silent";
   if(Build.VERSION.SDK_INT>=26){
-   NotificationChannel channel=new NotificationChannel(CHANNEL,"مواقيت الصلاة",NotificationManager.IMPORTANCE_HIGH);
+   NotificationChannel channel=new NotificationChannel(channelId,"مواقيت الصلاة",NotificationManager.IMPORTANCE_HIGH);
    channel.setDescription("تنبيهات صوتية عند وقت الصلاة والإقامة بدون مغادرة التطبيقات");
-   channel.enableVibration(true);
-   channel.setSound(android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM),
+   channel.enableVibration(iqama);
+   channel.setSound(iqama?android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM):null,
        new android.media.AudioAttributes.Builder().setUsage(android.media.AudioAttributes.USAGE_ALARM).build());
    nm.createNotificationChannel(channel);
   }
   String title=(iqama?"حان وقت إقامة صلاة ":"حان وقت أذان صلاة ")+NAMES[index];
-  Notification.Builder builder=Build.VERSION.SDK_INT>=26?new Notification.Builder(context,CHANNEL):new Notification.Builder(context);
+  Notification.Builder builder=Build.VERSION.SDK_INT>=26?new Notification.Builder(context,channelId):new Notification.Builder(context);
   builder.setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle(title)
    .setContentText(PrayerTimes.city(context)).setAutoCancel(true)
    .setCategory(Notification.CATEGORY_REMINDER).setPriority(Notification.PRIORITY_HIGH);

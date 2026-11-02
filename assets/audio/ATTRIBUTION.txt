@@ -1,0 +1,15 @@
+Title: Adhan - Makkah (Masjid al-Haram)
+Muezzin: Ali Ibn Ahmad Mala (الشيخ علي بن أحمد ملا)
+Publisher/source: Assabile (السبيل), Makkah adhan collection, recording a119.
+Source page: https://www.assabile.com/adhan-call-prayer/makkah
+Published audio URL: https://media.assabile.com/assabile/adhan_3435370/54944191e2e2.mp3
+Retrieved: 2026-11-02
+Duration: 246.412 seconds. MP3, mono, 16000 Hz, 16 kbps.
+SHA-256: 21814bbe0e34e634894b484c1b9a810d9980331ee51fe19bf0274920191c6271
+Changes: none. Original MP3 bytes retained. No trimming or denoising.
+Recording date: not documented by source; this is NOT the former 2012 recording.
+Rights: the source offers listening and MP3 downloads; no Creative Commons
+license is stated on the source page. No CC BY 3.0 or Apache license is asserted
+for this replacement recording. Credit remains with the performer/rightsholders.
+Audio-only and lower quiet-window levels do not certify the complete absence
+of crowd voices or other background events. Full listening review remains needed.

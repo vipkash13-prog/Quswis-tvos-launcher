@@ -3,67 +3,146 @@ package com.techgenius.tvoslauncher;
 import android.app.*;
 import android.content.*;
 import android.content.pm.ServiceInfo;
+import android.content.res.AssetFileDescriptor;
 import android.media.*;
+import android.media.session.*;
 import android.os.*;
-import android.view.KeyEvent;
+import java.util.ArrayList;
+import java.util.List;
 
-/** Foreground adhan playback; pauses active media and resumes it on completion. */
+/** Offline adhan with transient audio focus and session-specific media restoration. */
 public final class AdhanPlaybackService extends Service {
- private static final String CHANNEL="quswis_adhan_playback";
- private static final String AUDIO="https://commons.wikimedia.org/wiki/Special:Redirect/file/Beautiful_adhan.ogg";
+ static final String STOP="com.techgenius.tvoslauncher.STOP_ADHAN";
+ private static final String CHANNEL="quswis_adhan_playback_mulla_v1";
  private final Handler handler=new Handler(Looper.getMainLooper());
+ private final List<PausedSession> paused=new ArrayList<>();
  private MediaPlayer player;
  private AudioManager audio;
  private AudioFocusRequest focusRequest;
- private boolean pausedOther=false,hasFocus=false;
- private final AudioManager.OnAudioFocusChangeListener focusChange=change->{};
+ private boolean hasFocus,finishing,destroyed;
+ private final AudioManager.OnAudioFocusChangeListener focusChange=change->{
+  // A call, another app or the user took focus: do not restart the film over it.
+  if(change<0){for(PausedSession session:paused)session.guard.invalidate();finish(false);}
+ };
  @Override public IBinder onBind(Intent i){return null;}
  @Override public int onStartCommand(Intent intent,int flags,int id){
-  if(player!=null)return START_NOT_STICKY;
-  audio=(AudioManager)getSystemService(AUDIO_SERVICE);
-  NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
-  if(Build.VERSION.SDK_INT>=26)nm.createNotificationChannel(new NotificationChannel(CHANNEL,"الأذان",NotificationManager.IMPORTANCE_LOW));
-  Notification n=(Build.VERSION.SDK_INT>=26?new Notification.Builder(this,CHANNEL):new Notification.Builder(this))
-    .setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle("حان وقت الأذان").setOngoing(true).build();
-  if(Build.VERSION.SDK_INT>=29)startForeground(7351,n,ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
-  else startForeground(7351,n);
-  pausedOther=audio!=null&&audio.isMusicActive();
-  if(pausedOther)mediaKey(KeyEvent.KEYCODE_MEDIA_PAUSE);
-  if(audio!=null){
-   if(Build.VERSION.SDK_INT>=26){
-    focusRequest=new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
-      .setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
-      .setOnAudioFocusChangeListener(focusChange).build();
-    hasFocus=audio.requestAudioFocus(focusRequest)==AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
-   }else hasFocus=audio.requestAudioFocus(focusChange,AudioManager.STREAM_MUSIC,AudioManager.AUDIOFOCUS_GAIN)==AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
-  }
+  if(intent!=null&&STOP.equals(intent.getAction())){finish(true);return START_NOT_STICKY;}
+  if(player!=null||finishing)return START_NOT_STICKY;
   try{
-   player=new MediaPlayer();
-   player.setAudioAttributes(new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());
-   player.setDataSource(AUDIO);
-   player.setOnPreparedListener(MediaPlayer::start);
-   player.setOnCompletionListener(mp->finish());
-   player.setOnErrorListener((mp,what,extra)->{finish();return true;});
-   player.prepareAsync();
-   handler.postDelayed(this::finish,9*60*1000L);
-  }catch(Exception e){finish();}
+   audio=(AudioManager)getSystemService(AUDIO_SERVICE);
+   NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
+   if(Build.VERSION.SDK_INT>=26){
+    NotificationChannel channel=new NotificationChannel(CHANNEL,"أذان الحرم المكي • علي ملا",NotificationManager.IMPORTANCE_LOW);
+    channel.setSound(null,null);nm.createNotificationChannel(channel);
+   }
+   PendingIntent stop=PendingIntent.getService(this,7352,new Intent(this,AdhanPlaybackService.class).setAction(STOP),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+   Notification n=(Build.VERSION.SDK_INT>=26?new Notification.Builder(this,CHANNEL):new Notification.Builder(this))
+    .setSmallIcon(android.R.drawable.ic_lock_idle_alarm).setContentTitle("أذان الحرم المكي • الشيخ علي ملا")
+    .setContentText("تستأنف الوسائط المتوقفة عند اكتمال الأذان").setOngoing(true)
+    .addAction(new Notification.Action.Builder(null,"إيقاف الأذان",stop).build()).build();
+   if(Build.VERSION.SDK_INT>=29)startForeground(7351,n,ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK);
+   else startForeground(7351,n);
+   MediaPlayer next=new MediaPlayer();player=next;
+   next.setAudioAttributes(attributes());
+   try(AssetFileDescriptor fd=getAssets().openFd("audio/haram_ali_mulla.mp3")){
+    next.setDataSource(fd.getFileDescriptor(),fd.getStartOffset(),fd.getLength());
+   }
+   next.setOnPreparedListener(mp->{
+    if(mp!=player||finishing)return;
+    try{
+     capturePlayingSessions();
+     if(!requestFocus()){finish(false);return;}
+     for(PausedSession session:paused)session.pause();
+     mp.start();
+     // Only a stuck player uses this watchdog; normal completion comes from MediaPlayer.
+     handler.postDelayed(()->finish(true),Math.max(mp.getDuration()+30000L,60000L));
+    }catch(Exception e){android.util.Log.e("Quswis-Adhan","Playback failed",e);finish(true);}
+   });
+   next.setOnCompletionListener(mp->finish(true));
+   next.setOnErrorListener((mp,what,extra)->{finish(true);return true;});
+   next.prepareAsync();
+   handler.postDelayed(()->{if(!hasFocus)finish(false);},30000L);
+  }catch(Exception e){android.util.Log.e("Quswis-Adhan","Could not prepare adhan",e);finish(true);}
   return START_NOT_STICKY;
  }
- private void mediaKey(int code){
-  if(audio==null)return;
-  audio.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN,code));
-  audio.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_UP,code));
+ private AudioAttributes attributes(){return new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build();}
+ private boolean requestFocus(){
+  if(audio==null)return false;
+  if(Build.VERSION.SDK_INT>=26){
+   focusRequest=new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+    .setAudioAttributes(attributes()).setWillPauseWhenDucked(true).setOnAudioFocusChangeListener(focusChange,handler).build();
+   hasFocus=audio.requestAudioFocus(focusRequest)==AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+  }else hasFocus=audio.requestAudioFocus(focusChange,AudioManager.STREAM_MUSIC,AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)==AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
+  return hasFocus;
  }
- private void finish(){
-  handler.removeCallbacksAndMessages(null);
-  if(player!=null){try{player.release();}catch(Exception ignored){}player=null;}
+ private void capturePlayingSessions(){
+  if(!MediaWatchService.granted(this))return;
+  try{
+   MediaSessionManager manager=(MediaSessionManager)getSystemService(MEDIA_SESSION_SERVICE);
+   if(manager==null)return;
+   for(MediaController controller:manager.getActiveSessions(new ComponentName(this,MediaWatchService.class))){
+    PlaybackState state=controller.getPlaybackState();
+    if(getPackageName().equals(controller.getPackageName())||state==null||state.getState()!=PlaybackState.STATE_PLAYING)continue;
+    long actions=state.getActions();
+    boolean canPause=(actions&(PlaybackState.ACTION_PAUSE|PlaybackState.ACTION_PLAY_PAUSE))!=0;
+    boolean canPlay=(actions&(PlaybackState.ACTION_PLAY|PlaybackState.ACTION_PLAY_PAUSE))!=0;
+    if(canPause&&canPlay)paused.add(new PausedSession(controller));
+   }
+  }catch(SecurityException e){android.util.Log.w("Quswis-Adhan","Notification access is needed for session control");}
+ }
+ private static String content(MediaController c){
+  MediaMetadata m=c.getMetadata();if(m==null)return "";
+  return String.valueOf(m.getString(MediaMetadata.METADATA_KEY_MEDIA_ID))+"|"+
+   String.valueOf(m.getString(MediaMetadata.METADATA_KEY_TITLE))+"|"+
+   String.valueOf(m.getString(MediaMetadata.METADATA_KEY_ARTIST));
+ }
+ private final class PausedSession {
+  final MediaController controller;
+  final MediaResumeGuard guard;
+  final MediaController.Callback callback=new MediaController.Callback(){
+   @Override public void onPlaybackStateChanged(PlaybackState state){observe(state);}
+   @Override public void onMetadataChanged(MediaMetadata metadata){
+    if(!identity.equals(content(controller)))guard.invalidate();
+   }
+   @Override public void onSessionDestroyed(){guard.invalidate();}
+  };
+  final String identity;
+  PausedSession(MediaController c){controller=c;identity=content(c);guard=new MediaResumeGuard(identity);c.registerCallback(callback,handler);}
+  void observe(PlaybackState s){if(s==null)guard.invalidate();else guard.observe(s.getState(),s.getPosition(),content(controller));}
+  void pause(){
+   try{
+    PlaybackState state=controller.getPlaybackState();
+    if(state!=null&&state.getState()==PlaybackState.STATE_PLAYING)controller.getTransportControls().pause();
+    observe(controller.getPlaybackState());
+   }catch(Exception e){guard.invalidate();}
+  }
+  void restore(){
+   try{
+    PlaybackState state=controller.getPlaybackState();
+    if(state!=null&&guard.canResume(state.getState(),state.getPosition(),content(controller)))controller.getTransportControls().play();
+   }catch(Exception ignored){}finally{close();}
+  }
+  void close(){try{controller.unregisterCallback(callback);}catch(Exception ignored){}}
+ }
+ private void releasePlayerAndFocus(){
+  if(player!=null){MediaPlayer old=player;player=null;old.release();}
   if(audio!=null&&hasFocus){
+   hasFocus=false;
    if(Build.VERSION.SDK_INT>=26&&focusRequest!=null)audio.abandonAudioFocusRequest(focusRequest);
    else audio.abandonAudioFocus(focusChange);
   }
-  hasFocus=false;
-  if(pausedOther){pausedOther=false;handler.postDelayed(()->mediaKey(KeyEvent.KEYCODE_MEDIA_PLAY),400);}
-  handler.postDelayed(this::stopSelf,900);
  }
- @Override public void onDestroy(){if(player!=null)finish();super.onDestroy();}
+ private void finish(boolean restore){
+  if(finishing||destroyed)return;
+  finishing=true;handler.removeCallbacksAndMessages(null);releasePlayerAndFocus();
+  // Focus restoration may resume the player itself; recheck state before sending play.
+  handler.postDelayed(()->{
+   for(PausedSession session:paused){if(restore)session.restore();else session.close();}
+   paused.clear();stopForeground(true);stopSelf();
+  },350L);
+ }
+ @Override public void onDestroy(){
+  destroyed=true;handler.removeCallbacksAndMessages(null);releasePlayerAndFocus();
+  for(PausedSession session:paused)session.close();paused.clear();super.onDestroy();
+ }
 }

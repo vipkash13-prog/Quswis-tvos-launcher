@@ -652,25 +652,38 @@ public class SettingsActivity extends Activity {
                 () -> {
                     boolean enabled = !PrayerTimes.prefs(this).getBoolean("adhan_enabled", false);
                     PrayerTimes.prefs(this).edit().putBoolean("adhan_enabled", enabled).apply();
+                    if (enabled && android.os.Build.VERSION.SDK_INT >= 33 &&
+                            checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                        requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 9030);
+                    }
                     PrayerScheduler.schedule(this);
                     rebuildMainRows();
                 });
-        row("صوت الأذان",
-                () -> "cc0".equals(PrayerTimes.prefs(this).getString("adhan_audio", "system"))
-                    ? "أذان كامل (ترخيص CC0)" : "تنبيه النظام",
-                () -> dialog("اختيار صوت الأذان").setItems(
-                    new String[]{"تنبيه النظام", "أذان كامل موثوق (CC0)"},
-                    (d, which) -> {
-                        PrayerTimes.prefs(this).edit()
-                            .putString("adhan_audio", which == 1 ? "cc0" : "system").apply();
-                        rebuildMainRows();
-                    }).show());
+        row("صوت الأذان", () -> "الحرم المكي • الشيخ علي ملا",
+                () -> dialog("مصدر تسجيل الأذان")
+                    .setMessage("الشيخ علي بن أحمد ملا — أذان الحرم المكي\nالمصدر: السبيل (Assabile)\nhttps://www.assabile.com/adhan-call-prayer/makkah\nتسجيل صوتي مستقل مدته نحو 4 دقائق و6 ثوانٍ. تاريخ التسجيل غير موثق. الملف الأصلي دون قص أو فلاتر.")
+                    .setPositiveButton("حسناً", null).show());
+        row("صلاحية التحكم بوسائط التطبيقات",
+                () -> MediaWatchService.granted(this) ? "مسموح" : "السماح بالوصول إلى الإشعارات",
+                () -> {
+                    try { startActivity(new android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)); }
+                    catch (Exception e) { android.widget.Toast.makeText(this, "افتح صلاحية الوصول إلى الإشعارات من إعدادات الجهاز", android.widget.Toast.LENGTH_LONG).show(); }
+                });
         row("تجربة صوت الأذان الآن",
                 () -> "اضغط للاستماع",
                 () -> AdhanAudio.play(this));
+        if (android.os.Build.VERSION.SDK_INT >= 31) {
+            row("السماح بالأذان في الموعد المحدد",
+                    () -> ((android.app.AlarmManager)getSystemService(ALARM_SERVICE)).canScheduleExactAlarms() ? "مسموح" : "السماح بالمنبهات الدقيقة",
+                    () -> {
+                        try { startActivity(new Intent(android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                android.net.Uri.parse("package:" + getPackageName()))); }
+                        catch (Exception e) { Toast.makeText(this, "افتح صلاحية المنبهات من إعدادات الجهاز", Toast.LENGTH_LONG).show(); }
+                    });
+        }
         row("إيقاف صوت الأذان",
                 () -> "إيقاف التشغيل",
-                () -> AdhanAudio.stop());
+                () -> AdhanAudio.stop(this));
         row("تنبيه الإقامة",
                 () -> PrayerTimes.prefs(this).getBoolean("iqama_enabled", false) ? "مفعّل" : "متوقف",
                 () -> {
@@ -685,7 +698,7 @@ public class SettingsActivity extends Activity {
         row("المدينة",
                 () -> PrayerTimes.city(this),
                 this::promptPrayerCity);
-        infoNote("اختر الدولة والمدينة. اختر تنبيه النظام أو أذاناً كاملاً مرخصاً CC0. تسجيلات الحرمين ستضاف بعد توثيق مصدرها.");
+        infoNote("اختر الدولة والمدينة وفعّل تنبيه الأذان. التسجيل مضمّن ويعمل دون إنترنت. اسمح بالوصول إلى الإشعارات لإيقاف الفيلم مؤقتاً واستئنافه بعد الأذان في التطبيقات الداعمة للتحكم بالوسائط. لا يتم استئناف محتوى كان متوقفاً مسبقاً أو تغيّر أثناء الأذان.");
     }
 
     private void choosePrayerCountry() {
@@ -2964,6 +2977,7 @@ public class SettingsActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (PRAYER.equals(currentSection)) PrayerScheduler.schedule(this);
         if (BUTTON_MAPPER.equals(currentSection)) {
             rebuildMainRows();
         } else {
