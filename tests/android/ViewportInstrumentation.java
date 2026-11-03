@@ -24,6 +24,8 @@ public final class ViewportInstrumentation extends Instrumentation {
         try {
             Context c=getTargetContext();
             c.getSharedPreferences("setup",Context.MODE_PRIVATE).edit().putBoolean(SetupActivity.K_DONE,true).commit();
+            Profiles.homePrefs(c).edit().putBoolean("asked_default_home",true).commit();
+            AppUpdater.setAutoUpdateEnabled(c,false);
             Scenes.setLook(c,Scenes.LOOK_CLASSIC);
             PrayerTimes.setEnabled(c,true);
             Weather.prefs(c).edit().putBoolean("enabled",true).commit();
@@ -80,6 +82,7 @@ public final class ViewportInstrumentation extends Instrumentation {
                 runOnMainSync(() -> {
                     check(a.scroll.getTop()>=a.classicHeaderBottom(),"Scroll viewport crossed header");
                     View focused=a.tiles.get(index);
+                    check(a.hasWindowFocus(),"Another window is covering the launcher");
                     check(focused.isFocused(),"DPAD focus did not reach tile "+index);
                     check(a.scroll.isShown() && a.scroll.getAlpha()>0.9f,"App viewport is hidden");
                     int[] position=new int[2], viewport=new int[2];
