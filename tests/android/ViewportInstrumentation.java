@@ -54,6 +54,15 @@ public final class ViewportInstrumentation extends Instrumentation {
             getUiAutomation().injectInputEvent(new android.view.KeyEvent(time,time+10,
                     android.view.KeyEvent.ACTION_UP,android.view.KeyEvent.KEYCODE_DPAD_DOWN,0),true);
             MainActivity a=activity[0];
+            // The emulator's boot package broadcasts must not replace our fixed 42-app fixture.
+            ui(() -> {
+                if(a.pkgReceiver!=null) {
+                    a.unregisterReceiver(a.pkgReceiver);
+                    a.pkgReceiver=null;
+                }
+            });
+            a.io.submit(() -> {}).get();
+            waitForIdleSync();
             ui(() -> {
                 a.apps.clear(); a.otherApps.clear();
                 for(int i=0;i<42;i++) {
