@@ -100,6 +100,7 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
             final int index = i;
             LinearLayout tile = column(); tile.setGravity(Gravity.CENTER);
             tile.setBackground(glass(false, 15));
+            tile.setContentDescription(labels[i]);
             PrayerServiceIcon icon = new PrayerServiceIcon(host, i);
             LinearLayout.LayoutParams iconSize = new LinearLayout.LayoutParams(px(56), 0, 1);
             iconSize.topMargin = px(5);
@@ -195,6 +196,7 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
                 .setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
         PrayerTimes.prefs(host).registerOnSharedPreferenceChangeListener(this);
         shortcuts.get(0).requestFocus();
+        surface.post(() -> { if (!closing && !subpage) shortcuts.get(0).requestFocus(); });
         refreshAt = System.currentTimeMillis();
         PrayerTimes.refresh(host, null, false); pulse.run();
     }

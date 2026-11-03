@@ -72,6 +72,7 @@ jobs:
         sudo chmod 666 /dev/kvm
 
     - name: Test remote navigation on Android 14 and capture window
+      timeout-minutes: 10
       uses: reactivecircus/android-emulator-runner@v2
       with:
         api-level: 34
@@ -84,7 +85,7 @@ jobs:
           adb shell wm size 1920x1080
           adb install -r dist/Quswis-tvOS-Launcher.apk
           adb install -r /tmp/quswis-ui/test.apk
-          adb shell am instrument -w -r com.techgenius.tvoslauncher.windowtest/com.techgenius.tvoslauncher.PrayerWindowInstrumentation | tee /tmp/quswis-ui/result.txt
+          timeout 120 adb shell am instrument -w -r com.techgenius.tvoslauncher.windowtest/com.techgenius.tvoslauncher.PrayerWindowInstrumentation | tee /tmp/quswis-ui/result.txt
           grep -q PRAYER_UI_OK /tmp/quswis-ui/result.txt
           adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/prayer-window-1080.png dist/prayer-window-1080.png
 

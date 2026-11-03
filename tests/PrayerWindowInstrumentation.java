@@ -31,6 +31,8 @@ public final class PrayerWindowInstrumentation extends Instrumentation {
     @Override public void onStart() {
         Bundle result=new Bundle();
         try {
+            getTargetContext().getSharedPreferences("setup",0).edit().putBoolean("setup_done",true).commit();
+            Profiles.homePrefs(getTargetContext()).edit().putBoolean("asked_default_home",true).commit();
             PrayerTimes.setEnabled(getTargetContext(),true);
             Intent launch=new Intent(getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
             host=(MainActivity)startActivitySync(launch); waitForIdleSync();
