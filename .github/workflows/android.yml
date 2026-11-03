@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: write
+  actions: read
 
 jobs:
   build:
@@ -77,3 +78,31 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+
+    - name: Download verified prayer APK for direct download
+      if: github.ref == 'refs/heads/feature/prayer-glass-window'
+      uses: actions/download-artifact@v4
+      with:
+        name: Quswis-tvOS-Launcher
+        run-id: 41736770475
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        path: release-apk
+
+    - name: Publish verified prayer APK as a direct download
+      if: github.ref == 'refs/heads/feature/prayer-glass-window'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: prayer-glass-1.0.205
+        target_commitish: aec57f360ef3e0f5c768b6fc24d30fbf5b1d0b3b
+        name: Prayer glass window - 1.0.205 preview
+        body: |
+          نافذة مواقيت الصلاة الزجاجية - نسخة تجريبية.
+          ملف APK المباشر هو نفس الملف الذي اجتاز البناء و40 اختبارًا في تشغيل Actions رقم 41736770475.
+          النسخة المستقرة محفوظة في backup/stable-1.0.205 وإصدار approved-v1.0.217.
+          توقيع تطوير؛ قد لا يمكن تثبيته فوق نسخة موقعة بمفتاح مختلف.
+        prerelease: true
+        make_latest: false
+        files: release-apk/Quswis-tvOS-Launcher.apk
+        fail_on_unmatched_files: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
