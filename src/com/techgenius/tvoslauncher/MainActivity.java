@@ -173,7 +173,6 @@ public class MainActivity extends Activity {
     boolean classicLongPress;
     ValueAnimator gridScrollAnimator;
     int gridScrollTarget;
-    final Rect classicGridClip = new Rect();
     final Runnable gridScrollRequest = this::scrollFocusedAppIntoView;
     final Runnable footballTick = new Runnable() {
         @Override public void run() {
@@ -190,6 +189,7 @@ public class MainActivity extends Activity {
         if (footballCard != null) footballCard.setVisibility(pickerLayer != null && shouldShowFootball() ? View.VISIBLE : View.GONE);
         if (footballShortcut != null) footballShortcut.setVisibility(shouldShowFootball() ? View.VISIBLE : View.GONE);
         syncInfoPills();
+        updateClassicAppClip();
     }
 
     /** The world-news and live-broadcast shortcuts follow the same home-shelf visibility as the football one. */
@@ -615,7 +615,8 @@ public class MainActivity extends Activity {
         scroll = new ShelfScrollView(this);
         scroll.setVerticalScrollBarEnabled(false);
         scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
-        scroll.setClipChildren(false);
+        scroll.setClipChildren(true);
+        scroll.setClipToPadding(true);
         scroll.setFillViewport(true);
         scroll.setOnScrollChangeListener((v, x, y, ox, oy) -> {
             if (y == oy) return;
@@ -3186,7 +3187,7 @@ public class MainActivity extends Activity {
                 : row == 0 ? shelfH
                 : shelfH + tileH + 2 * dockPadV + dockGapBelow() + (row - 1) * rowH;
         int maximum = Math.max(0, content.getHeight() - scroll.getHeight());
-        int destination = GridViewport.homeTarget(row, rowTop, screenH, maximum, classicHeaderBottom());
+        int destination = GridViewport.homeTarget(row, rowTop, screenH, maximum, classicHeaderBottom() + scroll.getPaddingTop());
         if (gridScrollAnimator != null && destination == gridScrollTarget) return;
         if (gridScrollAnimator != null) gridScrollAnimator.cancel();
         if (scroll.getScrollY() == destination) return;
@@ -4709,11 +4710,23 @@ public class MainActivity extends Activity {
     }
 
     void updateClassicAppClip() {
-        if (scroll == null || Scenes.isScenesLook(this)) return;
-        if (scroll.getScrollY() > dp(4)) {
-            classicGridClip.set(0, classicHeaderBottom(), scroll.getWidth(), scroll.getHeight());
-            scroll.setClipBounds(classicGridClip);
-        } else scroll.setClipBounds(null);
+        if (scroll == null || shelfView == null) return;
+        // A real viewport below the header. clipBounds alone is not a layout boundary.
+        int header = Scenes.isScenesLook(this) ? 0 : classicHeaderBottom();
+        int focusRoom = Scenes.isScenesLook(this) ? 0 : dp(12);
+        FrameLayout.LayoutParams viewport = (FrameLayout.LayoutParams) scroll.getLayoutParams();
+        int shelfSpace = Math.max(0, shelfH - header - focusRoom);
+        if (viewport.topMargin != header) {
+            viewport.topMargin = header;
+            scroll.setLayoutParams(viewport);
+        }
+        if (scroll.getPaddingTop() != focusRoom) scroll.setPadding(0, focusRoom, 0, 0);
+        LinearLayout.LayoutParams shelf = (LinearLayout.LayoutParams) shelfView.getLayoutParams();
+        if (shelf.height != shelfSpace) {
+            shelf.height = shelfSpace;
+            shelfView.setLayoutParams(shelf);
+        }
+        scroll.setClipBounds(null);
     }
 
     void layoutInfoShortcuts() {

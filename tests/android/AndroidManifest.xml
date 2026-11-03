@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.techgenius.tvoslauncher.uitest">
+    <uses-sdk android:minSdkVersion="24" android:targetSdkVersion="28" />
+    <application android:label="Viewport UI Test" />
+    <instrumentation android:name="com.techgenius.tvoslauncher.ViewportInstrumentation"
+        android:targetPackage="com.techgenius.tvoslauncher" />
+</manifest>

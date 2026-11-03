@@ -33,7 +33,7 @@ jobs:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
       run: |
         chmod +x build.sh
-        VERSION_NAME="1.0.212-newslive" VERSION_CODE="212" ./build.sh
+        VERSION_NAME="1.0.213-newslive" VERSION_CODE="213" ./build.sh
         mkdir -p dist
         cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
         ls -lh dist/Quswis-tvOS-Launcher.apk
@@ -46,6 +46,39 @@ jobs:
         java -cp build/classes com.techgenius.tvoslauncher.AdbAuthTest
         java -cp build/classes com.techgenius.tvoslauncher.GridHeaderViewportTest
 
+    - name: Build Android UI test
+      run: bash tests/android/build-test.sh
+
+    - name: Enable emulator acceleration
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+
+    - name: Test actual Android scrolling viewport
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: 29
+        arch: x86_64
+        target: default
+        disable-animations: true
+        emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -skin 1920x1080
+        script: |
+          adb install -r build/tvos-home.apk
+          adb install -r build/ui-test.apk
+          adb shell am instrument -w com.techgenius.tvoslauncher.uitest/com.techgenius.tvoslauncher.ViewportInstrumentation | tee build/ui-test-results.txt
+          rg VIEWPORT_TEST_PASSED build/ui-test-results.txt
+          adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/viewport.png dist/viewport.png
+
+    - name: Upload Android UI test evidence
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: Android-viewport-test
+        path: |
+          dist/viewport.png
+          build/ui-test-results.txt
+
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
@@ -57,13 +90,13 @@ jobs:
       uses: softprops/action-gh-release@v2
       if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature-classic-prayer-adhan' || github.ref == 'refs/heads/feature/news-live-shortcuts')
       with:
-        tag_name: news-live-v1.0.212-restore-layout
-        name: News Live 1.0.212 - Restore original layout and protect header during scroll
+        tag_name: news-live-v1.0.213-real-viewport
+        name: News Live 1.0.213 - Real Android viewport below widget header
         body: |
-          - استعادة توزيع الواجهة الأصلي وأحجام التطبيقات وعرض الشبكة الكامل
-          - إزالة العمود الجانبي والتصغير المضاف في النسخة السابقة
-          - منع رسم صفوف التطبيقات خلف العدسات العلوية عند التمرير وضبط موضع الصف المحدد
-          - الاحتفاظ بإصلاحات ADB والرجوع، الإصدار 1.0.212-newslive، رقم البناء 212
+          - إبقاء التصميم الأصلي وأحجام التطبيقات وعرض الشبكة كما هي
+          - جعل حاوية التمرير نفسها تبدأ أسفل العدسات بدلاً من قص الرسم فقط
+          - اختبار الواجهة الفعلية داخل أندرويد قبل نشر APK
+          - الإصدار 1.0.213-newslive، رقم البناء 213
         prerelease: ${{ github.ref != 'refs/heads/main' }}
         files: |
           dist/Quswis-tvOS-Launcher.apk
