@@ -33,12 +33,20 @@ public final class ViewportInstrumentation extends Instrumentation {
             activity[0]=(MainActivity)startActivitySync(new Intent(c,MainActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             SystemClock.sleep(3000);
+            sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_DOWN);
             MainActivity a=activity[0];
             runOnMainSync(() -> {
                 a.apps.clear(); a.otherApps.clear();
                 for(int i=0;i<42;i++) {
                     MainActivity.AppEntry app=new MainActivity.AppEntry();
                     app.key="test.app."+i;app.pkg="test.app."+i;app.label="App "+i;
+                    Bitmap art=Bitmap.createBitmap(240,144,Bitmap.Config.ARGB_8888);
+                    Canvas canvas=new Canvas(art);
+                    canvas.drawColor(android.graphics.Color.HSVToColor(new float[]{i*37%360,0.65f,0.75f}));
+                    android.graphics.Paint paint=new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+                    paint.setColor(android.graphics.Color.WHITE);paint.setTextSize(32);
+                    canvas.drawText(app.label,25,85,paint);
+                    app.banner=new android.graphics.drawable.BitmapDrawable(a.getResources(),art);
                     a.apps.add(app);
                 }
                 a.buildGrid(); a.focusIndex(0);
@@ -63,6 +71,8 @@ public final class ViewportInstrumentation extends Instrumentation {
                 runOnMainSync(() -> {
                     check(a.scroll.getTop()>=a.classicHeaderBottom(),"Scroll viewport crossed header");
                     View focused=a.tiles.get(index);
+                    check(focused.isFocused(),"DPAD focus did not reach tile "+index);
+                    check(a.scroll.isShown() && a.scroll.getAlpha()>0.9f,"App viewport is hidden");
                     int[] position=new int[2], viewport=new int[2];
                     focused.getLocationOnScreen(position); a.scroll.getLocationOnScreen(viewport);
                     check(position[1]>=viewport[1]-2,"Focused tile is clipped behind widgets at index "+index);
@@ -74,16 +84,12 @@ public final class ViewportInstrumentation extends Instrumentation {
                 a.focusIndex(24);
             });
             SystemClock.sleep(500);waitForIdleSync();
-            runOnMainSync(() -> {
-                try {
-                    Bitmap image=Bitmap.createBitmap(a.root.getWidth(),a.root.getHeight(),Bitmap.Config.ARGB_8888);
-                    a.root.draw(new Canvas(image));
-                    try(FileOutputStream out=new FileOutputStream(new File(a.getExternalFilesDir(null),"viewport.png"))) {
-                        image.compress(Bitmap.CompressFormat.PNG,100,out);
-                    }
-                    image.recycle();
-                } catch(Exception e) { throw new RuntimeException(e); }
-            });
+            Bitmap image=getUiAutomation().takeScreenshot();
+            check(image!=null,"Surface screenshot could not be captured");
+            try(FileOutputStream out=new FileOutputStream(new File(a.getExternalFilesDir(null),"viewport.png"))) {
+                image.compress(Bitmap.CompressFormat.PNG,100,out);
+            }
+            image.recycle();
             result.putString("stream","VIEWPORT_TEST_PASSED: real Android layout, original sizes, all rows and screenshot\n");
             finish(Activity.RESULT_OK,result);
         } catch(Throwable error) {
