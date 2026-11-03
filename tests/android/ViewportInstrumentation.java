@@ -64,6 +64,7 @@ public final class ViewportInstrumentation extends Instrumentation {
             a.io.submit(() -> {}).get();
             waitForIdleSync();
             ui(() -> {
+                a.handler.removeCallbacks(a.reloadRun);
                 a.apps.clear(); a.otherApps.clear();
                 for(int i=0;i<42;i++) {
                     MainActivity.AppEntry app=new MainActivity.AppEntry();
