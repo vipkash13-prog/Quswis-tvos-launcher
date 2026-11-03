@@ -4790,7 +4790,8 @@ public class MainActivity extends Activity {
     }
 
     float weatherAlpha() {
-        if (infoHudHidden || infoHudHold || returningFromSettings || folderMode || weatherOpen || pickerLayer != null || menuLayer != null) return 0f;
+        // An app's context menu (and moving an app) leaves the info lenses where they are.
+        if (infoHudHidden || infoHudHold || returningFromSettings || folderMode || weatherOpen || pickerLayer != null) return 0f;
         return Scenes.isScenesLook(this) ? 1f : clockAlpha();
     }
 
