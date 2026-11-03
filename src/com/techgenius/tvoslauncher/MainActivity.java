@@ -3181,13 +3181,21 @@ public class MainActivity extends Activity {
             return;
         }
         int row = index / COLS;
-        int rowH = tileH + labelH + gap / 2;
-        // Release-182 geometry: original dock/home position, original grid-row anchor.
-        int rowTop = !hasDock() ? shelfH + row * rowH
-                : row == 0 ? shelfH
-                : shelfH + tileH + 2 * dockPadV + dockGapBelow() + (row - 1) * rowH;
-        int maximum = Math.max(0, content.getHeight() - scroll.getHeight());
-        int destination = GridViewport.homeTarget(row, rowTop, screenH, maximum, classicHeaderBottom() + scroll.getPaddingTop());
+        View focused = tiles.get(index);
+        Rect bounds = new Rect(0, 0, focused.getWidth(), focused.getHeight());
+        content.offsetDescendantRectToMyCoords(focused, bounds);
+        int viewportHeight = scroll.getHeight() - scroll.getPaddingTop() - scroll.getPaddingBottom();
+        int maximum = Math.max(0, content.getHeight() - viewportHeight);
+        int anchor = Math.max(0, (int) (screenH * 0.30f) - scroll.getTop() - scroll.getPaddingTop());
+        int destination = row == 0 ? 0 : Math.max(bounds.top - anchor, bounds.bottom - viewportHeight);
+        destination = Math.max(0, Math.min(maximum, destination));
+        if (Build.VERSION.SDK_INT >= 26 && !ValueAnimator.areAnimatorsEnabled()) {
+            if (gridScrollAnimator != null) gridScrollAnimator.cancel();
+            gridScrollAnimator = null;
+            gridScrollTarget = destination;
+            scroll.scrollTo(0, destination);
+            return;
+        }
         if (gridScrollAnimator != null && destination == gridScrollTarget) return;
         if (gridScrollAnimator != null) gridScrollAnimator.cancel();
         if (scroll.getScrollY() == destination) return;

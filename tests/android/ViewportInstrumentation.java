@@ -97,7 +97,9 @@ public final class ViewportInstrumentation extends Instrumentation {
                     focused.getLocationOnScreen(position); a.scroll.getLocationOnScreen(viewport);
                     check(position[1]>=viewport[1]-2,"Focused tile is clipped behind widgets at index "+index);
                     check(position[1]+focused.getHeight()<=viewport[1]+a.scroll.getHeight()+2,
-                            "Focused tile exceeds viewport at index "+index);
+                            "Focused tile exceeds viewport at index "+index+" tileY="+position[1]
+                            +" tileH="+focused.getHeight()+" viewportY="+viewport[1]+" viewportH="+a.scroll.getHeight()
+                            +" scrollY="+a.scroll.getScrollY()+" target="+a.gridScrollTarget);
                 });
             }
             ui(() -> {
