@@ -33,18 +33,18 @@ jobs:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
       run: |
         chmod +x build.sh
-        VERSION_NAME="1.0.211-newslive" VERSION_CODE="211" ./build.sh
+        VERSION_NAME="1.0.212-newslive" VERSION_CODE="212" ./build.sh
         mkdir -p dist
         cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
         ls -lh dist/Quswis-tvOS-Launcher.apk
 
     - name: Test ADB cancellation
       run: |
-        javac -cp build/classes -d build/classes tests/AdbGrantRequestTest.java tests/AdbGrantPlanTest.java tests/AdbAuthTest.java tests/HomeGeometryTest.java
+        javac -cp build/classes -d build/classes tests/AdbGrantRequestTest.java tests/AdbGrantPlanTest.java tests/AdbAuthTest.java tests/GridHeaderViewportTest.java
         java -cp build/classes com.techgenius.tvoslauncher.AdbGrantRequestTest
         java -cp build/classes com.techgenius.tvoslauncher.AdbGrantPlanTest
         java -cp build/classes com.techgenius.tvoslauncher.AdbAuthTest
-        java -cp build/classes com.techgenius.tvoslauncher.HomeGeometryTest
+        java -cp build/classes com.techgenius.tvoslauncher.GridHeaderViewportTest
 
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
@@ -57,13 +57,13 @@ jobs:
       uses: softprops/action-gh-release@v2
       if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature-classic-prayer-adhan' || github.ref == 'refs/heads/feature/news-live-shortcuts')
       with:
-        tag_name: news-live-v1.0.211-home-layout
-        name: News Live 1.0.211 - Separate widget rail and app viewport
+        tag_name: news-live-v1.0.212-restore-layout
+        name: News Live 1.0.212 - Restore original layout and protect header during scroll
         body: |
-          - تخصيص عمود ثابت للويدجتس ومنطقة مستقلة للتطبيقات دون تداخل
-          - ضبط أحجام شبكة التطبيقات وصف التطبيقات وبطاقات متابعة المشاهدة حسب المساحة
-          - تمرير التطبيقات الإضافية داخل مساحة محددة مع الحفاظ على جميع العناصر
-          - الاحتفاظ بإصلاحات ADB والرجوع، الإصدار 1.0.211-newslive، رقم البناء 211
+          - استعادة توزيع الواجهة الأصلي وأحجام التطبيقات وعرض الشبكة الكامل
+          - إزالة العمود الجانبي والتصغير المضاف في النسخة السابقة
+          - منع رسم صفوف التطبيقات خلف العدسات العلوية عند التمرير وضبط موضع الصف المحدد
+          - الاحتفاظ بإصلاحات ADB والرجوع، الإصدار 1.0.212-newslive، رقم البناء 212
         prerelease: ${{ github.ref != 'refs/heads/main' }}
         files: |
           dist/Quswis-tvOS-Launcher.apk

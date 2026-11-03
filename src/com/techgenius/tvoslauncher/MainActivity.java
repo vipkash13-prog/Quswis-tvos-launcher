@@ -206,8 +206,6 @@ public class MainActivity extends Activity {
     View footballShortcut, newsShortcut, liveShortcut;
     FrameLayout root;
     FrameLayout homeContent;
-    FrameLayout appRegion;
-    HomeGeometry homeGeometry;
     View homeReturnFocus;
     ImageView wallView;
     /** Top shelf carousel: two crossfading backdrops + info panel. */
@@ -300,8 +298,7 @@ public class MainActivity extends Activity {
         dockInset = dp(21);
         side = dockOuter + dockInset;  // grid rows line up with the dock icons (>= 80 pt safe area)
         gap = dp(25);
-        homeGeometry = new HomeGeometry(screenW, unit);
-        tileW = homeGeometry.gridTileWidth(side, gap, COLS);
+        tileW = (screenW - 2 * side - (COLS - 1) * gap) / COLS;
         tileH = tileW * 3 / 5;
         labelH = dp(30);
         radius = Math.round(tileW * 0.071f);  // Apple's tvOS 26 card corner: ~7% of card width
@@ -496,6 +493,7 @@ public class MainActivity extends Activity {
         }
         updateWeather();
         layoutInfoShortcuts();
+        updateClassicAppClip();
         if (prayerCard != null) prayerCard.setVisibility(PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
         if (footballShortcut != null) footballShortcut.setVisibility(shouldShowFootball() ? View.VISIBLE : View.GONE);
         syncInfoPills();
@@ -622,10 +620,7 @@ public class MainActivity extends Activity {
         scroll.setOnScrollChangeListener((v, x, y, ox, oy) -> {
             if (y == oy) return;
             syncFootballVisibility();
-            if (y > dp(4) && !heroRequested) {
-                classicGridClip.set(0, dp(80), scroll.getWidth(), scroll.getHeight());
-                scroll.setClipBounds(classicGridClip);
-            } else scroll.setClipBounds(null);
+            updateClassicAppClip();
             float ca = clockAlpha();
             // Keep the settings/escape controls available even while browsing lower app rows.
             if (!Scenes.isScenesLook(this) && !ambientShowcase && launchOverlay == null) clockBox.setAlpha(1f);
@@ -941,7 +936,12 @@ public class MainActivity extends Activity {
         });
 
         root.addView(sceneHome.overlay, match());
-        // Home widgets occupy the reserved left rail; app content has its own viewport.
+        // Keep the information cards above full-screen scene overlays on every TV layout.
+        weatherCard.bringToFront();
+        prayerCard.bringToFront();
+        footballShortcut.bringToFront();
+        newsShortcut.bringToFront();
+        liveShortcut.bringToFront();
         updateWeather();
 
 
@@ -961,26 +961,6 @@ public class MainActivity extends Activity {
             root.removeViewAt(i);
             homeContent.addView(child, lp);
         }
-        appRegion = new FrameLayout(this);
-        appRegion.setClipChildren(true);
-        appRegion.setClipToPadding(true);
-        View[] appViews = {scroll, heroInfo, heroDots, switcher, sceneHome.overlay};
-        for (View child : appViews) {
-            if (child == null) continue;
-            ViewGroup.LayoutParams lp = child.getLayoutParams();
-            homeContent.removeView(child);
-            appRegion.addView(child, lp);
-        }
-        FrameLayout.LayoutParams appLp = new FrameLayout.LayoutParams(
-                homeGeometry.contentWidth, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.TOP | Gravity.LEFT);
-        appLp.leftMargin = homeGeometry.contentLeft;
-        homeContent.addView(appRegion, appLp);
-        // Regions do not intersect; elevated widget lenses cannot cover any app tile.
-        appRegion.setElevation(dp(16));
-        FrameLayout.LayoutParams tabs = (FrameLayout.LayoutParams) switcher.getLayoutParams();
-        tabs.topMargin = dp(84);
-        switcher.setLayoutParams(tabs);
-        layoutInfoShortcuts();
         root.addView(homeContent, match());
         syncHomeVisibility();
         setContentView(root);
@@ -1048,7 +1028,10 @@ public class MainActivity extends Activity {
         if (prayerCard != null) prayerCard.setVisibility(PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
         syncFootballVisibility();
         layoutInfoShortcuts();
-
+        updateClassicAppClip();
+        if (weatherCard != null) weatherCard.bringToFront();
+        if (prayerCard != null) prayerCard.bringToFront();
+        if (footballCard != null) footballCard.bringToFront();
         if (scenes && sceneHome != null) {
             Bitmap bg = sceneHome.sceneView.getCurrentBgBitmap();
             if (bg != null) glassBg = Ui.glassBackdrop(bg, 192, 108);
@@ -3203,7 +3186,7 @@ public class MainActivity extends Activity {
                 : row == 0 ? shelfH
                 : shelfH + tileH + 2 * dockPadV + dockGapBelow() + (row - 1) * rowH;
         int maximum = Math.max(0, content.getHeight() - scroll.getHeight());
-        int destination = GridViewport.homeTarget(row, rowTop, screenH, maximum);
+        int destination = GridViewport.homeTarget(row, rowTop, screenH, maximum, classicHeaderBottom());
         if (gridScrollAnimator != null && destination == gridScrollTarget) return;
         if (gridScrollAnimator != null) gridScrollAnimator.cancel();
         if (scroll.getScrollY() == destination) return;
@@ -4714,19 +4697,37 @@ public class MainActivity extends Activity {
         }
     };
 
+    int classicHeaderBottom() {
+        int bottom = dp(80);
+        View[] widgets = {weatherCard, prayerCard, footballShortcut, newsShortcut, liveShortcut};
+        for (View widget : widgets) {
+            if (widget == null || widget.getVisibility() != View.VISIBLE) continue;
+            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) widget.getLayoutParams();
+            bottom = Math.max(bottom, lp.topMargin + lp.height + dp(16));
+        }
+        return bottom;
+    }
+
+    void updateClassicAppClip() {
+        if (scroll == null || Scenes.isScenesLook(this)) return;
+        if (scroll.getScrollY() > dp(4)) {
+            classicGridClip.set(0, classicHeaderBottom(), scroll.getWidth(), scroll.getHeight());
+            scroll.setClipBounds(classicGridClip);
+        } else scroll.setClipBounds(null);
+    }
+
     void layoutInfoShortcuts() {
         if (weatherCard == null || prayerCard == null || footballShortcut == null) return;
         View[] views = {weatherCard, prayerCard, footballShortcut, newsShortcut, liveShortcut};
         for (int i = 0; i < views.length; i++) {
             if (views[i] == null) continue;
             FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) views[i].getLayoutParams();
+            // Exact original weather / prayer / football shortcut positions.
             int top = dp(24 + i * (WeatherView.COMPACT_H + 12));
-            lp.width = homeGeometry.railWidth;
-            lp.leftMargin = homeGeometry.railLeft;
-            lp.rightMargin = 0;
-            lp.topMargin = top;
-            lp.gravity = Gravity.TOP | Gravity.LEFT;
-            views[i].setLayoutParams(lp);
+            int gravity = Gravity.TOP | Gravity.START;
+            if (lp.leftMargin != dockOuter || lp.topMargin != top || lp.gravity != gravity) {
+                lp.leftMargin = dockOuter; lp.topMargin = top; lp.gravity = gravity; views[i].setLayoutParams(lp);
+            }
         }
     }
 

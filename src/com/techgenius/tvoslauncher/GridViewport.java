@@ -4,7 +4,11 @@ package com.techgenius.tvoslauncher;
 final class GridViewport {
  private GridViewport(){}
  static int homeTarget(int row,int rowTop,int screenHeight,int maximum){
-  int target=row==0?0:rowTop-(int)(screenHeight*0.30f);
+  return homeTarget(row,rowTop,screenHeight,maximum,0);
+ }
+ static int homeTarget(int row,int rowTop,int screenHeight,int maximum,int headerBottom){
+  int anchor=Math.max((int)(screenHeight*0.30f),headerBottom);
+  int target=row==0?0:rowTop-anchor;
   return Math.max(0,Math.min(Math.max(0,maximum),target));
  }
 }
