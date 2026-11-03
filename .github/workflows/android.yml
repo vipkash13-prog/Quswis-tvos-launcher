@@ -33,7 +33,7 @@ jobs:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
       run: |
         chmod +x build.sh
-        VERSION_NAME="1.0.${{ github.run_number }}" VERSION_CODE="${{ github.run_number }}" ./build.sh
+        VERSION_NAME="2.0.5" VERSION_CODE="205" ./build.sh
         mkdir -p dist
         cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
         ls -lh dist/Quswis-tvOS-Launcher.apk
@@ -49,12 +49,11 @@ jobs:
       uses: softprops/action-gh-release@v2
       if: success() && github.ref == 'refs/heads/main'
       with:
-        tag_name: v1.0.${{ github.run_number }}
-        name: Release v1.0.${{ github.run_number }}
+        tag_name: v2.0.5
+        name: Release v2.0.5
         body: |
           تحديث جديد لتطبيق Quswis tvOS Launcher من مستودعك:
-          - إضافة مواقيت الصلاة
-          - إضافة مباريات دوري أبطال آسيا للنخبة (AFC Champions League Elite)
+          - إخفاء عناصر الرئيسية عند فتح القوائم والإعدادات وإعادتها عند الرجوع
         files: |
           dist/Quswis-tvOS-Launcher.apk
       env:

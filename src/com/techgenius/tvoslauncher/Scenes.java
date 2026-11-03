@@ -472,6 +472,14 @@ public final class Scenes {
         private Bitmap lastNotifiedBg;
         private Bitmap cachedFrameBmp;
         private String cachedFrameKey;
+        private boolean homeDetailsVisible = true;
+
+        void setHomeDetailsVisible(boolean visible) {
+            if (homeDetailsVisible == visible) return;
+            homeDetailsVisible = visible;
+            cachedFrameKey = null;
+            invalidate();
+        }
         private String lastTickSignature;
 
         private final Runnable rotateTick = new Runnable() {
@@ -844,6 +852,12 @@ public final class Scenes {
                         new float[]{0f, 0.60f, 1f}, Shader.TileMode.CLAMP));
             }
             canvas.drawRect(0, 0, w, h, shadePaint);
+
+            if (!homeDetailsVisible) {
+                if (ls.fg != null) drawCenterCrop(canvas, ls.fg, w, h);
+                if (layerSave) canvas.restore();
+                return;
+            }
 
             // 3. Giant Glass Clock (iPhone Duo / Rounded / Tall Glass)
             float u = Math.min(w / 960f, h / 540f);

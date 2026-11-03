@@ -77,7 +77,7 @@ public final class AppUpdater {
             }
         } catch (Throwable ignored) {
         }
-        return "2.0.3";
+        return "2.0.5";
     }
 
     public static String getCachedLatestVersion(Context c) {
