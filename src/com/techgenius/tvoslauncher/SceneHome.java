@@ -1774,6 +1774,10 @@ final class SceneHome {
 
         // The night-scenes dock intercepts D-pad events, so explicitly route focus
         // to the compact prayer and football shortcuts above the dock.
+        View prayer = host.prayerCard;
+        View football = host.footballShortcut;
+        boolean prayerVisible = prayer != null && prayer.getVisibility() == View.VISIBLE;
+        boolean footballVisible = football != null && football.getVisibility() == View.VISIBLE;
         java.util.List<View> pills = new java.util.ArrayList<>();
         for (View v : new View[]{host.prayerCard, host.footballShortcut, host.newsShortcut, host.liveShortcut}) {
             if (v != null && v.getVisibility() == View.VISIBLE) pills.add(v);
