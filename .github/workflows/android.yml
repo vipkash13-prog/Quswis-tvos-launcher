@@ -86,10 +86,11 @@ jobs:
           adb install -r dist/Quswis-tvOS-Launcher.apk
           adb install -r /tmp/quswis-ui/test.apk
           timeout 120 adb shell am instrument -w -r com.techgenius.tvoslauncher.windowtest/com.techgenius.tvoslauncher.PrayerWindowInstrumentation | tee /tmp/quswis-ui/result.txt
-          grep -q PRAYER_UI_OK /tmp/quswis-ui/result.txt
           adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/prayer-window-1080.png dist/prayer-window-1080.png
+          grep -q PRAYER_UI_OK /tmp/quswis-ui/result.txt
 
     - name: Upload native window screenshot
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: Prayer-window-Android-14

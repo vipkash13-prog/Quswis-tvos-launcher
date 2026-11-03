@@ -15,6 +15,7 @@ import java.util.HashSet;
 public final class PrayerWindowInstrumentation extends Instrumentation {
     private MainActivity host;
     private PrayerGlassDialog dialog;
+    private final StringBuilder trace = new StringBuilder();
     @Override public void onCreate(Bundle arguments) { super.onCreate(arguments); start(); }
     private void check(boolean value, String message) { if (!value) throw new AssertionError(message); }
     private int focusedId() {
@@ -23,9 +24,9 @@ public final class PrayerWindowInstrumentation extends Instrumentation {
     private void direction(int key) {
         int first=focusedId(); HashSet<Integer> visited=new HashSet<>();
         for(int i=0;i<4;i++) {
-            visited.add(focusedId()); sendKeyDownUpSync(key); waitForIdleSync();
+            visited.add(focusedId()); trace.append(" ").append(focusedId()); sendKeyDownUpSync(key); waitForIdleSync();
         }
-        check(visited.size()==4,"All four shortcuts must be reachable, key="+key);
+        check(visited.size()==4,"All four shortcuts must be reachable, key="+key+" trace="+trace);
         check(focusedId()==first,"DPAD must wrap back to its start");
     }
     @Override public void onStart() {
@@ -40,6 +41,16 @@ public final class PrayerWindowInstrumentation extends Instrumentation {
             SystemClock.sleep(600); waitForIdleSync();
             check(dialog!=null&&dialog.isShowing(),"Prayer window did not open");
             check(host.quranShortcut==null,"Duplicate Home Quran lens still exists");
+            Bitmap preview=getUiAutomation().takeScreenshot();
+            if(preview!=null) {
+                Bitmap small=Bitmap.createScaledBitmap(preview,960,540,true);
+                java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();
+                small.compress(Bitmap.CompressFormat.JPEG,75,bytes);
+                result.putString("preview_base64",android.util.Base64.encodeToString(bytes.toByteArray(),android.util.Base64.NO_WRAP));
+                File screenshotFile=new File(getTargetContext().getExternalFilesDir(null),"prayer-window-1080.png");
+                try(FileOutputStream output=new FileOutputStream(screenshotFile)){preview.compress(Bitmap.CompressFormat.PNG,100,output);}
+                small.recycle();preview.recycle();
+            }
             direction(KeyEvent.KEYCODE_DPAD_RIGHT); direction(KeyEvent.KEYCODE_DPAD_LEFT);
             Bitmap screenshot=getUiAutomation().takeScreenshot();
             check(screenshot!=null,"No screenshot");
@@ -50,6 +61,9 @@ public final class PrayerWindowInstrumentation extends Instrumentation {
             runOnMainSync(() -> check(host.getCurrentFocus()==host.prayerCard,"BACK did not restore prayer lens focus"));
             result.putString("stream","PRAYER_UI_OK: both DPAD directions, wraparound, Home lens removal and BACK focus passed\n");
             finish(Activity.RESULT_OK,result);
-        }catch(Throwable error){result.putString("stream","PRAYER_UI_FAILED: "+error+"\n");finish(Activity.RESULT_CANCELED,result);}
+        }catch(Throwable error){
+            result.putString("stream","PRAYER_UI_FAILED: "+error+"; focus="+(dialog==null?"null":dialog.getCurrentFocus())+"\n");
+            finish(Activity.RESULT_CANCELED,result);
+        }
     }
 }

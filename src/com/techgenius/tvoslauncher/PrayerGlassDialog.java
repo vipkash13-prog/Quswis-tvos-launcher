@@ -257,7 +257,7 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
         return bg;
     }
     private void focusable(View v, Runnable action) {
-        v.setId(View.generateViewId()); v.setFocusable(true); v.setClickable(true);
+        v.setId(View.generateViewId()); v.setFocusable(true); v.setFocusableInTouchMode(true); v.setClickable(true);
         v.setOnClickListener(w -> { if (!closing) action.run(); });
         v.setOnFocusChangeListener((w, focused) -> {
             w.setBackground(glass(focused, 15)); w.setElevation(px(focused ? 7 : 0));
