@@ -38,7 +38,8 @@ public final class ViewportInstrumentation extends Instrumentation {
             // Inject through Android's test automation identity, not the app's permissions.
             try (android.os.ParcelFileDescriptor command=getUiAutomation().executeShellCommand("wm dismiss-keyguard");
                  java.io.InputStream input=new android.os.ParcelFileDescriptor.AutoCloseInputStream(command)) {
-                input.readAllBytes();
+                byte[] buffer=new byte[1024];
+                while(input.read(buffer)!=-1) { }
             }
             long time=SystemClock.uptimeMillis();
             getUiAutomation().injectInputEvent(new android.view.KeyEvent(time,time,
