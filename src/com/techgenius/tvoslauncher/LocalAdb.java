@@ -2,14 +2,12 @@ package com.techgenius.tvoslauncher;
 
 import android.content.Context;
 import android.provider.Settings;
-import android.util.Base64;
 
 import java.io.DataInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
-import java.math.BigInteger;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.ByteBuffer;
@@ -26,7 +24,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import javax.crypto.Cipher;
 
 /**
  * Pure-Java local ADB client (127.0.0.1:5555) for granting tvOS Launcher's system permissions
@@ -46,12 +43,6 @@ final class LocalAdb {
     private static final int ADB_AUTH_TOKEN = 1;
     private static final int ADB_AUTH_SIGNATURE = 2;
     private static final int ADB_AUTH_RSAPUBLICKEY = 3;
-
-    // ASN.1 DigestInfo prefix for SHA-1 (15 bytes) + 20-byte SHA-1 token = 35 bytes
-    private static final byte[] SHA1_DIGEST_INFO_PREFIX = new byte[]{
-        0x30, 0x21, 0x30, 0x09, 0x06, 0x05, 0x2b, 0x0e,
-        0x03, 0x02, 0x1a, 0x05, 0x00, 0x04, 0x14
-    };
 
     interface Callback {
         void onResult(boolean success, String message);
@@ -335,6 +326,11 @@ final class LocalAdb {
         }
     }
     private static final ThreadLocal<GrantRequest> activeGrant = new ThreadLocal<>();
+    private static final ThreadLocal<BatchProgressListener> grantProgress = new ThreadLocal<>();
+    private static void grantStage(String stage) {
+        BatchProgressListener listener = grantProgress.get();
+        if (listener != null) listener.onStep(0, 0, stage, "");
+    }
 
     static GrantRequest grantAllPermissions(Context c, Callback cb) {
         return grantAllPermissions(c, cb, null);
@@ -345,6 +341,7 @@ final class LocalAdb {
         Context app = c.getApplicationContext();
         new Thread(() -> {
             activeGrant.set(request);
+            if (progress != null) grantProgress.set(progress);
             java.util.Timer deadline = new java.util.Timer("adb-grant-deadline", true);
             deadline.schedule(new java.util.TimerTask() {
                 @Override public void run() { request.cancel(); }
@@ -364,8 +361,9 @@ final class LocalAdb {
                 Exception lastError = new java.io.IOException("Local ADB port 5555 is not available. Enable USB/network debugging on this TV.");
                 for (String host : hosts) {
                     if (request.isCancelled()) throw new java.io.IOException("ADB setup timed out after 90 seconds");
-                    if (host == null || host.isEmpty() || !isPortOpen(host, 5555, 800)) continue;
+                    if (host == null || host.isEmpty()) continue;
                     try {
+                        grantStage("Connecting to " + host + ":5555");
                         List<String> outputs = runShellCommandsOnHost(app, host, 5555, commands,
                                 (done, total, command, output) -> {
                                     AdbGrantPlan.Step step = plan.get(done - 1);
@@ -396,6 +394,7 @@ final class LocalAdb {
             } finally {
                 deadline.cancel();
                 activeGrant.remove();
+                grantProgress.remove();
             }
         }, "local-adb-grants").start();
         return request;
@@ -603,6 +602,7 @@ final class LocalAdb {
 
     private static List<String> runShellCommandsOnHost(
             Context c, String host, int port, List<String> commands, BatchProgressListener progress) throws Exception {
+        grantStage("Loading ADB identity");
         KeyPair kp = getOrCreateKeyPair(c);
         try (Socket socket = new Socket()) {
             GrantRequest request = activeGrant.get();
@@ -612,32 +612,15 @@ final class LocalAdb {
             DataInputStream in = new DataInputStream(socket.getInputStream());
             OutputStream out = socket.getOutputStream();
 
-            // 1. Send CNXN
-            byte[] banner = "host::\0".getBytes(StandardCharsets.UTF_8);
-            sendPacket(out, A_CNXN, A_VERSION, MAX_PAYLOAD, banner);
-
-            boolean sentSignature = false;
-            while (true) {
-                Packet p = readPacket(in);
-                if (p.command == A_CNXN) {
-                    break;
-                } else if (p.command == A_AUTH) {
-                    if (p.arg0 == ADB_AUTH_TOKEN) {
-                        if (!sentSignature) {
-                            sentSignature = true;
-                            byte[] sig = signToken((RSAPrivateKey) kp.getPrivate(), p.data);
-                            sendPacket(out, A_AUTH, ADB_AUTH_SIGNATURE, 0, sig);
-                        } else {
-                            byte[] pubKeyPayload = encodeAndroidRsaPublicKey((RSAPublicKey) kp.getPublic());
-                            sendPacket(out, A_AUTH, ADB_AUTH_RSAPUBLICKEY, 0, pubKeyPayload);
-                        }
-                    } else {
-                        throw new Exception("Unexpected AUTH arg0: " + p.arg0);
-                    }
-                } else {
-                    throw new Exception("Unexpected ADB response: " + p.command);
+            AdbAuth.connect(new AdbAuth.Transport() {
+                @Override public void send(int command, int arg0, int arg1, byte[] data) throws Exception {
+                    sendPacket(out, command, arg0, arg1, data);
                 }
-            }
+                @Override public AdbAuth.Message receive() throws Exception {
+                    Packet packet = readPacket(in);
+                    return new AdbAuth.Message(packet.command, packet.arg0, packet.data);
+                }
+            }, kp, isPaired(c), LocalAdb::grantStage);
 
             socket.setSoTimeout(15000);
             List<String> outputs = new java.util.ArrayList<>(commands.size());
@@ -722,48 +705,11 @@ final class LocalAdb {
         return p;
     }
 
-    private static byte[] signToken(RSAPrivateKey privKey, byte[] token) throws Exception {
-        byte[] digestInfo = new byte[SHA1_DIGEST_INFO_PREFIX.length + token.length];
-        System.arraycopy(SHA1_DIGEST_INFO_PREFIX, 0, digestInfo, 0, SHA1_DIGEST_INFO_PREFIX.length);
-        System.arraycopy(token, 0, digestInfo, SHA1_DIGEST_INFO_PREFIX.length, token.length);
-        Cipher cipher = Cipher.getInstance("RSA/ECB/PKCS1Padding");
-        cipher.init(Cipher.ENCRYPT_MODE, privKey);
-        return cipher.doFinal(digestInfo);
+    private static byte[] signToken(RSAPrivateKey key, byte[] token) throws Exception {
+        return AdbAuth.sign(key, token);
     }
 
-    /**
-     * Encodes an RSAPublicKey into Android's 524-byte RSAPublicKey struct (Base64 + " tvoslauncher@tv\0").
-     */
-    private static byte[] encodeAndroidRsaPublicKey(RSAPublicKey pub) {
-        BigInteger n = pub.getModulus();
-        BigInteger r32 = BigInteger.ONE.shiftLeft(32);
-        BigInteger n0inv = r32.subtract(n.mod(r32).modInverse(r32)).mod(r32);
-        BigInteger r = BigInteger.ONE.shiftLeft(2048);
-        BigInteger rr = r.multiply(r).mod(n);
-
-        ByteBuffer buf = ByteBuffer.allocate(524).order(ByteOrder.LITTLE_ENDIAN);
-        buf.putInt(64); // 2048 bits / 32 bits
-        buf.putInt((int) n0inv.longValue());
-        buf.put(toLittleEndian256(n));
-        buf.put(toLittleEndian256(rr));
-        buf.putInt(pub.getPublicExponent().intValue());
-
-        String b64 = Base64.encodeToString(buf.array(), Base64.NO_WRAP);
-        return (b64 + " tvoslauncher@tv\0").getBytes(StandardCharsets.US_ASCII);
-    }
-
-    private static byte[] toLittleEndian256(BigInteger val) {
-        byte[] be = val.toByteArray();
-        byte[] le = new byte[256];
-        int srcEnd = be.length;
-        int copyLen = Math.min(256, srcEnd);
-        for (int i = 0; i < copyLen; i++) {
-            le[i] = be[srcEnd - 1 - i];
-        }
-        return le;
-    }
-
-    private static KeyPair getOrCreateKeyPair(Context c) throws Exception {
+    private static synchronized KeyPair getOrCreateKeyPair(Context c) throws Exception {
         File privFile = new File(c.getFilesDir(), "adb_rsa.priv");
         File pubFile = new File(c.getFilesDir(), "adb_rsa.pub");
         if (privFile.exists() && pubFile.exists()) {
@@ -771,9 +717,14 @@ final class LocalAdb {
                 byte[] privBytes = readAll(privFile);
                 byte[] pubBytes = readAll(pubFile);
                 KeyFactory kf = KeyFactory.getInstance("RSA");
-                return new KeyPair(
+                KeyPair saved = new KeyPair(
                         kf.generatePublic(new X509EncodedKeySpec(pubBytes)),
                         kf.generatePrivate(new PKCS8EncodedKeySpec(privBytes)));
+                RSAPublicKey pub = (RSAPublicKey) saved.getPublic();
+                RSAPrivateKey priv = (RSAPrivateKey) saved.getPrivate();
+                if (pub.getModulus().equals(priv.getModulus()) && pub.getModulus().bitLength() == 2048
+                        && pub.getPublicExponent().intValue() == 65537) return saved;
+                setPaired(c, false);
             } catch (Exception ignored) {
             }
         }

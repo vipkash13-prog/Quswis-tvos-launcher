@@ -33,16 +33,17 @@ jobs:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
       run: |
         chmod +x build.sh
-        VERSION_NAME="1.0.208-newslive" VERSION_CODE="208" ./build.sh
+        VERSION_NAME="1.0.209-newslive" VERSION_CODE="209" ./build.sh
         mkdir -p dist
         cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
         ls -lh dist/Quswis-tvOS-Launcher.apk
 
     - name: Test ADB cancellation
       run: |
-        javac -cp build/classes -d build/classes tests/AdbGrantRequestTest.java tests/AdbGrantPlanTest.java
+        javac -cp build/classes -d build/classes tests/AdbGrantRequestTest.java tests/AdbGrantPlanTest.java tests/AdbAuthTest.java
         java -cp build/classes com.techgenius.tvoslauncher.AdbGrantRequestTest
         java -cp build/classes com.techgenius.tvoslauncher.AdbGrantPlanTest
+        java -cp build/classes com.techgenius.tvoslauncher.AdbAuthTest
 
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
@@ -55,12 +56,12 @@ jobs:
       uses: softprops/action-gh-release@v2
       if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature-classic-prayer-adhan' || github.ref == 'refs/heads/feature/news-live-shortcuts')
       with:
-        tag_name: news-live-v1.0.208-adb-auto
-        name: News Live 1.0.208 - Automatic ADB setup
+        tag_name: news-live-v1.0.209-adb-auth
+        name: News Live 1.0.209 - ADB authorization dialog
         body: |
           تحديث جديد لتطبيق Quswis tvOS Launcher من مستودعك:
           - إصلاح ظهور الساعة ومواقيت الصلاة والتطبيقات فوق القوائم والإعدادات
-          - نسخة 1.0.208-newslive المصححة، رقم البناء 206
+          - نسخة 1.0.209-newslive المصححة، رقم البناء 206
         prerelease: ${{ github.ref != 'refs/heads/main' }}
         files: |
           dist/Quswis-tvOS-Launcher.apk

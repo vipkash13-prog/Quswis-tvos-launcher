@@ -930,6 +930,7 @@ public class SetupActivity extends Activity {
     private int easyAdbGeneration;
     private android.app.AlertDialog easyAdbProgress;
     private LocalAdb.GrantRequest easyAdbRequest;
+    private TextView easyAdbStatus;
     private final Handler easyAdbHandler = new Handler(Looper.getMainLooper());
 
     private void cancelEasyAdbGrant() {
@@ -939,6 +940,8 @@ public class SetupActivity extends Activity {
         easyAdbRequest = null;
         if (easyAdbProgress != null) easyAdbProgress.dismiss();
         easyAdbProgress = null;
+        if (easyAdbStatus != null) page.removeView(easyAdbStatus);
+        easyAdbStatus = null;
     }
 
     private void showEasyAdbError(String detail) {
@@ -963,6 +966,11 @@ public class SetupActivity extends Activity {
                 .setCancelable(false)
                 .create();
         easyAdbProgress = progress;
+        easyAdbStatus = new TextView(this);
+        easyAdbStatus.setTextColor(android.graphics.Color.WHITE);
+        easyAdbStatus.setTextSize(18);
+        easyAdbStatus.setPadding(u(18), u(12), u(18), u(12));
+        page.addView(easyAdbStatus);
         progress.show();
         // Independent of page animations: no grant task, callback or dialog can remain stuck indefinitely.
         easyAdbHandler.postDelayed(() -> {
@@ -991,8 +999,14 @@ public class SetupActivity extends Activity {
             overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
         }), (done, total, label, output) -> runOnUiThread(() -> {
             if (attempt == easyAdbGeneration && easyAdbProgress != null && !isFinishing() && !isDestroyed()) {
-                easyAdbProgress.setMessage(tr("Granting permissions", "İzinler veriliyor")
-                        + " (" + done + "/" + total + ")\n" + label);
+                String message = done == 0 ? label : tr("Granting permissions", "İzinler veriliyor")
+                        + " (" + done + "/" + total + ")\n" + label;
+                easyAdbProgress.setMessage(message);
+                if (easyAdbStatus != null) easyAdbStatus.setText(message);
+                if ("Waiting for Android USB debugging authorization".equals(label)) {
+                    // The system owns the confirmation window; leave the wizard visible underneath it.
+                    easyAdbProgress.hide();
+                }
             }
         }));
     }
