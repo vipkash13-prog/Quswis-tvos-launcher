@@ -1,39 +1,40 @@
-# Prayer glass window
+# Prayer glass window — revision 2
 
-Stable rollback source: `backup/stable-1.0.205` at
-`4265ac5569815e9f302fbdc35e356686a6176333`. The feature branch is based on this
-exact commit. No merge into main or automatic APK release is part of this change.
-Version name/code remain 1.0.205 / 205 and AppUpdater.UPDATES_FROZEN stays true.
+Stable rollback: backup/stable-1.0.205 at 4265ac5569815e9f302fbdc35e356686a6176333;
+stable APK: https://github.com/vipkash13-prog/Quswis-tvos-launcher/releases/download/approved-v1.0.217/Quswis-tvOS-Launcher.apk.
 
-The native Dialog opens only from the existing prayer shortcut. It occupies
-62.5% of the display width and 1050/2160 of its height (2400×1050 at 4K,
-1200×525 at 1080p). Existing LiquidGlass paints the window. It has no full-screen
-shade or wallpaper replacement. Opening scales 0.9→1 in 300 ms; dismissal takes
-220 ms and returns focus to the prayer shortcut. BACK closes the entire window;
-the on-screen Back button on each utility returns to its main panel.
+Revision 2 follows the updated screenshot proportions: the popup occupies 72% of
+screen width and 62.2% of height, inset 2.2% from the right and 12.2% from the top.
+This keeps the side lenses and bottom app dock visible. These proportions replace
+the first revision's smaller centered 62.5% × 48.6% popup per the user's feedback.
 
-Prayer cards read only location-matched, date-bound PrayerCalendar data.
-Unavailable current-day data is explicitly shown as unavailable, with the existing
-sync service refreshing it. The next event uses PrayerPlan, including the actual
-next day's calendar after Isha. Scheduling, adhan, iqama, settings and all Home
-widgets retain their existing code. Hijri dates use the daily AlAdhan metadata,
-with Android ICU Umm al-Qura in the city's timezone as the offline fallback.
-The browsable monthly calendar is explicitly labelled Umm al-Qura.
+The native controls remain interactive. Bundled generated decorative panorama
+artwork appears only inside the Islamic-services popup; it never replaces the Home
+wallpaper. Scalable Canvas icons avoid device-specific emoji rendering. The glass
+window opens from 90% to 100% over 300 ms and closes over 220 ms.
 
-Utilities: Quran chapter selection and verse reading via api.alquran.cloud;
-local dhikr counters; playback, stop and station selection using the existing
-QuranRadio; a month calendar with previous/next navigation. Quran reading needs
-Internet. Cached/fallback radio stations use the existing player. Network results
-are ignored after changing pages or closing the window.
+Physical LEFT/RIGHT on the four RTL shortcuts now explicitly selects a neighboring
+shortcut and wraps at both ends. Key-up is consumed so firmware focus search cannot
+apply a second move. The close button remains accessible with UP/DOWN. BACK closes
+the dialog and restores focus to the prayer lens.
 
-Validation: Actions compiles the complete APK against Android API 34, runs the
-existing prayer clock and calendar regressions and verifies the APK signature.
-Artifact builds use the existing workflow's development signing fallback when no
-release keystore is configured. Such a build cannot replace an installed APK
-signed with a different key. No signing credentials are changed by this feature.
+Quran and radio are available inside Islamic Services. The duplicate Home Quran
+lens is no longer created; its old visibility paths cannot re-enable it. Existing
+QuranRadio settings/player, adhan, iqama, prayer scheduling and Home artwork remain
+unchanged.
 
-Device acceptance still needs MECOOL KM2 Plus Deluxe / Android TV 14: open the
-prayer lens with OK; verify all four shortcuts and DPAD focus; scroll a long
-surah; change radio station and stop playback; browse Hijri months; BACK restores
-the prayer lens; verify five times against the configured city, including offline
-and midnight rollover; confirm the existing adhan and iqama continue normally.
+Prayer data still comes from location-matched PrayerCalendar days, with no stale
+current-day times or fabricated next-day Fajr. Daily Hijri metadata is preferred;
+Android ICU Umm al-Qura in the city timezone is the offline fallback. The monthly
+calendar explicitly uses Umm al-Qura.
+
+Actions builds API-34 APKs, verifies their signatures, runs existing prayer calendar
+and clock regressions, and tests that every shortcut is reachable from every start
+in either direction. Revision 2 publishes a separate prerelease APK under
+prayer-glass-1.0.205-r2. Version 1.0.205/205 and frozen auto-updates are retained.
+The workflow uses the existing development-signing fallback. An APK signed with a
+different key cannot replace an existing installation signed with another key.
+
+Physical MECOOL / Android TV 14 acceptance still requires testing. In particular:
+test LEFT and RIGHT through all shortcuts, open each service, verify BACK focus,
+check offline and midnight prayer data, and confirm unchanged adhan/iqama behavior.

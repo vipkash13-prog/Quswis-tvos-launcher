@@ -34,6 +34,7 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
     private final View returnFocus;
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final FrameLayout surface;
+    private android.graphics.Bitmap panorama;
     private final LinearLayout home;
     private final TextView date, status, next;
     private final TextView[] clocks = new TextView[5];
@@ -64,40 +65,59 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
                 host.glassSource, host.screenW, host.screenH, Ui.unit(host)).adaptive().darker(0x75);
         backdrop.lens = px(5);
         surface.setBackground(backdrop);
-        surface.setPadding(px(14), px(10), px(14), px(10));
+        surface.setPadding(px(16), px(10), px(16), px(10));
+        surface.setOutlineProvider(new android.view.ViewOutlineProvider() {
+            @Override public void getOutline(View view, android.graphics.Outline outline) {
+                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), px(24));
+            }
+        });
+        surface.setClipToOutline(true);
+        try (java.io.InputStream input = host.getAssets().open("prayer-services-panorama.png")) {
+            panorama = android.graphics.BitmapFactory.decodeStream(input);
+        } catch (java.io.IOException ignored) { }
+
         home = column();
         surface.addView(home, new FrameLayout.LayoutParams(-1, -1));
 
         FrameLayout heading = new FrameLayout(host);
-        TextView title = text("الخدمات الإسلامية", 19, true);
+        heading.setClipChildren(false);
+        home.setClipChildren(false);
+        addArtwork(heading, px(128), .82f);
+
+        TextView title = text("الخدمات الإسلامية", 23, true);
+        title.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+        title.setPadding(0, px(5), 0, 0);
+        title.setShadowLayer(px(3), 0, px(1), 0xDD000000);
         heading.addView(title, new FrameLayout.LayoutParams(-1, -1));
         TextView close = button("×", 22, this::dismiss);
-        heading.addView(close, new FrameLayout.LayoutParams(px(28), px(28), Gravity.LEFT | Gravity.CENTER_VERTICAL));
-        home.addView(heading, new LinearLayout.LayoutParams(-1, px(32)));
+        heading.addView(close, new FrameLayout.LayoutParams(px(28), px(28), Gravity.LEFT | Gravity.TOP));
+        home.addView(heading, new LinearLayout.LayoutParams(-1, px(76)));
 
         LinearLayout row = row();
-        String[] labels = {"القرآن الكريم", "الأذكار", "إذاعات القرآن", "التقويم الهجري"};
-        String[] icons = {"📖", "📿", "📻", "▦"};
+        String[] labels = {"القرآن الكريم", "الأذكار والتسبيح", "إذاعات القرآن", "التقويم الهجري"};
         Runnable[] actions = {this::openQuran, this::openDhikr, this::openRadio, this::openCalendar};
         for (int i = 0; i < 4; i++) {
             final int index = i;
             LinearLayout tile = column(); tile.setGravity(Gravity.CENTER);
             tile.setBackground(glass(false, 15));
-            tile.addView(text(icons[i], 27, false), new LinearLayout.LayoutParams(-1, 0, 1));
-            TextView label = text(labels[i], 12, true);
+            PrayerServiceIcon icon = new PrayerServiceIcon(host, i);
+            LinearLayout.LayoutParams iconSize = new LinearLayout.LayoutParams(px(56), 0, 1);
+            iconSize.topMargin = px(5);
+            tile.addView(icon, iconSize);
+            TextView label = text(labels[i], 15, true);
             LinearLayout.LayoutParams labelSize = new LinearLayout.LayoutParams(-1, px(24));
             labelSize.bottomMargin = px(5); tile.addView(label, labelSize);
             focusable(tile, () -> { selectedShortcut = shortcuts.get(index); actions[index].run(); });
             shortcuts.add(tile);
             LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(0, -1, 1);
-            size.setMargins(px(4), px(3), px(4), px(5)); row.addView(tile, size);
+            size.setMargins(px(5), px(3), px(5), px(7)); row.addView(tile, size);
         }
-        home.addView(row, new LinearLayout.LayoutParams(-1, 0, 0.9f));
+        home.addView(row, new LinearLayout.LayoutParams(-1, 0, 1f));
         // Explicit links keep DPAD inside the modal, including on firmware with unusual focus search.
         for (int i = 0; i < 4; i++) {
             View v = shortcuts.get(i);
-            v.setNextFocusRightId(shortcuts.get(Math.max(0, i - 1)).getId());
-            v.setNextFocusLeftId(shortcuts.get(Math.min(3, i + 1)).getId());
+            v.setNextFocusRightId(shortcuts.get((i + 3) % 4).getId());
+            v.setNextFocusLeftId(shortcuts.get((i + 1) % 4).getId());
             v.setNextFocusUpId(close.getId()); v.setNextFocusDownId(v.getId());
         }
         close.setNextFocusDownId(shortcuts.get(0).getId());
@@ -106,31 +126,41 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
 
         LinearLayout lower = row();
         LinearLayout timesBox = column(); timesBox.setBackground(glass(false, 16));
-        TextView timesTitle = text("مواقيت الصلاة • " + PrayerTimes.city(host), 13, true);
-        timesBox.addView(timesTitle, new LinearLayout.LayoutParams(-1, px(24)));
+        TextView timesTitle = text("🕌  مواقيت الصلاة • " + PrayerTimes.city(host), 14, true);
+        timesBox.addView(timesTitle, new LinearLayout.LayoutParams(-1, px(29)));
         LinearLayout timesRow = row();
         for (int i = 0; i < 5; i++) {
             LinearLayout tile = column(); tile.setGravity(Gravity.CENTER); prayers[i] = tile;
             tile.addView(text(symbols[i], 16, false), new LinearLayout.LayoutParams(-1, 0, 1));
-            tile.addView(text(names[i], 11, true), new LinearLayout.LayoutParams(-1, px(19)));
-            clocks[i] = text("—", 15, true); clocks[i].setTextDirection(View.TEXT_DIRECTION_LTR);
+            tile.addView(text(names[i], 13, true), new LinearLayout.LayoutParams(-1, px(19)));
+            clocks[i] = text("—", 17, true); clocks[i].setTextDirection(View.TEXT_DIRECTION_LTR);
             tile.addView(clocks[i], new LinearLayout.LayoutParams(-1, px(24)));
             LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(0, -1, 1);
             size.setMargins(px(3), 0, px(3), px(5)); timesRow.addView(tile, size);
         }
         timesBox.addView(timesRow, new LinearLayout.LayoutParams(-1, 0, 1));
-        LinearLayout.LayoutParams timesSize = new LinearLayout.LayoutParams(0, -1, 1.9f);
+        LinearLayout.LayoutParams timesSize = new LinearLayout.LayoutParams(0, -1, 1.55f);
         timesSize.setMargins(px(4), px(4), px(4), 0); lower.addView(timesBox, timesSize);
         LinearLayout calendar = column(); calendar.setGravity(Gravity.CENTER);
-        calendar.setPadding(px(5), 0, px(5), 0); calendar.setBackground(glass(false, 16));
-        calendar.addView(text("☾  التقويم الهجري", 12, true), new LinearLayout.LayoutParams(-1, px(24)));
-        date = text("", 12, true); date.setSingleLine(false); date.setMaxLines(2);
+        calendar.setPadding(px(5), 0, px(5), 0);
+        FrameLayout calendarCard = new FrameLayout(host);
+        calendarCard.setBackground(glass(false, 16));
+        calendarCard.setOutlineProvider(new android.view.ViewOutlineProvider() {
+            @Override public void getOutline(View v, android.graphics.Outline o) {
+                o.setRoundRect(0, 0, v.getWidth(), v.getHeight(), px(16));
+            }
+        });
+        calendarCard.setClipToOutline(true);
+        addArtwork(calendarCard, -1, .40f);
+        calendarCard.addView(calendar, new FrameLayout.LayoutParams(-1, -1));
+        calendar.addView(text("☾  التقويم الهجري", 14, true), new LinearLayout.LayoutParams(-1, px(24)));
+        date = text("", 14, true); date.setSingleLine(false); date.setMaxLines(2);
         calendar.addView(date, new LinearLayout.LayoutParams(-1, 0, 1));
         next = text("", 10, false); next.setSingleLine(false); next.setMaxLines(2);
         calendar.addView(next, new LinearLayout.LayoutParams(-1, px(30)));
         LinearLayout.LayoutParams calSize = new LinearLayout.LayoutParams(0, -1, 1);
-        calSize.setMargins(px(4), px(4), px(4), 0); lower.addView(calendar, calSize);
-        home.addView(lower, new LinearLayout.LayoutParams(-1, 0, 1));
+        calSize.setMargins(px(4), px(4), px(4), 0); lower.addView(calendarCard, calSize);
+        home.addView(lower, new LinearLayout.LayoutParams(-1, 0, 1.1f));
         status = text("", 9, false);
         home.addView(status, new LinearLayout.LayoutParams(-1, px(18)));
         setContentView(surface);
@@ -138,6 +168,7 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
             ui.removeCallbacksAndMessages(null); requestGeneration++;
             PrayerTimes.prefs(host).unregisterOnSharedPreferenceChangeListener(this);
             host.prayerGlassDialog = null;
+            if (panorama != null) { panorama.recycle(); panorama = null; }
             if (returnFocus != null && returnFocus.isAttachedToWindow()) returnFocus.requestFocus();
         });
         host.prayerGlassDialog = this;
@@ -149,8 +180,13 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
         if (window != null) {
             window.setBackgroundDrawableResource(android.R.color.transparent);
             window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-            window.setGravity(Gravity.CENTER);
-            window.setLayout(Math.round(host.screenW * .625f), Math.round(host.screenH * (1050f / 2160f)));
+            // Match the reference: keep the left lenses and bottom dock visible.
+            window.setGravity(Gravity.TOP | Gravity.RIGHT);
+            window.setLayout(Math.round(host.screenW * .72f), Math.round(host.screenH * .622f));
+            WindowManager.LayoutParams bounds = window.getAttributes();
+            bounds.x = Math.round(host.screenW * .022f);
+            bounds.y = Math.round(host.screenH * .122f);
+            window.setAttributes(bounds);
             window.setWindowAnimations(0);
             window.getDecorView().setSystemUiVisibility(host.getWindow().getDecorView().getSystemUiVisibility());
         }
@@ -168,7 +204,19 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
             if (event.getAction() == KeyEvent.ACTION_UP) dismiss();
             return true;
         }
-        return closing || super.dispatchKeyEvent(event);
+        if (closing) return true;
+        int key = event.getKeyCode();
+        if (!subpage && (key == KeyEvent.KEYCODE_DPAD_LEFT || key == KeyEvent.KEYCODE_DPAD_RIGHT)) {
+            int index = shortcuts.indexOf(getCurrentFocus());
+            if (index >= 0) {
+                if (event.getAction() == KeyEvent.ACTION_DOWN) {
+                    int target = PrayerFocusNavigation.horizontal(index, key == KeyEvent.KEYCODE_DPAD_RIGHT, shortcuts.size());
+                    shortcuts.get(target).requestFocus();
+                }
+                return true;
+            }
+        }
+        return super.dispatchKeyEvent(event);
     }
 
     @Override public void dismiss() {
@@ -202,7 +250,7 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
     }
     private GradientDrawable glass(boolean focused, int radius) {
         GradientDrawable bg = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                focused ? new int[]{0xB04491C4, 0xAD183B66} : new int[]{0xA54B596A, 0xB5192434});
+                focused ? new int[]{0xC057A9E0, 0xB51A416B} : new int[]{0x925A6675, 0xA5222936});
         bg.setCornerRadius(px(radius)); bg.setStroke(px(focused ? 1.5f : .7f), focused ? 0xFFE0F8FF : 0x70FFFFFF);
         return bg;
     }
@@ -210,7 +258,11 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
         v.setId(View.generateViewId()); v.setFocusable(true); v.setClickable(true);
         v.setOnClickListener(w -> { if (!closing) action.run(); });
         v.setOnFocusChangeListener((w, focused) -> {
-            w.setBackground(glass(focused, 15)); w.setElevation(px(focused ? 5 : 0));
+            w.setBackground(glass(focused, 15)); w.setElevation(px(focused ? 7 : 0));
+            if (android.os.Build.VERSION.SDK_INT >= 28) {
+                w.setOutlineAmbientShadowColor(0xFF7FD6FF);
+                w.setOutlineSpotShadowColor(0xFF7FD6FF);
+            }
             w.animate().scaleX(focused ? 1.025f : 1f).scaleY(focused ? 1.025f : 1f).setDuration(140).start();
         });
     }
@@ -246,7 +298,9 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
             clocks[i].setText(times == null ? "—" : PrayerPanelClock.clean(times.optString(PrayerPlan.KEYS[i])));
             prayers[i].setBackground(glass(upcoming != null && upcoming.day.equals(todayKey) && upcoming.index == i, 10));
         }
-        date.setText(hijriText(today, now));
+        java.text.SimpleDateFormat calendarDay = new java.text.SimpleDateFormat("EEEE", new Locale("ar"));
+        calendarDay.setTimeZone(TimeZone.getTimeZone(zone()));
+        date.setText(calendarDay.format(new Date(now)) + "\n" + hijriText(today, now));
         next.setText(upcoming == null ? "بانتظار مواقيت اليوم" : "القادمة: " + names[upcoming.index] +
                 (upcoming.day.equals(todayKey) ? "" : " • " + upcoming.day) + "\n" + PrayerPanelClock.countdown(upcoming.at - now));
         java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("EEEE، d MMMM yyyy", new Locale("ar"));
@@ -257,6 +311,19 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
         if (times == null && now - refreshAt > 60000L) {
             refreshAt = now; PrayerTimes.refresh(host, null, false);
         }
+    }
+
+    private void addArtwork(FrameLayout container, int height, float alpha) {
+        if (panorama == null) return;
+        android.widget.ImageView image = new android.widget.ImageView(host);
+        image.setImageBitmap(panorama);
+        image.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
+        image.setAlpha(alpha);
+        container.addView(image, new FrameLayout.LayoutParams(-1, height, Gravity.TOP));
+        View fade = new View(host);
+        fade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+                new int[]{0x15202B40, 0x08202B40, 0xFF202B3A}));
+        container.addView(fade, new FrameLayout.LayoutParams(-1, height, Gravity.TOP));
     }
 
     private LinearLayout page(String title) {

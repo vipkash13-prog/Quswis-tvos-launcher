@@ -201,7 +201,7 @@ public class MainActivity extends Activity {
         int v = shouldShowInfoPills() ? View.VISIBLE : View.GONE;
         if (newsShortcut != null) newsShortcut.setVisibility(WorldNews.enabled(this) ? v : View.GONE);
         if (liveShortcut != null) liveShortcut.setVisibility(LiveStream.enabled(this) ? v : View.GONE);
-        if (quranShortcut != null) quranShortcut.setVisibility(QuranRadio.enabled(this) ? v : View.GONE);
+        if (quranShortcut != null) quranShortcut.setVisibility(View.GONE);
     }
 
     View footballShortcut, newsShortcut, liveShortcut, quranShortcut;
@@ -933,7 +933,8 @@ public class MainActivity extends Activity {
         newsShortcut = makeInfoPill(3, "الأخبار العالمية", "🌍", this::showNewsPanel);
         liveShortcut = makeInfoPill(4, "البث المباشر", "📡", this::openLiveBroadcast);
         // Quran radio: top row, directly to the right of the weather pill.
-        quranShortcut = makeInfoPill(0, "القرآن الكريم", "📻", () -> QuranRadio.toggle(this));
+        // Quran and radio are available inside Islamic Services, not as an extra Home lens.
+        quranShortcut = null;
         syncInfoPills();
         layoutInfoShortcuts();
         root.getViewTreeObserver().addOnPreDrawListener(() -> {
@@ -951,7 +952,7 @@ public class MainActivity extends Activity {
         footballShortcut.bringToFront();
         newsShortcut.bringToFront();
         liveShortcut.bringToFront();
-        quranShortcut.bringToFront();
+        if (quranShortcut != null) quranShortcut.bringToFront();
         updateWeather();
 
 

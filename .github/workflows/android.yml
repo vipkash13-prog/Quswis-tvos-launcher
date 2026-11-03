@@ -49,11 +49,51 @@ jobs:
         clock = source[source.index('final class PrayerPanelClock {'):]
         Path('/tmp/quswis-prayer-tests/PrayerPanelClock.java').write_text('package com.techgenius.tvoslauncher;\n' + clock)
         PYTEST
-        javac -encoding UTF-8 -cp /tmp/quswis-json.jar -d /tmp/quswis-prayer-tests src/com/techgenius/tvoslauncher/PrayerPlan.java /tmp/quswis-prayer-tests/PrayerPanelClock.java tests/PrayerPlanTest.java tests/PrayerPanelClockTest.java
+        javac -encoding UTF-8 -cp /tmp/quswis-json.jar -d /tmp/quswis-prayer-tests src/com/techgenius/tvoslauncher/PrayerPlan.java /tmp/quswis-prayer-tests/PrayerPanelClock.java tests/PrayerPlanTest.java tests/PrayerPanelClockTest.java src/com/techgenius/tvoslauncher/PrayerFocusNavigation.java tests/PrayerFocusNavigationTest.java
         java -cp /tmp/quswis-prayer-tests:/tmp/quswis-json.jar com.techgenius.tvoslauncher.PrayerPlanTest
         java -cp /tmp/quswis-prayer-tests:/tmp/quswis-json.jar com.techgenius.tvoslauncher.PrayerPanelClockTest
+        java -cp /tmp/quswis-prayer-tests com.techgenius.tvoslauncher.PrayerFocusNavigationTest
         SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
         "$SDK/build-tools/34.0.0/apksigner" verify --verbose dist/Quswis-tvOS-Launcher.apk
+
+    - name: Build native remote smoke test
+      run: |
+        SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+        JAR="$SDK/platforms/android-34/android.jar"
+        BT="$SDK/build-tools/34.0.0"
+        mkdir -p /tmp/quswis-ui/classes /tmp/quswis-ui/dex
+        "$BT/aapt2" link -o /tmp/quswis-ui/unsigned.apk -I "$JAR" --manifest tests/prayer-window-test-manifest.xml --min-sdk-version 24 --target-sdk-version 34
+        javac -encoding UTF-8 --release 11 -cp "$JAR:build/classes" -d /tmp/quswis-ui/classes tests/PrayerWindowInstrumentation.java
+        jar cf /tmp/quswis-ui/app-classes.jar -C build/classes .
+        "$BT/d8" --min-api 24 --lib "$JAR" --classpath /tmp/quswis-ui/app-classes.jar --output /tmp/quswis-ui/dex /tmp/quswis-ui/classes/com/techgenius/tvoslauncher/PrayerWindowInstrumentation.class
+        (cd /tmp/quswis-ui/dex && zip -q ../unsigned.apk classes.dex)
+        "$BT/zipalign" -f 4 /tmp/quswis-ui/unsigned.apk /tmp/quswis-ui/aligned.apk
+        "$BT/apksigner" sign --ks debug.keystore --ks-pass pass:android --key-pass pass:android --out /tmp/quswis-ui/test.apk /tmp/quswis-ui/aligned.apk
+        sudo chmod 666 /dev/kvm
+
+    - name: Test remote navigation on Android 14 and capture window
+      uses: reactivecircus/android-emulator-runner@v2
+      with:
+        api-level: 34
+        arch: x86_64
+        target: google_apis
+        profile: tv_1080p
+        disable-animations: true
+        emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+        script: |
+          adb shell wm size 1920x1080
+          adb install -r dist/Quswis-tvOS-Launcher.apk
+          adb install -r /tmp/quswis-ui/test.apk
+          adb shell am instrument -w -r com.techgenius.tvoslauncher.windowtest/com.techgenius.tvoslauncher.PrayerWindowInstrumentation | tee /tmp/quswis-ui/result.txt
+          grep -q PRAYER_UI_OK /tmp/quswis-ui/result.txt
+          adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/prayer-window-1080.png dist/prayer-window-1080.png
+
+    - name: Upload native window screenshot
+      uses: actions/upload-artifact@v4
+      with:
+        name: Prayer-window-Android-14
+        path: dist/prayer-window-1080.png
+        if-no-files-found: error
 
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
@@ -79,30 +119,22 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 
-    - name: Download verified prayer APK for direct download
-      if: github.ref == 'refs/heads/feature/prayer-glass-window'
-      uses: actions/download-artifact@v4
-      with:
-        name: Quswis-tvOS-Launcher
-        run-id: 41736770475
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-        path: release-apk
-
-    - name: Publish verified prayer APK as a direct download
+    - name: Publish updated prayer APK as a direct download
       if: github.ref == 'refs/heads/feature/prayer-glass-window'
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: prayer-glass-1.0.205
+        tag_name: prayer-glass-1.0.205-r2
         target_commitish: ${{ github.sha }}
-        name: Prayer glass window - 1.0.205 preview
+        name: Prayer glass window - remote and reference design fixes
         body: |
-          نافذة مواقيت الصلاة الزجاجية - نسخة تجريبية.
-          ملف APK المباشر هو نفس الملف الذي اجتاز البناء و40 اختبارًا في تشغيل Actions رقم 41736770475.
+          تحسين التنقل بالريموت يمينًا ويسارًا بين الاختصارات الأربعة.
+          تصميم النافذة بخلفية الحرم وأيقونات ومقاسات أقرب للصورة المرجعية.
+          إزالة عدسة القرآن من الرئيسية مع إبقاء القرآن والإذاعات داخل الخدمات الإسلامية.
           النسخة المستقرة محفوظة في backup/stable-1.0.205 وإصدار approved-v1.0.217.
           توقيع تطوير؛ قد لا يمكن تثبيته فوق نسخة موقعة بمفتاح مختلف.
         prerelease: true
         make_latest: false
-        files: release-apk/Quswis-tvOS-Launcher.apk
+        files: dist/Quswis-tvOS-Launcher.apk
         fail_on_unmatched_files: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.techgenius.tvoslauncher.windowtest">
+    <application android:label="Prayer window smoke test" />
+    <instrumentation android:name="com.techgenius.tvoslauncher.PrayerWindowInstrumentation"
+        android:targetPackage="com.techgenius.tvoslauncher" />
+</manifest>
