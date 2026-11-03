@@ -18,6 +18,13 @@ public final class ViewportInstrumentation extends Instrumentation {
     static void check(boolean value, String detail) {
         if (!value) throw new AssertionError(detail);
     }
+    private void ui(Runnable action) {
+        final Throwable[] failure=new Throwable[1];
+        runOnMainSync(() -> {
+            try { action.run(); } catch(Throwable error) { failure[0]=error; }
+        });
+        if(failure[0]!=null) throw new RuntimeException(failure[0]);
+    }
     @Override public void onStart() {
         Bundle result = new Bundle();
         MainActivity[] activity = new MainActivity[1];
@@ -47,7 +54,7 @@ public final class ViewportInstrumentation extends Instrumentation {
             getUiAutomation().injectInputEvent(new android.view.KeyEvent(time,time+10,
                     android.view.KeyEvent.ACTION_UP,android.view.KeyEvent.KEYCODE_DPAD_DOWN,0),true);
             MainActivity a=activity[0];
-            runOnMainSync(() -> {
+            ui(() -> {
                 a.apps.clear(); a.otherApps.clear();
                 for(int i=0;i<42;i++) {
                     MainActivity.AppEntry app=new MainActivity.AppEntry();
@@ -67,7 +74,7 @@ public final class ViewportInstrumentation extends Instrumentation {
                 a.updateClassicAppClip();
             });
             waitForIdleSync(); SystemClock.sleep(600);
-            runOnMainSync(() -> {
+            ui(() -> {
                 int expected=(a.screenW-2*a.side-(MainActivity.COLS-1)*a.gap)/MainActivity.COLS;
                 check(a.tileW==expected,"Original tile size was changed");
                 check(a.scroll.getWidth()==a.screenW,"Original full-width grid was changed");
@@ -78,9 +85,9 @@ public final class ViewportInstrumentation extends Instrumentation {
             // Walk through each row in a long app list, including the last row and the return trip.
             int[] targets={6,12,18,24,30,36,30,18,6,0};
             for(int index:targets) {
-                runOnMainSync(() -> a.focusIndex(index));
+                ui(() -> a.focusIndex(index));
                 waitForIdleSync(); SystemClock.sleep(450);
-                runOnMainSync(() -> {
+                ui(() -> {
                     check(a.scroll.getTop()>=a.classicHeaderBottom(),"Scroll viewport crossed header");
                     View focused=a.tiles.get(index);
                     check(a.hasWindowFocus(),"Another window is covering the launcher");
@@ -93,7 +100,7 @@ public final class ViewportInstrumentation extends Instrumentation {
                             "Focused tile exceeds viewport at index "+index);
                 });
             }
-            runOnMainSync(() -> {
+            ui(() -> {
                 a.focusIndex(24);
             });
             SystemClock.sleep(500);waitForIdleSync();

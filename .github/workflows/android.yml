@@ -67,6 +67,8 @@ jobs:
           adb install -r build/tvos-home.apk
           adb install -r build/ui-test.apk
           adb shell am instrument -w com.techgenius.tvoslauncher.uitest/com.techgenius.tvoslauncher.ViewportInstrumentation | tee build/ui-test-results.txt
+          adb logcat -d -s AndroidRuntime > build/android-crash.txt
+          cat build/android-crash.txt
           grep -q VIEWPORT_TEST_PASSED build/ui-test-results.txt
           adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/viewport.png dist/viewport.png
 
