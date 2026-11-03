@@ -116,16 +116,38 @@ final class AppFocusIndicator extends View {
         animation.start();
     }
     private void color(int argb){paint.setColor(argb);paint.setAlpha(Math.round(Color.alpha(argb)*opacity));}
+    // Glass slab (soft sheen, bright top specular, crisp rim, faint outer glow), drawn over the sliding frame.
+    private final Paint fillPaint=new Paint(Paint.ANTI_ALIAS_FLAG),specPaint=new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final android.graphics.Matrix shaderMatrix=new android.graphics.Matrix();
+    private final android.graphics.LinearGradient fillShader=new android.graphics.LinearGradient(0,0,0,1,0x3DFFFFFF,0x12FFFFFF,android.graphics.Shader.TileMode.CLAMP);
+    private final android.graphics.LinearGradient specShader=new android.graphics.LinearGradient(0,0,0,1,0x66FFFFFF,0x00FFFFFF,android.graphics.Shader.TileMode.CLAMP);
     @Override protected void onDraw(Canvas canvas){
         super.onDraw(canvas);if(opacity<=0||frame.isEmpty())return;
         int saved=canvas.save();
         if(!Scenes.isScenesLook(host)&&host.scroll!=null&&host.scroll.getScrollY()>host.dp(4)&&!host.heroRequested)
             canvas.clipRect(0,host.dp(80),getWidth(),getHeight());
-        // A transparent centre preserves the app art; contrasting rims stay visible on white and dark icons.
-        paint.setStyle(Paint.Style.FILL);color(0x12FFFFFF);canvas.drawRoundRect(frame,corner,corner,paint);
-        paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(5f*unit);color(0x30D6ECFF);canvas.drawRoundRect(frame,corner,corner,paint);
-        paint.setStrokeWidth(3.5f*unit);color(0x80405060);canvas.drawRoundRect(frame,corner,corner,paint);
-        paint.setStrokeWidth(1.8f*unit);color(0xF5FFFFFF);canvas.drawRoundRect(frame,corner,corner,paint);
+        float glowSpan=6f*unit;int rings=12;float step=glowSpan/rings;
+        // Outer glow: thin rings, each a little fainter, so it fades out smoothly.
+        paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(step+0.5f);
+        for(int i=0;i<rings;i++){
+            float o=step*(i+0.5f),t=1f-(float)i/rings;
+            color(Math.round(0x30*t)<<24|0xFFFFFF);
+            canvas.drawRoundRect(frame.left-o,frame.top-o,frame.right+o,frame.bottom+o,corner+o,corner+o,paint);
+        }
+        // Thin dark edge keeps the slab visible around white application icons.
+        paint.setStrokeWidth(3f*unit);color(0x4A405060);canvas.drawRoundRect(frame,corner,corner,paint);
+        // Translucent body: the application art stays visible through it.
+        shaderMatrix.setScale(1f,frame.height());shaderMatrix.postTranslate(0f,frame.top);
+        fillShader.setLocalMatrix(shaderMatrix);fillPaint.setShader(fillShader);fillPaint.setAlpha(Math.round(255*opacity));
+        canvas.drawRoundRect(frame,corner,corner,fillPaint);
+        // Sheen across the top 45%.
+        shaderMatrix.setScale(1f,frame.height()*0.45f);shaderMatrix.postTranslate(0f,frame.top);
+        specShader.setLocalMatrix(shaderMatrix);specPaint.setShader(specShader);specPaint.setAlpha(Math.round(255*opacity));
+        int clip=canvas.save();
+        canvas.clipRect(frame.left,frame.top,frame.right,frame.top+frame.height()*0.45f);
+        canvas.drawRoundRect(frame,corner,corner,specPaint);
+        canvas.restoreToCount(clip);
+        paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(1.6f*unit);color(0xCCFFFFFF);canvas.drawRoundRect(frame,corner,corner,paint);
         canvas.restoreToCount(saved);
     }
 }
