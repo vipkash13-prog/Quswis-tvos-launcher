@@ -2,7 +2,7 @@ name: Android CI
 
 on:
   push:
-    branches: [ "main", "test-scene-glass-lens", "feature-classic-prayer-adhan" ]
+    branches: [ "main", "test-scene-glass-lens", "feature-classic-prayer-adhan", "feature/prayer-glass-window" ]
   workflow_dispatch:
 
 permissions:
@@ -38,6 +38,22 @@ jobs:
         cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
         ls -lh dist/Quswis-tvOS-Launcher.apk
 
+    - name: Verify prayer regressions and APK signature
+      run: |
+        curl --fail --silent --show-error --location https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar -o /tmp/quswis-json.jar
+        mkdir -p /tmp/quswis-prayer-tests
+        python3 - <<'PYTEST'
+        from pathlib import Path
+        source = Path('src/com/techgenius/tvoslauncher/PrayerTimes.java').read_text()
+        clock = source[source.index('final class PrayerPanelClock {'):]
+        Path('/tmp/quswis-prayer-tests/PrayerPanelClock.java').write_text('package com.techgenius.tvoslauncher;\n' + clock)
+        PYTEST
+        javac -encoding UTF-8 -cp /tmp/quswis-json.jar -d /tmp/quswis-prayer-tests src/com/techgenius/tvoslauncher/PrayerPlan.java /tmp/quswis-prayer-tests/PrayerPanelClock.java tests/PrayerPlanTest.java tests/PrayerPanelClockTest.java
+        java -cp /tmp/quswis-prayer-tests:/tmp/quswis-json.jar com.techgenius.tvoslauncher.PrayerPlanTest
+        java -cp /tmp/quswis-prayer-tests:/tmp/quswis-json.jar com.techgenius.tvoslauncher.PrayerPanelClockTest
+        SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+        "$SDK/build-tools/34.0.0/apksigner" verify --verbose dist/Quswis-tvOS-Launcher.apk
+
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
@@ -60,3 +76,4 @@ jobs:
           dist/Quswis-tvOS-Launcher.apk
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+

@@ -560,6 +560,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (prayerGlassDialog != null) prayerGlassDialog.dispose();
         super.onDestroy();
         if (pkgReceiver != null) unregisterReceiver(pkgReceiver);
         if (netCallback != null) {
@@ -4583,7 +4584,7 @@ public class MainActivity extends Activity {
      */
     void enterIdle() {
         if (idle || !resumed || !heroShown || heroItems.isEmpty() || continueMode() || folderMode
-                || launchOverlay != null || pickerLayer != null || menuLayer != null || moveIndex >= 0) {
+                || launchOverlay != null || pickerLayer != null || prayerGlassDialog != null || menuLayer != null || moveIndex >= 0) {
             resetIdle();
             return;
         }
@@ -5043,33 +5044,12 @@ public class MainActivity extends Activity {
         }).start();
     }
 
+    PrayerGlassDialog prayerGlassDialog;
+
     void showPrayerPanel() {
-        dropPicker();
+        if (prayerGlassDialog != null && prayerGlassDialog.isShowing()) return;
         stopSway(null);
-        popoverReturn = prayerCard;
-        prayerCard.setAlpha(0f);
-        FrameLayout layer = new FrameLayout(this);
-        layer.setClickable(true);
-        View shade = new View(this);
-        shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
-                new int[]{0xA6000000, 0x4D000000, 0x00000000}));
-        layer.addView(shade, new FrameLayout.LayoutParams(screenW * 3 / 5, -1, Gravity.START));
-        View panel = PrayerShortcut.createPanel(this);
-        FrameLayout.LayoutParams plp = new FrameLayout.LayoutParams(dp(WeatherView.FULL_W), dp(WeatherView.FULL_H),
-                Gravity.TOP | Gravity.START);
-        plp.topMargin = dp(24);
-        plp.leftMargin = dockOuter;
-        layer.addView(panel, plp);
-        root.addView(layer, match());
-        pickerLayer = layer;
-        pickerCells = new ArrayList<>();
-        pickerCells.add(panel);
-        layer.setAlpha(0f);
-        panel.setTranslationY(-dp(10));
-        layer.animate().alpha(1f).setDuration(200).start();
-        panel.animate().translationY(0).setDuration(260).setInterpolator(EASE).start();
-        panel.requestFocus();
-        PrayerTimes.refresh(this, null, false);
+        PrayerGlassDialog.open(this, prayerCard);
     }
 
     // ---------------------------------------------------------------- profiles
