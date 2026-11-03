@@ -2,7 +2,7 @@ name: Android CI
 
 on:
   push:
-    branches: [ "main", "test-scene-glass-lens", "feature-classic-prayer-adhan" ]
+    branches: [ "main", "test-scene-glass-lens", "feature-classic-prayer-adhan", "feature/news-live-shortcuts" ]
   workflow_dispatch:
 
 permissions:
@@ -33,7 +33,7 @@ jobs:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
       run: |
         chmod +x build.sh
-        VERSION_NAME="1.0.205-newslive" VERSION_CODE="205" ./build.sh
+        VERSION_NAME="1.0.205-newslive" VERSION_CODE="206" ./build.sh
         mkdir -p dist
         cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
         ls -lh dist/Quswis-tvOS-Launcher.apk
@@ -49,12 +49,12 @@ jobs:
       uses: softprops/action-gh-release@v2
       if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature-classic-prayer-adhan' || github.ref == 'refs/heads/feature/news-live-shortcuts')
       with:
-        tag_name: ${{ github.ref == 'refs/heads/main' && format('v1.0.{0}', github.run_number) || format('news-live-v1.0.{0}', github.run_number) }}
-        name: ${{ github.ref == 'refs/heads/main' && format('Release v1.0.{0}', github.run_number) || format('News and live v1.0.205 (run {0})', github.run_number) }}
+        tag_name: news-live-v1.0.205-homefix
+        name: News Live 1.0.205 - Home visibility fix
         body: |
           تحديث جديد لتطبيق Quswis tvOS Launcher من مستودعك:
-          - إضافة مواقيت الصلاة
-          - إضافة مباريات دوري أبطال آسيا للنخبة (AFC Champions League Elite)
+          - إصلاح ظهور الساعة ومواقيت الصلاة والتطبيقات فوق القوائم والإعدادات
+          - نسخة 1.0.205-newslive المصححة، رقم البناء 206
         prerelease: ${{ github.ref != 'refs/heads/main' }}
         files: |
           dist/Quswis-tvOS-Launcher.apk

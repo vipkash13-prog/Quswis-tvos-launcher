@@ -205,6 +205,9 @@ public class MainActivity extends Activity {
 
     View footballShortcut, newsShortcut, liveShortcut;
     FrameLayout root;
+    FrameLayout homeContent;
+    View homeReturnFocus;
+    boolean homeWindowFocused = true;
     ImageView wallView;
     /** Top shelf carousel: two crossfading backdrops + info panel. */
     ImageView heroBack, heroFront;
@@ -439,6 +442,7 @@ public class MainActivity extends Activity {
             return;
         }
         resumed = true;
+        syncHomeVisibility();
         activeInstance = this;
         clearLaunchDim();
         boolean wasReturningFromSettings = returningFromSettings;
@@ -524,6 +528,7 @@ public class MainActivity extends Activity {
         super.onPause();
         cancelGridScroll();
         resumed = false;
+        syncHomeVisibility();
         if (ambientShowcase && (android.os.SystemClock.uptimeMillis() - ambientEnterTime > 1000L)) {
             exitAmbientShowcase();
         }
@@ -947,7 +952,50 @@ public class MainActivity extends Activity {
 
 
         root.addView(new AppFocusIndicator(this), match());
+        // Home chrome has its own parent: refresh callbacks cannot reveal it over a menu.
+        homeContent = new FrameLayout(this);
+        homeContent.setClipChildren(false);
+        homeContent.setClipToPadding(false);
+        for (int i = 0; i < root.getChildCount();) {
+            View child = root.getChildAt(i);
+            if (child == wallView || child == sceneHome.sceneView) {
+                i++;
+                continue;
+            }
+            ViewGroup.LayoutParams lp = child.getLayoutParams();
+            root.removeViewAt(i);
+            homeContent.addView(child, lp);
+        }
+        root.addView(homeContent, match());
+        root.setOnHierarchyChangeListener(new ViewGroup.OnHierarchyChangeListener() {
+            @Override public void onChildViewAdded(View parent, View child) { syncHomeVisibility(); }
+            @Override public void onChildViewRemoved(View parent, View child) { syncHomeVisibility(); }
+        });
+        syncHomeVisibility();
         setContentView(root);
+    }
+
+    void syncHomeVisibility() {
+        if (homeContent == null || sceneHome == null) return;
+        boolean covered = false;
+        for (int i = 0; i < root.getChildCount(); i++) {
+            View child = root.getChildAt(i);
+            if (child != homeContent && child != wallView && child != sceneHome.sceneView) {
+                covered = true;
+                break;
+            }
+        }
+        boolean show = resumed && homeWindowFocused && !covered;
+        if (!show && homeContent.getVisibility() == View.VISIBLE) {
+            homeReturnFocus = homeContent.findFocus();
+        }
+        boolean restoreFocus = show && homeContent.getVisibility() != View.VISIBLE;
+        homeContent.setVisibility(show ? View.VISIBLE : View.GONE);
+        sceneHome.sceneView.setHomeDetailsVisible(show);
+        if (restoreFocus && homeReturnFocus != null && homeReturnFocus.isShown()) {
+            homeReturnFocus.requestFocus();
+            homeReturnFocus = null;
+        }
     }
 
     void applyLookMode() {
@@ -2131,6 +2179,8 @@ public class MainActivity extends Activity {
 
     @Override public void onWindowFocusChanged(boolean focused) {
         super.onWindowFocusChanged(focused);
+        homeWindowFocused = focused;
+        syncHomeVisibility();
         if (focused && root != null) root.post(this::restoreClassicFocus);
     }
 
@@ -5155,7 +5205,7 @@ public class MainActivity extends Activity {
             hiddenUnderSearch.clear();
             for (int i = 0; i < root.getChildCount(); i++) {
                 View c = root.getChildAt(i);
-                if (c != opened.layer && c != launchOverlay && c.getVisibility() == View.VISIBLE) {
+                if (c != homeContent && c != opened.layer && c != launchOverlay && c.getVisibility() == View.VISIBLE) {
                     c.setVisibility(View.INVISIBLE);
                     hiddenUnderSearch.add(c);
                 }
@@ -5240,6 +5290,7 @@ public class MainActivity extends Activity {
     void releaseSearch() {
         for (View c : hiddenUnderSearch) c.setVisibility(View.VISIBLE);
         hiddenUnderSearch.clear();
+        syncHomeVisibility();
         if (search == null) return;
         search.release();
         search = null;
