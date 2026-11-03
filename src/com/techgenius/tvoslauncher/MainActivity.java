@@ -189,9 +189,21 @@ public class MainActivity extends Activity {
     void syncFootballVisibility() {
         if (footballCard != null) footballCard.setVisibility(pickerLayer != null && shouldShowFootball() ? View.VISIBLE : View.GONE);
         if (footballShortcut != null) footballShortcut.setVisibility(shouldShowFootball() ? View.VISIBLE : View.GONE);
+        syncInfoPills();
     }
 
-    View footballShortcut;
+    /** The world-news and live-broadcast shortcuts follow the same home-shelf visibility as the football one. */
+    boolean shouldShowInfoPills() {
+        return !folderMode && (Scenes.isScenesLook(this) || sceneHome == null || !sceneHome.moreExpanded)
+                && (Scenes.isScenesLook(this) || scroll == null || scroll.getScrollY() < dp(65));
+    }
+    void syncInfoPills() {
+        int v = shouldShowInfoPills() ? View.VISIBLE : View.GONE;
+        if (newsShortcut != null) newsShortcut.setVisibility(v);
+        if (liveShortcut != null) liveShortcut.setVisibility(v);
+    }
+
+    View footballShortcut, newsShortcut, liveShortcut;
     FrameLayout root;
     ImageView wallView;
     /** Top shelf carousel: two crossfading backdrops + info panel. */
@@ -480,6 +492,7 @@ public class MainActivity extends Activity {
         layoutInfoShortcuts();
         if (prayerCard != null) prayerCard.setVisibility(PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
         if (footballShortcut != null) footballShortcut.setVisibility(shouldShowFootball() ? View.VISIBLE : View.GONE);
+        syncInfoPills();
         handler.removeCallbacks(footballTick);
         handler.postDelayed(footballTick, 120000L);
         refreshAvatar();
@@ -911,11 +924,23 @@ public class MainActivity extends Activity {
         });
         // Match panel is created lazily only when the football lens is opened.
 
+        // World news and live broadcast: the same glass pill, directly under the football one.
+        newsShortcut = makeInfoPill(3, "الأخبار العالمية", "🌍", this::showNewsPanel);
+        liveShortcut = makeInfoPill(4, "البث المباشر", "📡", this::openLiveBroadcast);
+        root.getViewTreeObserver().addOnPreDrawListener(() -> {
+            float a = pickerLayer != null ? 0f : weatherAlpha();
+            if (newsShortcut != null && newsShortcut.getVisibility() == View.VISIBLE) newsShortcut.setAlpha(a);
+            if (liveShortcut != null && liveShortcut.getVisibility() == View.VISIBLE) liveShortcut.setAlpha(a);
+            return true;
+        });
+
         root.addView(sceneHome.overlay, match());
         // Keep the information cards above full-screen scene overlays on every TV layout.
         weatherCard.bringToFront();
         prayerCard.bringToFront();
         footballShortcut.bringToFront();
+        newsShortcut.bringToFront();
+        liveShortcut.bringToFront();
         updateWeather();
 
 
@@ -2095,7 +2120,8 @@ public class MainActivity extends Activity {
         if (clockBox != null) { clockBox.animate().cancel(); clockBox.setAlpha(1f); clockBox.setVisibility(View.VISIBLE); }
         View focused = getCurrentFocus();
         boolean known = tiles.contains(focused) || statusFocused() || focused == shelfView
-                || focused == switcher || focused == weatherCard || focused == prayerCard || focused == footballShortcut;
+                || focused == switcher || focused == weatherCard || focused == prayerCard || focused == footballShortcut
+                || focused == newsShortcut || focused == liveShortcut;
         if (!known || !visibleClassicFocus(focused)) {
             if (!tiles.isEmpty()) focusIndex(focusedIndex);
             else if (ccButton != null) ccButton.requestFocus();
@@ -4614,8 +4640,9 @@ public class MainActivity extends Activity {
 
     void layoutInfoShortcuts() {
         if (weatherCard == null || prayerCard == null || footballShortcut == null) return;
-        View[] views = {weatherCard, prayerCard, footballShortcut};
+        View[] views = {weatherCard, prayerCard, footballShortcut, newsShortcut, liveShortcut};
         for (int i = 0; i < views.length; i++) {
+            if (views[i] == null) continue;
             FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) views[i].getLayoutParams();
             // Exact original weather / prayer / football shortcut positions.
             int top = dp(24 + i * (WeatherView.COMPACT_H + 12));
@@ -4632,6 +4659,8 @@ public class MainActivity extends Activity {
         if (Weather.enabled(this) && visibleClassicFocus(weatherCard)) views.add(weatherCard);
         if (PrayerTimes.enabled(this) && visibleClassicFocus(prayerCard)) views.add(prayerCard);
         if (FootballScores.enabled(this) && visibleClassicFocus(footballShortcut)) views.add(footballShortcut);
+        if (visibleClassicFocus(newsShortcut)) views.add(newsShortcut);
+        if (visibleClassicFocus(liveShortcut)) views.add(liveShortcut);
         return views;
     }
 
@@ -4679,7 +4708,7 @@ public class MainActivity extends Activity {
     /** Hides or restores the weather / prayer / football shortcuts while the Control Panel window is open. */
     void hideInfoHud(boolean hide) {
         infoHudHidden = hide;
-        View[] hud = {weatherCard, prayerCard, footballShortcut};
+        View[] hud = {weatherCard, prayerCard, footballShortcut, newsShortcut, liveShortcut};
         for (View v : hud) {
             if (v == null) continue;
             v.animate().cancel();
@@ -4689,7 +4718,7 @@ public class MainActivity extends Activity {
 
     /** Draws Home for a blurred backdrop without the info shortcuts, so they are not baked into the blur. */
     void drawRootWithoutInfoHud(Canvas c) {
-        View[] hud = {weatherCard, prayerCard, footballShortcut};
+        View[] hud = {weatherCard, prayerCard, footballShortcut, newsShortcut, liveShortcut};
         float[] saved = new float[hud.length];
         for (int i = 0; i < hud.length; i++) {
             if (hud[i] == null) continue;
@@ -4810,6 +4839,135 @@ public class MainActivity extends Activity {
                 handler.postDelayed(this, FootballScores.REFRESH_MS);
             }
         }, FootballScores.REFRESH_MS);
+    }
+
+    /** A compact glass pill the size of the weather one, at shortcut slot {@code slot} under it. */
+    View makeInfoPill(int slot, String title, String icon, Runnable open) {
+        android.widget.LinearLayout pill = new android.widget.LinearLayout(this);
+        pill.setGravity(Gravity.CENTER_VERTICAL);
+        pill.setPadding(dp(14), 0, dp(12), 0);
+        android.widget.TextView t = new android.widget.TextView(this);
+        t.setText(title);
+        t.setTextColor(0xFFFFD995);
+        t.setTextSize(18);
+        t.setSingleLine(true);
+        t.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        pill.addView(t, new android.widget.LinearLayout.LayoutParams(0, -2, 1f));
+        android.widget.TextView ic = new android.widget.TextView(this);
+        ic.setText(icon);
+        ic.setTextSize(27);
+        ic.setGravity(Gravity.CENTER);
+        pill.addView(ic, new android.widget.LinearLayout.LayoutParams(dp(55), -1));
+        LiquidGlass glass = new LiquidGlass(dp(WeatherView.COMPACT_H) / 2f,
+                0x2E000000, glassSource, screenW, screenH, unit).adaptive();
+        glass.lens = dp(6);
+        pill.setBackground(glass);
+        pill.setFocusable(true);
+        pill.setClickable(true);
+        pill.setElevation(dp(12));
+        pill.setOnFocusChangeListener((v, has) -> {
+            glass.setLit(has);
+            v.animate().scaleX(has ? 1.05f : 1f).scaleY(has ? 1.05f : 1f).setDuration(200).start();
+        });
+        pill.setOnClickListener(v -> open.run());
+        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
+                dp(WeatherView.COMPACT_W), dp(WeatherView.COMPACT_H), Gravity.TOP | Gravity.START);
+        lp.topMargin = dp(24 + (WeatherView.COMPACT_H + 12) * slot);
+        lp.leftMargin = dockOuter;
+        root.addView(pill, lp);
+        return pill;
+    }
+
+    /** Opens the TV's live broadcast; falls back to the inputs list when the TV has no live-TV screen. */
+    void openLiveBroadcast() {
+        try {
+            Intent live = new Intent(Intent.ACTION_VIEW, android.media.tv.TvContract.Channels.CONTENT_URI);
+            live.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            if (getPackageManager().resolveActivity(live, 0) != null) {
+                startActivity(live);
+                return;
+            }
+        } catch (Exception ignored) {
+            // fall through to the inputs list
+        }
+        ControlPanelOverlay.openInputs(this, () -> showInputs(liveShortcut));
+    }
+
+    /** World headlines in Arabic, in a glass panel opening from the news pill. */
+    void showNewsPanel() {
+        dropPicker();
+        stopSway(null);
+        popoverReturn = newsShortcut;
+        FrameLayout layer = new FrameLayout(this);
+        layer.setClickable(true);
+        View shade = new View(this);
+        shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT,
+                new int[]{0xA6000000, 0x4D000000, 0x00000000}));
+        layer.addView(shade, new FrameLayout.LayoutParams(screenW * 3 / 5, -1, Gravity.START));
+
+        android.widget.LinearLayout panel = new android.widget.LinearLayout(this);
+        panel.setOrientation(android.widget.LinearLayout.VERTICAL);
+        panel.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        panel.setPadding(dp(18), dp(16), dp(18), dp(14));
+        panel.setFocusable(true);
+        LiquidGlass glass = new LiquidGlass(dp(26), 0x33000000, glassSource, screenW, screenH, unit).adaptive();
+        glass.lens = dp(7);
+        panel.setBackground(glass);
+        android.widget.TextView title = new android.widget.TextView(this);
+        title.setText("الأخبار العالمية");
+        title.setTextColor(0xFFFFD995);
+        title.setTextSize(20);
+        title.setTypeface(android.graphics.Typeface.DEFAULT, android.graphics.Typeface.BOLD);
+        title.setPadding(0, 0, 0, dp(8));
+        panel.addView(title);
+        android.widget.TextView state = new android.widget.TextView(this);
+        state.setText("جارٍ تحميل الأخبار…");
+        state.setTextColor(0xCCFFFFFF);
+        state.setTextSize(15);
+        panel.addView(state);
+
+        FrameLayout.LayoutParams plp = new FrameLayout.LayoutParams(
+                dp(WeatherView.FULL_W), dp(WeatherView.FULL_H), Gravity.TOP | Gravity.START);
+        plp.topMargin = dp(24);
+        plp.leftMargin = dockOuter;
+        layer.addView(panel, plp);
+        root.addView(layer, match());
+        pickerLayer = layer;
+        pickerCells = new ArrayList<>();
+        pickerCells.add(panel);
+        layer.setAlpha(0f);
+        panel.setTranslationY(-dp(10));
+        layer.animate().alpha(1f).setDuration(200).start();
+        panel.animate().translationY(0).setDuration(260).setInterpolator(EASE).start();
+        panel.requestFocus();
+
+        new Thread(() -> {
+            List<WorldNews.Item> items = WorldNews.fetch(7);
+            handler.post(() -> {
+                if (pickerLayer != layer || !panel.isAttachedToWindow()) return;
+                if (items.isEmpty()) {
+                    state.setText("تعذّر تحميل الأخبار. تحقق من الاتصال بالإنترنت.");
+                    return;
+                }
+                panel.removeView(state);
+                for (WorldNews.Item it : items) {
+                    android.widget.TextView h = new android.widget.TextView(this);
+                    h.setText(it.title);
+                    h.setTextColor(Color.WHITE);
+                    h.setTextSize(15);
+                    h.setMaxLines(2);
+                    h.setEllipsize(android.text.TextUtils.TruncateAt.END);
+                    h.setPadding(0, dp(5), 0, dp(1));
+                    panel.addView(h);
+                    android.widget.TextView src = new android.widget.TextView(this);
+                    src.setText(it.source);
+                    src.setTextColor(0x99FFFFFF);
+                    src.setTextSize(11);
+                    src.setPadding(0, 0, 0, dp(4));
+                    panel.addView(src);
+                }
+            });
+        }).start();
     }
 
     void showPrayerPanel() {

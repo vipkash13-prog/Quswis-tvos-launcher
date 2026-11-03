@@ -1774,28 +1774,31 @@ final class SceneHome {
 
         // The night-scenes dock intercepts D-pad events, so explicitly route focus
         // to the compact prayer and football shortcuts above the dock.
-        View prayer = host.prayerCard;
-        View football = host.footballShortcut;
-        boolean prayerVisible = prayer != null && prayer.getVisibility() == View.VISIBLE;
-        boolean footballVisible = football != null && football.getVisibility() == View.VISIBLE;
-        if (f == prayer || f == football) {
+        java.util.List<View> pills = new java.util.ArrayList<>();
+        for (View v : new View[]{host.prayerCard, host.footballShortcut, host.newsShortcut, host.liveShortcut}) {
+            if (v != null && v.getVisibility() == View.VISIBLE) pills.add(v);
+        }
+        int pillIdx = pills.indexOf(f);
+        if (pillIdx >= 0) {
             if (k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER) {
                 if (down && ev.getRepeatCount() == 0) {
-                    if (f == prayer) host.showPrayerPanel();
-                    else host.showFootballPanel();
+                    if (f == host.prayerCard) host.showPrayerPanel();
+                    else if (f == host.footballShortcut) host.showFootballPanel();
+                    else if (f == host.newsShortcut) host.showNewsPanel();
+                    else host.openLiveBroadcast();
                 }
                 return true;
             }
             if (k == KeyEvent.KEYCODE_DPAD_DOWN) {
                 if (down) {
-                    if (f == prayer && footballVisible) football.requestFocus();
+                    if (pillIdx + 1 < pills.size()) pills.get(pillIdx + 1).requestFocus();
                     else focusDock(focusedDockIdx);
                 }
                 return true;
             }
             if (k == KeyEvent.KEYCODE_DPAD_UP) {
                 if (down) {
-                    if (f == football && prayerVisible) prayer.requestFocus();
+                    if (pillIdx > 0) pills.get(pillIdx - 1).requestFocus();
                     else moonBtn.requestFocus();
                 }
                 return true;
