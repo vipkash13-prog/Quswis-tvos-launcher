@@ -206,6 +206,8 @@ public class MainActivity extends Activity {
     View footballShortcut, newsShortcut, liveShortcut;
     FrameLayout root;
     FrameLayout homeContent;
+    FrameLayout appRegion;
+    HomeGeometry homeGeometry;
     View homeReturnFocus;
     ImageView wallView;
     /** Top shelf carousel: two crossfading backdrops + info panel. */
@@ -298,7 +300,8 @@ public class MainActivity extends Activity {
         dockInset = dp(21);
         side = dockOuter + dockInset;  // grid rows line up with the dock icons (>= 80 pt safe area)
         gap = dp(25);
-        tileW = (screenW - 2 * side - (COLS - 1) * gap) / COLS;
+        homeGeometry = new HomeGeometry(screenW, unit);
+        tileW = homeGeometry.gridTileWidth(side, gap, COLS);
         tileH = tileW * 3 / 5;
         labelH = dp(30);
         radius = Math.round(tileW * 0.071f);  // Apple's tvOS 26 card corner: ~7% of card width
@@ -938,12 +941,7 @@ public class MainActivity extends Activity {
         });
 
         root.addView(sceneHome.overlay, match());
-        // Keep the information cards above full-screen scene overlays on every TV layout.
-        weatherCard.bringToFront();
-        prayerCard.bringToFront();
-        footballShortcut.bringToFront();
-        newsShortcut.bringToFront();
-        liveShortcut.bringToFront();
+        // Home widgets occupy the reserved left rail; app content has its own viewport.
         updateWeather();
 
 
@@ -963,6 +961,26 @@ public class MainActivity extends Activity {
             root.removeViewAt(i);
             homeContent.addView(child, lp);
         }
+        appRegion = new FrameLayout(this);
+        appRegion.setClipChildren(true);
+        appRegion.setClipToPadding(true);
+        View[] appViews = {scroll, heroInfo, heroDots, switcher, sceneHome.overlay};
+        for (View child : appViews) {
+            if (child == null) continue;
+            ViewGroup.LayoutParams lp = child.getLayoutParams();
+            homeContent.removeView(child);
+            appRegion.addView(child, lp);
+        }
+        FrameLayout.LayoutParams appLp = new FrameLayout.LayoutParams(
+                homeGeometry.contentWidth, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.TOP | Gravity.LEFT);
+        appLp.leftMargin = homeGeometry.contentLeft;
+        homeContent.addView(appRegion, appLp);
+        // Regions do not intersect; elevated widget lenses cannot cover any app tile.
+        appRegion.setElevation(dp(16));
+        FrameLayout.LayoutParams tabs = (FrameLayout.LayoutParams) switcher.getLayoutParams();
+        tabs.topMargin = dp(84);
+        switcher.setLayoutParams(tabs);
+        layoutInfoShortcuts();
         root.addView(homeContent, match());
         syncHomeVisibility();
         setContentView(root);
@@ -1030,9 +1048,7 @@ public class MainActivity extends Activity {
         if (prayerCard != null) prayerCard.setVisibility(PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
         syncFootballVisibility();
         layoutInfoShortcuts();
-        if (weatherCard != null) weatherCard.bringToFront();
-        if (prayerCard != null) prayerCard.bringToFront();
-        if (footballCard != null) footballCard.bringToFront();
+
         if (scenes && sceneHome != null) {
             Bitmap bg = sceneHome.sceneView.getCurrentBgBitmap();
             if (bg != null) glassBg = Ui.glassBackdrop(bg, 192, 108);
@@ -4704,12 +4720,13 @@ public class MainActivity extends Activity {
         for (int i = 0; i < views.length; i++) {
             if (views[i] == null) continue;
             FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) views[i].getLayoutParams();
-            // Exact original weather / prayer / football shortcut positions.
             int top = dp(24 + i * (WeatherView.COMPACT_H + 12));
-            int gravity = Gravity.TOP | Gravity.START;
-            if (lp.leftMargin != dockOuter || lp.topMargin != top || lp.gravity != gravity) {
-                lp.leftMargin = dockOuter; lp.topMargin = top; lp.gravity = gravity; views[i].setLayoutParams(lp);
-            }
+            lp.width = homeGeometry.railWidth;
+            lp.leftMargin = homeGeometry.railLeft;
+            lp.rightMargin = 0;
+            lp.topMargin = top;
+            lp.gravity = Gravity.TOP | Gravity.LEFT;
+            views[i].setLayoutParams(lp);
         }
     }
 

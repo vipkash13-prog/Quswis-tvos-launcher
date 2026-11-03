@@ -65,6 +65,7 @@ final class SceneHome {
 
     LinearLayout dockContainer;
     LinearLayout dockBox;
+    android.widget.ScrollView dockScroll;
     TextView dockLabel;
     final List<View> dockTiles = new ArrayList<>();
     final List<MainActivity.AppEntry> dockEntries = new ArrayList<>();
@@ -449,7 +450,7 @@ final class SceneHome {
         lastWatchSig = sig;
         shelfRow.removeAllViews();
         shelfCards.clear();
-        int cardW = dp(282);
+        int cardW = host.homeGeometry.watchCardWidth(dp(40), dp(12), 3);
         int cardH = dp(64);
         int gap = dp(12);
         for (int i = 0; i < cards.size() && i < 3; i++) {
@@ -679,7 +680,13 @@ final class SceneHome {
         dockBox.setBackground(dockGlass);
         dockBox.setElevation(dp(8));
 
-        dockContainer.addView(dockBox, new LinearLayout.LayoutParams(
+        dockScroll = new android.widget.ScrollView(host);
+        dockScroll.setVerticalScrollBarEnabled(false);
+        dockScroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        dockScroll.setClipChildren(true);
+        dockScroll.addView(dockBox, new android.widget.ScrollView.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        dockContainer.addView(dockScroll, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
 
         FrameLayout.LayoutParams dlp = new FrameLayout.LayoutParams(
@@ -777,7 +784,7 @@ final class SceneHome {
             float tileCenterInDock = rowLeft + tile.getLeft() + tile.getWidth() / 2f;
             float dockCenter = dockBox.getWidth() / 2f;
             dockLabel.setTranslationX(tileCenterInDock - dockCenter);
-            dockLabel.setTranslationY(rowTop - dockBox.getPaddingTop());
+            dockLabel.setTranslationY(0f); // Tooltip remains above the scroll viewport.
         };
         if (dockBox != null && dockBox.getWidth() > 0 && tile.getWidth() > 0
                 && !dockBox.isLayoutRequested() && !tile.isLayoutRequested()) {
@@ -840,8 +847,15 @@ final class SceneHome {
         dockEntries.add(moreEntry);
 
         int cols = 12;
-        int tileSize = dp(54);
         int tileGap = dp(10);
+        int tileSize = host.homeGeometry.sceneTileSize(dp(13), tileGap, cols, dp(54), dp(40));
+        int usedCols = Math.min(cols, dockEntries.size());
+        int rows = (dockEntries.size() + cols - 1) / cols;
+        int dockWidth = 2 * dp(13) + usedCols * tileSize + Math.max(0, usedCols - 1) * tileGap;
+        int dockHeight = 2 * dp(10) + rows * tileSize + Math.max(0, rows - 1) * tileGap;
+        // More Apps scrolls inside its viewport instead of growing across the header or widgets.
+        dockScroll.setLayoutParams(new LinearLayout.LayoutParams(dockWidth,
+                Math.min(dockHeight, host.screenH - dp(140))));
         LinearLayout row = null;
         for (int i = 0; i < dockEntries.size(); i++) {
             if (i % cols == 0) {
