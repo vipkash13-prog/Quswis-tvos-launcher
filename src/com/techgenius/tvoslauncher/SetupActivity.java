@@ -941,62 +941,58 @@ public class SetupActivity extends Activity {
         easyAdbProgress = null;
     }
 
+    private void showEasyAdbError(String detail) {
+        if (isFinishing() || isDestroyed()) return;
+        new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle(tr("Easy Setup (ADB)", "Kolay Kurulum (ADB)"))
+                .setMessage(tr("Automatic setup could not finish.\n", "Otomatik kurulum tamamlanamadı.\n")
+                        + (detail == null ? "ADB connection failed" : detail)
+                        + tr("\n\nEnable USB/network debugging and accept the TV's debugging authorization prompt, then retry.",
+                             "\n\nUSB/ağ hata ayıklamayı açın ve TV'deki yetkilendirmeyi kabul edip tekrar deneyin."))
+                .setPositiveButton(tr("Retry", "Tekrar Dene"), (d, w) -> runEasyAdbGrant())
+                .show();
+    }
+
     private void runEasyAdbGrant() {
         if (easyAdbProgress != null) return;
         final int attempt = ++easyAdbGeneration;
         android.app.AlertDialog progress = new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                 .setTitle(tr("Easy Setup (ADB)", "Kolay Kurulum (ADB)"))
-                .setMessage(tr(
-                        "Granting permissions via local ADB\u2026\n\nIf an \u201cAllow USB debugging?\u201d prompt appears on screen, check \u201cAlways allow\u201d and press Allow.",
-                        "Yerel ADB ile izinler veriliyor\u2026\n\nEkranda \u201cUSB hata ayıklamaya izin verilsin mi?\u201d penceresi çıkarsa \u201cHer zaman izin ver\u201di işaretleyip İzin Ver'e basın."))
-                .setCancelable(true)
-                .setNegativeButton(tr("Cancel", "İptal"), (d, w) -> cancelEasyAdbGrant())
-                .setNeutralButton(tr("Manual Setup", "Manuel Kurulum"), (d, w) -> {
-                    cancelEasyAdbGrant();
-                    permMode = 2;
-                    show(5, 1);
-                })
+                .setMessage(tr("Connecting to local ADB… Accept the USB debugging prompt on your TV if shown.",
+                              "Yerel ADB'ye bağlanıyor… TV'deki USB hata ayıklama isteğini kabul edin."))
+                .setCancelable(false)
                 .create();
         easyAdbProgress = progress;
-        progress.setOnCancelListener(d -> cancelEasyAdbGrant());
         progress.show();
+        // Independent of page animations: no grant task, callback or dialog can remain stuck indefinitely.
         easyAdbHandler.postDelayed(() -> {
             if (attempt != easyAdbGeneration || isFinishing() || isDestroyed()) return;
             cancelEasyAdbGrant();
-            permMode = 2;
-            show(5, 1);
-            android.widget.Toast.makeText(this, tr(
-                    "ADB timed out. Continue with Manual Setup or retry Easy Setup.",
-                    "ADB zaman aşımına uğradı. Manuel kuruluma devam edin veya tekrar deneyin."),
-                    android.widget.Toast.LENGTH_LONG).show();
+            showEasyAdbError("ADB setup timed out after 90 seconds.");
         }, 90000L);
-
         easyAdbRequest = LocalAdb.grantAllPermissions(this, (success, msg) -> runOnUiThread(() -> {
             if (attempt != easyAdbGeneration || isFinishing() || isDestroyed()) return;
             cancelEasyAdbGrant();
-            try {
-                progress.dismiss();
-            } catch (Exception ignored) {
+            if (!success) {
+                showEasyAdbError(msg);
+                return;
             }
-            if (success) {
-                android.widget.Toast.makeText(this,
-                        tr("All permissions granted automatically!", "Tüm izinler otomatik olarak verildi!"),
-                        android.widget.Toast.LENGTH_SHORT).show();
-                next();
-            } else {
-                permMode = 1;
-                show(5, 0);
-                new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                        .setTitle(tr("ADB Debugging Needed", "ADB Hata Ayıklama Gerekli"))
-                        .setMessage(tr(
-                                "Could not connect to local ADB on port 5555.\n\nPlease make sure USB Debugging / Network Debugging is turned ON in Developer Options, then try again — or choose Manual Setup.",
-                                "Port 5555 üzerinden yerel ADB'ye bağlanılamadı.\n\nLütfen Geliştirici Seçenekleri'nde USB / Ağ Hata Ayıklamanın AÇIK olduğundan emin olup tekrar deneyin veya Manuel Kurulum'u seçin."))
-                        .setPositiveButton(tr("OK", "Tamam"), null)
-                        .setNeutralButton(tr("Manual Setup", "Manuel Kurulum"), (d, w) -> {
-                            permMode = 2;
-                            show(5, 1);
-                        })
-                        .show();
+            // Store completion before launching Home, otherwise MainActivity reopens the wizard.
+            getSharedPreferences("setup", MODE_PRIVATE).edit()
+                    .putBoolean(K_DONE, true).putInt("cur_step", 0).apply();
+            if (msg != null && !msg.isEmpty()) {
+                android.widget.Toast.makeText(this, tr("Some optional features are unsupported: ",
+                        "Bazı isteğe bağlı özellikler desteklenmiyor: ") + msg,
+                        android.widget.Toast.LENGTH_LONG).show();
+            }
+            startActivity(new Intent(this, MainActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP));
+            finish();
+            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+        }), (done, total, label, output) -> runOnUiThread(() -> {
+            if (attempt == easyAdbGeneration && easyAdbProgress != null && !isFinishing() && !isDestroyed()) {
+                easyAdbProgress.setMessage(tr("Granting permissions", "İzinler veriliyor")
+                        + " (" + done + "/" + total + ")\n" + label);
             }
         }));
     }

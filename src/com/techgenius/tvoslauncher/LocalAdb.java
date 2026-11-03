@@ -337,67 +337,93 @@ final class LocalAdb {
     private static final ThreadLocal<GrantRequest> activeGrant = new ThreadLocal<>();
 
     static GrantRequest grantAllPermissions(Context c, Callback cb) {
+        return grantAllPermissions(c, cb, null);
+    }
+
+    static GrantRequest grantAllPermissions(Context c, Callback cb, BatchProgressListener progress) {
         GrantRequest request = new GrantRequest();
+        Context app = c.getApplicationContext();
         new Thread(() -> {
             activeGrant.set(request);
+            java.util.Timer deadline = new java.util.Timer("adb-grant-deadline", true);
+            deadline.schedule(new java.util.TimerTask() {
+                @Override public void run() { request.cancel(); }
+            }, 90000L);
             try {
-            String pkg = c.getPackageName();
-            String existingAcc = "";
-            try {
-                existingAcc = Settings.Secure.getString(c.getContentResolver(), "enabled_accessibility_services");
-            } catch (Exception ignored) {
-            }
-            String ourAcc = pkg + "/" + pkg + ".PowerService";
-            String newAcc = buildCleanAccessibilityServicesList(c, existingAcc);
-
-            String accReset = (PowerService.instance == null && existingAcc != null && existingAcc.contains(ourAcc))
-                    ? "settings put secure accessibility_enabled 0; "
-                    : "";
-
-            String script = "pm grant " + pkg + " android.permission.ACCESS_FINE_LOCATION; "
-                    + "pm grant " + pkg + " android.permission.ACCESS_COARSE_LOCATION; "
-                    + "pm grant " + pkg + " android.permission.READ_EXTERNAL_STORAGE 2>/dev/null; "
-                    + "pm grant " + pkg + " android.permission.WRITE_EXTERNAL_STORAGE 2>/dev/null; "
-                    + "pm grant " + pkg + " android.permission.READ_MEDIA_IMAGES 2>/dev/null; "
-                    + "appops set " + pkg + " MANAGE_EXTERNAL_STORAGE allow 2>/dev/null; "
-                    + "appops set " + pkg + " REQUEST_INSTALL_PACKAGES allow 2>/dev/null; "
-                    + "appops set " + pkg + " GET_USAGE_STATS allow; "
-                    + "cmd notification allow_listener " + pkg + "/" + pkg + ".MediaWatchService; "
-                    + "dpm set-active-admin " + pkg + "/.SleepReceiver\\$Admin; "
-                    + accReset
-                    + "settings put secure enabled_accessibility_services '" + newAcc + "'; "
-                    + "settings put secure accessibility_enabled 1; "
-                    + "cmd package set-home-activity " + pkg + "/.MainActivity";
-
-            String[] hosts = {"127.0.0.1", localLanIp()};
-            Exception lastErr = null;
-            for (String h : hosts) {
-                if (request.isCancelled()) return;
-                if (h == null || h.isEmpty()) continue;
-                if (!isPortOpen(h, 5555, 800)) continue;
-                try {
-                    runShellCommand(c, h, 5555, script);
-                    portReachable = true;
-                    setPaired(c, true);
-                    if (cb != null) cb.onResult(true, null);
-                    return;
-                } catch (Exception e) {
-                    lastErr = e;
+                String pkg = app.getPackageName();
+                android.app.ActivityManager am = app.getSystemService(android.app.ActivityManager.class);
+                boolean listener = am != null && !am.isLowRamDevice();
+                boolean admin = app.getPackageManager().hasSystemFeature("android.software.device_admin");
+                List<AdbGrantPlan.Step> plan = AdbGrantPlan.create(pkg,
+                        buildCleanAccessibilityServicesList(app, Settings.Secure.getString(
+                                app.getContentResolver(), "enabled_accessibility_services")),
+                        android.os.Build.VERSION.SDK_INT, listener, admin);
+                List<String> commands = new ArrayList<>();
+                for (AdbGrantPlan.Step step : plan) commands.add(step.command);
+                String[] hosts = {"127.0.0.1", localLanIp()};
+                Exception lastError = new java.io.IOException("Local ADB port 5555 is not available. Enable USB/network debugging on this TV.");
+                for (String host : hosts) {
+                    if (request.isCancelled()) throw new java.io.IOException("ADB setup timed out after 90 seconds");
+                    if (host == null || host.isEmpty() || !isPortOpen(host, 5555, 800)) continue;
+                    try {
+                        List<String> outputs = runShellCommandsOnHost(app, host, 5555, commands,
+                                (done, total, command, output) -> {
+                                    AdbGrantPlan.Step step = plan.get(done - 1);
+                                    if (progress != null) progress.onStep(done, total, step.label, output);
+                                    if (step.required && !AdbGrantPlan.succeeded(output)) {
+                                        throw new IllegalStateException(step.label + " failed: " + output);
+                                    }
+                                });
+                        String missing = verifyCoreGrants(app);
+                        if (!missing.isEmpty()) throw new java.io.IOException("Permission verification failed: " + missing);
+                        portReachable = true;
+                        setPaired(app, true);
+                        StringBuilder warnings = new StringBuilder();
+                        for (int i = 0; i < outputs.size(); i++) {
+                            if (!plan.get(i).required && !AdbGrantPlan.succeeded(outputs.get(i))) {
+                                warnings.append(plan.get(i).label).append("; ");
+                            }
+                        }
+                        if (cb != null) cb.onResult(true, warnings.toString());
+                        return;
+                    } catch (Exception e) {
+                        lastError = e;
+                    }
                 }
-            }
-
-            if (cb != null) {
-                if (lastErr != null) {
-                    cb.onResult(false, lastErr.getMessage());
-                } else {
-                    cb.onResult(false, "PORT_CLOSED");
-                }
-            }
+                throw lastError;
+            } catch (Exception e) {
+                if (cb != null) cb.onResult(false, e.getMessage());
             } finally {
+                deadline.cancel();
                 activeGrant.remove();
             }
-        }, "local-adb").start();
+        }, "local-adb-grants").start();
         return request;
+    }
+
+    private static String verifyCoreGrants(Context c) {
+        StringBuilder missing = new StringBuilder();
+        if (c.checkSelfPermission("android.permission.ACCESS_FINE_LOCATION")
+                != android.content.pm.PackageManager.PERMISSION_GRANTED) missing.append("location; ");
+        String services = Settings.Secure.getString(c.getContentResolver(), "enabled_accessibility_services");
+        android.content.ComponentName service = new android.content.ComponentName(c, PowerService.class);
+        if (services == null || (!services.contains(service.flattenToString())
+                && !services.contains(service.flattenToShortString()))
+                || Settings.Secure.getInt(c.getContentResolver(), "accessibility_enabled", 0) != 1) {
+            missing.append("accessibility; ");
+        }
+        android.app.AppOpsManager ops = c.getSystemService(android.app.AppOpsManager.class);
+        if (ops == null || ops.checkOpNoThrow(android.app.AppOpsManager.OPSTR_GET_USAGE_STATS,
+                android.os.Process.myUid(), c.getPackageName()) != android.app.AppOpsManager.MODE_ALLOWED) {
+            missing.append("usage access; ");
+        }
+        android.content.Intent home = new android.content.Intent(android.content.Intent.ACTION_MAIN)
+                .addCategory(android.content.Intent.CATEGORY_HOME);
+        android.content.pm.ResolveInfo resolved = c.getPackageManager().resolveActivity(home,
+                android.content.pm.PackageManager.MATCH_DEFAULT_ONLY);
+        if (resolved == null || resolved.activityInfo == null
+                || !c.getPackageName().equals(resolved.activityInfo.packageName)) missing.append("default Home; ");
+        return missing.toString();
     }
 
     /**
@@ -625,6 +651,7 @@ final class LocalAdb {
                 StringBuilder sb = new StringBuilder();
                 while (true) {
                     Packet p = readPacket(in);
+                    if (p.arg1 != localId) continue;
                     if (p.command == A_WRTE) {
                         sendPacket(out, A_OKAY, localId, p.arg0, null);
                         if (p.data != null && p.data.length > 0) {
@@ -685,6 +712,7 @@ final class LocalAdb {
         int len = hdr.getInt();
         hdr.getInt(); // checksum
         hdr.getInt(); // magic
+        if (len < 0 || len > 16 * 1024 * 1024) throw new java.io.IOException("Invalid ADB packet length");
         if (len > 0) {
             p.data = new byte[len];
             in.readFully(p.data);
