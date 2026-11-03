@@ -5031,7 +5031,8 @@ public class MainActivity extends Activity {
                     h.setPadding(0, dp(5), 0, dp(1));
                     panel.addView(h);
                     android.widget.TextView src = new android.widget.TextView(this);
-                    src.setText(it.source);
+                    String ago = WorldNews.age(it.time);
+                    src.setText(ago.isEmpty() ? it.source : it.source + " • " + ago);
                     src.setTextColor(0x99FFFFFF);
                     src.setTextSize(11);
                     src.setPadding(0, 0, 0, dp(4));
