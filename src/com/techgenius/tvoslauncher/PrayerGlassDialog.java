@@ -111,7 +111,7 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
             focusable(tile, () -> { selectedShortcut = shortcuts.get(index); actions[index].run(); });
             shortcuts.add(tile);
             LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(0, -1, 1);
-            size.setMargins(px(5), px(3), px(5), px(7)); row.addView(tile, size);
+            size.setMargins(px(5), px(3), px(5), px(7)); row.addView(tile, 0, size);
         }
         home.addView(row, new LinearLayout.LayoutParams(-1, 0, 1f));
         // Explicit links keep DPAD inside the modal, including on firmware with unusual focus search.
@@ -137,7 +137,7 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
             clocks[i] = text("—", 17, true); clocks[i].setTextDirection(View.TEXT_DIRECTION_LTR);
             tile.addView(clocks[i], new LinearLayout.LayoutParams(-1, px(24)));
             LinearLayout.LayoutParams size = new LinearLayout.LayoutParams(0, -1, 1);
-            size.setMargins(px(3), 0, px(3), px(5)); timesRow.addView(tile, size);
+            size.setMargins(px(3), 0, px(3), px(5)); timesRow.addView(tile, 0, size);
         }
         timesBox.addView(timesRow, new LinearLayout.LayoutParams(-1, 0, 1));
         LinearLayout.LayoutParams timesSize = new LinearLayout.LayoutParams(0, -1, 1.55f);
@@ -160,7 +160,7 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
         next = text("", 10, false); next.setSingleLine(false); next.setMaxLines(2);
         calendar.addView(next, new LinearLayout.LayoutParams(-1, px(30)));
         LinearLayout.LayoutParams calSize = new LinearLayout.LayoutParams(0, -1, 1);
-        calSize.setMargins(px(4), px(4), px(4), 0); lower.addView(calendarCard, calSize);
+        calSize.setMargins(px(4), px(4), px(4), 0); lower.addView(calendarCard, 0, calSize);
         home.addView(lower, new LinearLayout.LayoutParams(-1, 0, 1.1f));
         status = text("", 9, false);
         home.addView(status, new LinearLayout.LayoutParams(-1, px(18)));
@@ -242,7 +242,7 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
     }
     private LinearLayout row() {
         LinearLayout v = new LinearLayout(host); v.setOrientation(LinearLayout.HORIZONTAL);
-        v.setLayoutDirection(View.LAYOUT_DIRECTION_RTL); return v;
+        v.setLayoutDirection(View.LAYOUT_DIRECTION_LTR); return v;
     }
     private TextView text(String value, float size, boolean bold) {
         TextView t = new TextView(host); t.setText(value); Ui.textSize(t, size);
@@ -284,7 +284,7 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
         if (h != null && h.optJSONObject("month") != null)
             return h.optString("day") + " " + h.optJSONObject("month").optString("ar") + " " + h.optString("year") + " هـ";
         android.icu.util.IslamicCalendar c = hijri(now);
-        android.icu.text.SimpleDateFormat f = new android.icu.text.SimpleDateFormat("d MMMM y 'هـ'", new Locale("ar", "SA"));
+        android.icu.text.SimpleDateFormat f = new android.icu.text.SimpleDateFormat("d MMMM y 'هـ'", Locale.forLanguageTag("ar-SA-u-ca-islamic-umalqura"));
         f.setCalendar(c); return f.format(new Date(now));
     }
     private void render() {
@@ -317,14 +317,27 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
 
     private void addArtwork(FrameLayout container, int height, float alpha) {
         if (panorama == null) return;
-        android.widget.ImageView image = new android.widget.ImageView(host);
+        android.widget.ImageView image = new android.widget.ImageView(host) {
+            private final android.graphics.Paint mask = new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG);
+            @Override protected void onDraw(android.graphics.Canvas canvas) {
+                if (height == -1) { super.onDraw(canvas); return; }
+                int layer = canvas.saveLayer(0, 0, getWidth(), getHeight(), null);
+                super.onDraw(canvas);
+                mask.setShader(new android.graphics.LinearGradient(0, 0, 0, getHeight(),
+                        new int[]{0xFFFFFFFF, 0xFFFFFFFF, 0x00FFFFFF}, new float[]{0f, .52f, 1f},
+                        android.graphics.Shader.TileMode.CLAMP));
+                mask.setXfermode(new android.graphics.PorterDuffXfermode(android.graphics.PorterDuff.Mode.DST_IN));
+                canvas.drawRect(0, 0, getWidth(), getHeight(), mask);
+                canvas.restoreToCount(layer);
+            }
+        };
         image.setImageBitmap(panorama);
         image.setScaleType(android.widget.ImageView.ScaleType.CENTER_CROP);
         image.setAlpha(alpha);
         container.addView(image, new FrameLayout.LayoutParams(-1, height, Gravity.TOP));
         View fade = new View(host);
         fade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-                new int[]{0x15202B40, 0x08202B40, 0xFF202B3A}));
+                height == -1 ? new int[]{0x15202B40, 0x08202B40, 0xCC202B3A} : new int[]{0x15202B40, 0x08202B40, 0x00202B3A}));
         container.addView(fade, new FrameLayout.LayoutParams(-1, height, Gravity.TOP));
     }
 
@@ -392,7 +405,7 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
     }
     private void drawMonth(LinearLayout body, TextView label, android.icu.util.IslamicCalendar month) {
         body.removeAllViews();
-        android.icu.text.SimpleDateFormat fmt = new android.icu.text.SimpleDateFormat("MMMM y 'هـ'", new Locale("ar", "SA"));
+        android.icu.text.SimpleDateFormat fmt = new android.icu.text.SimpleDateFormat("MMMM y 'هـ'", Locale.forLanguageTag("ar-SA-u-ca-islamic-umalqura"));
         fmt.setCalendar(month); label.setText(fmt.format(month.getTime()));
         LinearLayout weekdays = row();
         for (String name : new String[]{"الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"})
