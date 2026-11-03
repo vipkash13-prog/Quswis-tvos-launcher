@@ -52,6 +52,16 @@ public final class PrayerWindowInstrumentation extends Instrumentation {
                 small.recycle();preview.recycle();
             }
             direction(KeyEvent.KEYCODE_DPAD_RIGHT); direction(KeyEvent.KEYCODE_DPAD_LEFT);
+            int[] firstX = new int[2], leftX = new int[2];
+            runOnMainSync(() -> dialog.getCurrentFocus().getLocationOnScreen(firstX));
+            sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_LEFT); waitForIdleSync();
+            runOnMainSync(() -> dialog.getCurrentFocus().getLocationOnScreen(leftX));
+            check(leftX[0] < firstX[0], "LEFT must move physically left from the rightmost Quran card");
+            sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_RIGHT); waitForIdleSync();
+            java.lang.reflect.Method hijri = PrayerGlassDialog.class.getDeclaredMethod("hijriText", org.json.JSONObject.class, long.class);
+            hijri.setAccessible(true);
+            String knownDate = (String)hijri.invoke(dialog, null, 1793707200000L);
+            check(knownDate.contains("جمادى") && !knownDate.contains("مايو"), "Offline Hijri month must use Islamic symbols: "+knownDate);
             Bitmap screenshot=getUiAutomation().takeScreenshot();
             check(screenshot!=null,"No screenshot");
             File file=new File(getTargetContext().getExternalFilesDir(null),"prayer-window-1080.png");

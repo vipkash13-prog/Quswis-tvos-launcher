@@ -125,7 +125,7 @@ jobs:
       if: github.ref == 'refs/heads/feature/prayer-glass-window'
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: prayer-glass-1.0.205-r2
+        tag_name: prayer-glass-1.0.205-r3
         target_commitish: ${{ github.sha }}
         name: Prayer glass window - remote and reference design fixes
         body: |
@@ -136,7 +136,9 @@ jobs:
           توقيع تطوير؛ قد لا يمكن تثبيته فوق نسخة موقعة بمفتاح مختلف.
         prerelease: true
         make_latest: false
-        files: dist/Quswis-tvOS-Launcher.apk
+        files: |
+          dist/Quswis-tvOS-Launcher.apk
+          dist/prayer-window-1080.png
         fail_on_unmatched_files: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
