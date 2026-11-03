@@ -33,7 +33,16 @@ public final class ViewportInstrumentation extends Instrumentation {
             activity[0]=(MainActivity)startActivitySync(new Intent(c,MainActivity.class)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             SystemClock.sleep(3000);
-            sendKeyDownUpSync(android.view.KeyEvent.KEYCODE_DPAD_DOWN);
+            // Inject through Android's test automation identity, not the app's permissions.
+            try (android.os.ParcelFileDescriptor command=getUiAutomation().executeShellCommand("wm dismiss-keyguard");
+                 java.io.InputStream input=new android.os.ParcelFileDescriptor.AutoCloseInputStream(command)) {
+                input.readAllBytes();
+            }
+            long time=SystemClock.uptimeMillis();
+            getUiAutomation().injectInputEvent(new android.view.KeyEvent(time,time,
+                    android.view.KeyEvent.ACTION_DOWN,android.view.KeyEvent.KEYCODE_DPAD_DOWN,0),true);
+            getUiAutomation().injectInputEvent(new android.view.KeyEvent(time,time+10,
+                    android.view.KeyEvent.ACTION_UP,android.view.KeyEvent.KEYCODE_DPAD_DOWN,0),true);
             MainActivity a=activity[0];
             runOnMainSync(() -> {
                 a.apps.clear(); a.otherApps.clear();
