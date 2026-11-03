@@ -50,6 +50,28 @@ import java.util.Set;
  *   green circular checkboxes, in-place hold-OK scene reordering, and bottom hint bar.
  */
 public class SettingsActivity extends Activity {
+    private static boolean screenVisible;
+    static boolean isScreenVisible() { return screenVisible; }
+
+    private static void updateHomeVisibility(boolean visible) {
+        screenVisible = visible;
+        MainActivity home = MainActivity.activeInstance;
+        if (home != null) {
+            home.syncHomeVisibility();
+            home.hideInfoHud(visible);
+        }
+    }
+
+    @Override protected void onStart() {
+        super.onStart();
+        updateHomeVisibility(true);
+    }
+
+    @Override protected void onStop() {
+        updateHomeVisibility(false);
+        super.onStop();
+    }
+
 
     static final String ROOT = "root",
             LANGUAGE = "Language",

@@ -207,7 +207,6 @@ public class MainActivity extends Activity {
     FrameLayout root;
     FrameLayout homeContent;
     View homeReturnFocus;
-    boolean homeWindowFocused = true;
     ImageView wallView;
     /** Top shelf carousel: two crossfading backdrops + info panel. */
     ImageView heroBack, heroFront;
@@ -859,12 +858,10 @@ public class MainActivity extends Activity {
         prayerGlass.lens = dp(6);
         prayerCard.setBackground(prayerGlass);
         prayerCard.setElevation(dp(12));
-        // The prayer shortcut is a fixed HUD item, not an app-grid tile.
-        // Match the original home shelf visibility. Lower app rows fade the HUD
-        // away so it cannot cover app icons; Back/Home restores the home shelf.
+        // Keep home shortcuts visible beneath ordinary popovers.
         root.getViewTreeObserver().addOnPreDrawListener(() -> {
             if (prayerCard != null && prayerCard.getVisibility() == View.VISIBLE) {
-                float alpha = (pickerLayer != null ? 0f : weatherAlpha());
+                float alpha = weatherAlpha();
                 if (Math.abs(prayerCard.getAlpha() - alpha) > 0.015f) {
                     prayerCard.setAlpha(alpha);
                 }
@@ -924,7 +921,7 @@ public class MainActivity extends Activity {
         footballShortcut.setVisibility(FootballScores.enabled(this) ? View.VISIBLE : View.GONE);
         root.getViewTreeObserver().addOnPreDrawListener(() -> {
             if (footballShortcut != null && footballShortcut.getVisibility() == View.VISIBLE)
-                footballShortcut.setAlpha(pickerLayer != null ? 0f : weatherAlpha());
+                footballShortcut.setAlpha(weatherAlpha());
             return true;
         });
         // Match panel is created lazily only when the football lens is opened.
@@ -934,7 +931,7 @@ public class MainActivity extends Activity {
         liveShortcut = makeInfoPill(4, "البث المباشر", "📡", this::openLiveBroadcast);
         syncInfoPills();
         root.getViewTreeObserver().addOnPreDrawListener(() -> {
-            float a = pickerLayer != null ? 0f : weatherAlpha();
+            float a = weatherAlpha();
             if (newsShortcut != null && newsShortcut.getVisibility() == View.VISIBLE) newsShortcut.setAlpha(a);
             if (liveShortcut != null && liveShortcut.getVisibility() == View.VISIBLE) liveShortcut.setAlpha(a);
             return true;
@@ -952,7 +949,7 @@ public class MainActivity extends Activity {
 
 
         root.addView(new AppFocusIndicator(this), match());
-        // Home chrome has its own parent: refresh callbacks cannot reveal it over a menu.
+        // A separate Home parent allows full Settings to hide it without changing child states.
         homeContent = new FrameLayout(this);
         homeContent.setClipChildren(false);
         homeContent.setClipToPadding(false);
@@ -967,25 +964,15 @@ public class MainActivity extends Activity {
             homeContent.addView(child, lp);
         }
         root.addView(homeContent, match());
-        root.setOnHierarchyChangeListener(new ViewGroup.OnHierarchyChangeListener() {
-            @Override public void onChildViewAdded(View parent, View child) { syncHomeVisibility(); }
-            @Override public void onChildViewRemoved(View parent, View child) { syncHomeVisibility(); }
-        });
         syncHomeVisibility();
         setContentView(root);
     }
 
     void syncHomeVisibility() {
         if (homeContent == null || sceneHome == null) return;
-        boolean covered = false;
-        for (int i = 0; i < root.getChildCount(); i++) {
-            View child = root.getChildAt(i);
-            if (child != homeContent && child != wallView && child != sceneHome.sceneView) {
-                covered = true;
-                break;
-            }
-        }
-        boolean show = resumed && homeWindowFocused && !covered;
+        // Only the full SettingsActivity hides Home. Popovers, apps, focus loss and
+        // lifecycle pauses must never make the launcher content disappear.
+        boolean show = !SettingsActivity.isScreenVisible();
         if (!show && homeContent.getVisibility() == View.VISIBLE) {
             homeReturnFocus = homeContent.findFocus();
         }
@@ -2179,7 +2166,6 @@ public class MainActivity extends Activity {
 
     @Override public void onWindowFocusChanged(boolean focused) {
         super.onWindowFocusChanged(focused);
-        homeWindowFocused = focused;
         syncHomeVisibility();
         if (focused && root != null) root.post(this::restoreClassicFocus);
     }
@@ -4779,14 +4765,15 @@ public class MainActivity extends Activity {
         }, 320);
     }
 
-    /** Hides or restores the weather / prayer / football shortcuts while the Control Panel window is open. */
+    /** Legacy overlay hook; only full Settings may hide the home shortcuts. */
     void hideInfoHud(boolean hide) {
-        infoHudHidden = hide;
+        // Kept for overlay callers: opening a lens or Control Panel no longer hides Home.
+        infoHudHidden = SettingsActivity.isScreenVisible();
         View[] hud = {weatherCard, prayerCard, footballShortcut, newsShortcut, liveShortcut};
         for (View v : hud) {
             if (v == null) continue;
             v.animate().cancel();
-            if (v.getVisibility() == View.VISIBLE) v.setAlpha(hide ? 0f : weatherAlpha());
+            if (v.getVisibility() == View.VISIBLE) v.setAlpha(weatherAlpha());
         }
     }
 
@@ -4807,8 +4794,7 @@ public class MainActivity extends Activity {
     }
 
     float weatherAlpha() {
-        if (infoHudHidden || infoHudHold || returningFromSettings || folderMode || weatherOpen || pickerLayer != null || menuLayer != null) return 0f;
-        return Scenes.isScenesLook(this) ? 1f : clockAlpha();
+        return SettingsActivity.isScreenVisible() ? 0f : 1f;
     }
 
     /** Shows the cached forecast (hidden when weather is off or nothing has loaded yet). */
@@ -4861,7 +4847,7 @@ public class MainActivity extends Activity {
         pickerCells = new ArrayList<>();
         pickerCells.add(panel);
         weatherOpen = true;
-        weatherCard.animate().alpha(0f).setDuration(150).start();
+        weatherCard.setAlpha(weatherAlpha());
         layer.setAlpha(0f);
         panel.setTranslationY(-dp(10));
         layer.animate().alpha(1f).setDuration(200).start();
@@ -4879,7 +4865,7 @@ public class MainActivity extends Activity {
         dropPicker();
         stopSway(null);
         popoverReturn = footballShortcut;
-        footballShortcut.setAlpha(0f);
+        footballShortcut.setAlpha(weatherAlpha());
         FrameLayout layer = new FrameLayout(this);
         layer.setClickable(true);
         View shade = new View(this);
@@ -5052,7 +5038,7 @@ public class MainActivity extends Activity {
         dropPicker();
         stopSway(null);
         popoverReturn = prayerCard;
-        prayerCard.setAlpha(0f);
+        prayerCard.setAlpha(weatherAlpha());
         FrameLayout layer = new FrameLayout(this);
         layer.setClickable(true);
         View shade = new View(this);
@@ -5220,20 +5206,8 @@ public class MainActivity extends Activity {
         pickerCells = new ArrayList<>();
         root.addView(search.layer, match());
         search.firstKey().requestFocus();  // only possible once the layer is attached
-        SearchPanel opened = search;
         search.layer.setAlpha(0f);
-        // Once search covers the screen, the Home layers under it stop drawing (the backdrop is a snapshot).
-        search.layer.animate().alpha(1f).setDuration(200).withEndAction(() -> {
-            if (search != opened) return;
-            hiddenUnderSearch.clear();
-            for (int i = 0; i < root.getChildCount(); i++) {
-                View c = root.getChildAt(i);
-                if (c != homeContent && c != opened.layer && c != launchOverlay && c.getVisibility() == View.VISIBLE) {
-                    c.setVisibility(View.INVISIBLE);
-                    hiddenUnderSearch.add(c);
-                }
-            }
-        }).start();
+        search.layer.animate().alpha(1f).setDuration(200).start();
         if (q != null && !q.isEmpty()) search.setQuery(q);
     }
 
@@ -5308,11 +5282,7 @@ public class MainActivity extends Activity {
         popoverReturn = null;
     }
 
-    final List<View> hiddenUnderSearch = new ArrayList<>();
-
     void releaseSearch() {
-        for (View c : hiddenUnderSearch) c.setVisibility(View.VISIBLE);
-        hiddenUnderSearch.clear();
         syncHomeVisibility();
         if (search == null) return;
         search.release();

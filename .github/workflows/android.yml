@@ -33,7 +33,7 @@ jobs:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
       run: |
         chmod +x build.sh
-        VERSION_NAME="1.0.209-newslive" VERSION_CODE="209" ./build.sh
+        VERSION_NAME="1.0.210-newslive" VERSION_CODE="210" ./build.sh
         mkdir -p dist
         cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
         ls -lh dist/Quswis-tvOS-Launcher.apk
@@ -56,12 +56,13 @@ jobs:
       uses: softprops/action-gh-release@v2
       if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature-classic-prayer-adhan' || github.ref == 'refs/heads/feature/news-live-shortcuts')
       with:
-        tag_name: news-live-v1.0.209-adb-auth
-        name: News Live 1.0.209 - ADB authorization dialog
+        tag_name: news-live-v1.0.210-home-visible
+        name: News Live 1.0.210 - Keep Home visible under lenses and apps
         body: |
-          تحديث جديد لتطبيق Quswis tvOS Launcher من مستودعك:
-          - إصلاح ظهور الساعة ومواقيت الصلاة والتطبيقات فوق القوائم والإعدادات
-          - نسخة 1.0.209-newslive المصححة، رقم البناء 206
+          - إبقاء تطبيقات الرئيسية والساعة والاختصارات ظاهرة عند فتح الطقس والعدسات والقوائم والتطبيقات
+          - إخفاء عناصر الرئيسية فقط أثناء ظهور شاشة الإعدادات الكاملة وإعادتها عند الخروج منها
+          - الاحتفاظ بإصلاحات ADB وزر الرجوع السابقة
+          - الإصدار 1.0.210-newslive، رقم البناء 210
         prerelease: ${{ github.ref != 'refs/heads/main' }}
         files: |
           dist/Quswis-tvOS-Launcher.apk

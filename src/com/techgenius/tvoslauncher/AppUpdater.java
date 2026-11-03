@@ -77,7 +77,7 @@ public final class AppUpdater {
             }
         } catch (Throwable ignored) {
         }
-        return "1.0.209-newslive";
+        return "1.0.210-newslive";
     }
 
     public static String getCachedLatestVersion(Context c) {
