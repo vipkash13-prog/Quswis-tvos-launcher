@@ -927,18 +927,53 @@ public class SetupActivity extends Activity {
         dots();
     }
 
+    private int easyAdbGeneration;
+    private android.app.AlertDialog easyAdbProgress;
+    private LocalAdb.GrantRequest easyAdbRequest;
+    private final Handler easyAdbHandler = new Handler(Looper.getMainLooper());
+
+    private void cancelEasyAdbGrant() {
+        easyAdbGeneration++;
+        easyAdbHandler.removeCallbacksAndMessages(null);
+        if (easyAdbRequest != null) easyAdbRequest.cancel();
+        easyAdbRequest = null;
+        if (easyAdbProgress != null) easyAdbProgress.dismiss();
+        easyAdbProgress = null;
+    }
+
     private void runEasyAdbGrant() {
+        if (easyAdbProgress != null) return;
+        final int attempt = ++easyAdbGeneration;
         android.app.AlertDialog progress = new android.app.AlertDialog.Builder(this, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                 .setTitle(tr("Easy Setup (ADB)", "Kolay Kurulum (ADB)"))
                 .setMessage(tr(
                         "Granting permissions via local ADB\u2026\n\nIf an \u201cAllow USB debugging?\u201d prompt appears on screen, check \u201cAlways allow\u201d and press Allow.",
                         "Yerel ADB ile izinler veriliyor\u2026\n\nEkranda \u201cUSB hata ayıklamaya izin verilsin mi?\u201d penceresi çıkarsa \u201cHer zaman izin ver\u201di işaretleyip İzin Ver'e basın."))
-                .setCancelable(false)
+                .setCancelable(true)
+                .setNegativeButton(tr("Cancel", "İptal"), (d, w) -> cancelEasyAdbGrant())
+                .setNeutralButton(tr("Manual Setup", "Manuel Kurulum"), (d, w) -> {
+                    cancelEasyAdbGrant();
+                    permMode = 2;
+                    show(5, 1);
+                })
                 .create();
+        easyAdbProgress = progress;
+        progress.setOnCancelListener(d -> cancelEasyAdbGrant());
         progress.show();
+        easyAdbHandler.postDelayed(() -> {
+            if (attempt != easyAdbGeneration || isFinishing() || isDestroyed()) return;
+            cancelEasyAdbGrant();
+            permMode = 2;
+            show(5, 1);
+            android.widget.Toast.makeText(this, tr(
+                    "ADB timed out. Continue with Manual Setup or retry Easy Setup.",
+                    "ADB zaman aşımına uğradı. Manuel kuruluma devam edin veya tekrar deneyin."),
+                    android.widget.Toast.LENGTH_LONG).show();
+        }, 90000L);
 
-        LocalAdb.grantAllPermissions(this, (success, msg) -> runOnUiThread(() -> {
-            if (isFinishing()) return;
+        easyAdbRequest = LocalAdb.grantAllPermissions(this, (success, msg) -> runOnUiThread(() -> {
+            if (attempt != easyAdbGeneration || isFinishing() || isDestroyed()) return;
+            cancelEasyAdbGrant();
             try {
                 progress.dismiss();
             } catch (Exception ignored) {
@@ -1055,6 +1090,7 @@ public class SetupActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        cancelEasyAdbGrant();
         handler.removeCallbacksAndMessages(null);
         super.onDestroy();
     }

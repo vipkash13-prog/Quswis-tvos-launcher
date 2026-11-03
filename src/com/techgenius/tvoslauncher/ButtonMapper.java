@@ -335,6 +335,8 @@ public final class ButtonMapper {
     public static boolean handleKeyEvent(Context c, KeyEvent ev) {
         if (ev == null) return false;
         final int code = ev.getKeyCode();
+        // Navigation must never be swallowed by an old saved button mapping.
+        if (code == KeyEvent.KEYCODE_BACK || code == KeyEvent.KEYCODE_ESCAPE) return false;
         final int action = ev.getAction();
 
         // While StandBy / Ambient Mode or Screen Off Blackout is active:

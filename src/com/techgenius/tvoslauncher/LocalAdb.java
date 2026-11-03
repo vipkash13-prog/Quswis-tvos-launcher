@@ -321,8 +321,26 @@ final class LocalAdb {
         return null;
     }
 
-    static void grantAllPermissions(Context c, Callback cb) {
+    static final class GrantRequest {
+        private boolean cancelled;
+        private Socket socket;
+        synchronized void attach(Socket value) throws java.io.IOException {
+            if (cancelled) throw new java.io.IOException("ADB request cancelled");
+            socket = value;
+        }
+        synchronized boolean isCancelled() { return cancelled; }
+        synchronized void cancel() {
+            cancelled = true;
+            if (socket != null) try { socket.close(); } catch (Exception ignored) { }
+        }
+    }
+    private static final ThreadLocal<GrantRequest> activeGrant = new ThreadLocal<>();
+
+    static GrantRequest grantAllPermissions(Context c, Callback cb) {
+        GrantRequest request = new GrantRequest();
         new Thread(() -> {
+            activeGrant.set(request);
+            try {
             String pkg = c.getPackageName();
             String existingAcc = "";
             try {
@@ -354,6 +372,7 @@ final class LocalAdb {
             String[] hosts = {"127.0.0.1", localLanIp()};
             Exception lastErr = null;
             for (String h : hosts) {
+                if (request.isCancelled()) return;
                 if (h == null || h.isEmpty()) continue;
                 if (!isPortOpen(h, 5555, 800)) continue;
                 try {
@@ -374,7 +393,11 @@ final class LocalAdb {
                     cb.onResult(false, "PORT_CLOSED");
                 }
             }
+            } finally {
+                activeGrant.remove();
+            }
         }, "local-adb").start();
+        return request;
     }
 
     /**
@@ -556,6 +579,8 @@ final class LocalAdb {
             Context c, String host, int port, List<String> commands, BatchProgressListener progress) throws Exception {
         KeyPair kp = getOrCreateKeyPair(c);
         try (Socket socket = new Socket()) {
+            GrantRequest request = activeGrant.get();
+            if (request != null) request.attach(socket);
             socket.connect(new InetSocketAddress(host, port), 2500);
             socket.setSoTimeout(35000); // Allow up to 35s for user to tap "Allow USB debugging" on TV
             DataInputStream in = new DataInputStream(socket.getInputStream());

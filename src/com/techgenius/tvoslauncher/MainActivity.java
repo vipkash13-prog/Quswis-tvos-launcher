@@ -3350,10 +3350,33 @@ public class MainActivity extends Activity {
                 }).start();
     }
 
+    // Back belongs to the top overlay before Home's long-press-search handler.
+    private boolean overlayBackConsumed;
+    private boolean closeTopOverlayForBack() {
+        if (RecentAppsOverlay.isShowing()) { RecentAppsOverlay.dismiss(); return true; }
+        if (ControlPanelOverlay.isShowing()) { ControlPanelOverlay.dismiss(); return true; }
+        if (menuLayer != null) { closeMenu(); return true; }
+        if (search != null && pickerLayer == search.layer) { closeSearch(); return true; }
+        if (pickerLayer != null) { closeProfilePicker(); return true; }
+        if (sceneHome != null && sceneHome.isSheetOpen()) { sceneHome.closeSheet(); return true; }
+        return false;
+    }
+
     // ---------------------------------------------------------------- keys
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent ev) {
+        if (ev != null && !ambientShowcase && !idle
+                && (ev.getKeyCode() == KeyEvent.KEYCODE_BACK || ev.getKeyCode() == KeyEvent.KEYCODE_ESCAPE)) {
+            if (overlayBackConsumed) {
+                if (ev.getAction() == KeyEvent.ACTION_UP) overlayBackConsumed = false;
+                return true;
+            }
+            if (closeTopOverlayForBack()) {
+                overlayBackConsumed = ev.getAction() == KeyEvent.ACTION_DOWN;
+                return true;
+            }
+        }
         if (ambientShowcase) {
             if (ev == null) return true;
             int action = ev.getAction();
@@ -5300,7 +5323,12 @@ public class MainActivity extends Activity {
     void dropPicker() {
         if (pickerLayer == null) return;
         if (search != null && pickerLayer == search.layer) releaseSearch();
-        root.removeView(pickerLayer);
+        FrameLayout old = pickerLayer;
+        pickerLayer = null;
+        pickerCells = new ArrayList<>();
+        old.animate().cancel();
+        root.removeView(old);
+        weatherOpen = false;
     }
 
     @Override
