@@ -199,8 +199,8 @@ public class MainActivity extends Activity {
     }
     void syncInfoPills() {
         int v = shouldShowInfoPills() ? View.VISIBLE : View.GONE;
-        if (newsShortcut != null) newsShortcut.setVisibility(v);
-        if (liveShortcut != null) liveShortcut.setVisibility(v);
+        if (newsShortcut != null) newsShortcut.setVisibility(WorldNews.enabled(this) ? v : View.GONE);
+        if (liveShortcut != null) liveShortcut.setVisibility(LiveStream.enabled(this) ? v : View.GONE);
     }
 
     View footballShortcut, newsShortcut, liveShortcut;
@@ -927,6 +927,7 @@ public class MainActivity extends Activity {
         // World news and live broadcast: the same glass pill, directly under the football one.
         newsShortcut = makeInfoPill(3, "الأخبار العالمية", "🌍", this::showNewsPanel);
         liveShortcut = makeInfoPill(4, "البث المباشر", "📡", this::openLiveBroadcast);
+        syncInfoPills();
         root.getViewTreeObserver().addOnPreDrawListener(() -> {
             float a = pickerLayer != null ? 0f : weatherAlpha();
             if (newsShortcut != null && newsShortcut.getVisibility() == View.VISIBLE) newsShortcut.setAlpha(a);
@@ -4880,6 +4881,10 @@ public class MainActivity extends Activity {
 
     /** Opens the TV's live broadcast; falls back to the inputs list when the TV has no live-TV screen. */
     void openLiveBroadcast() {
+        if (LiveStream.launch(this)) return;
+        String name = LiveStream.appLabel(this, LiveStream.packageName(this));
+        Toast.makeText(this, name == null ? "التطبيق المختار للبث المباشر غير مثبت. اختره من الإعدادات."
+                : "تعذّر فتح " + name, Toast.LENGTH_LONG).show();
         try {
             Intent live = new Intent(Intent.ACTION_VIEW, android.media.tv.TvContract.Channels.CONTENT_URI);
             live.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);

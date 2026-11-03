@@ -33,7 +33,7 @@ jobs:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
       run: |
         chmod +x build.sh
-        VERSION_NAME="1.0.204-newslive" VERSION_CODE="204" ./build.sh
+        VERSION_NAME="1.0.205-newslive" VERSION_CODE="205" ./build.sh
         mkdir -p dist
         cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
         ls -lh dist/Quswis-tvOS-Launcher.apk
@@ -50,7 +50,7 @@ jobs:
       if: success() && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature-classic-prayer-adhan' || github.ref == 'refs/heads/feature/news-live-shortcuts')
       with:
         tag_name: ${{ github.ref == 'refs/heads/main' && format('v1.0.{0}', github.run_number) || format('news-live-v1.0.{0}', github.run_number) }}
-        name: ${{ github.ref == 'refs/heads/main' && format('Release v1.0.{0}', github.run_number) || format('News and live v1.0.204 (run {0})', github.run_number) }}
+        name: ${{ github.ref == 'refs/heads/main' && format('Release v1.0.{0}', github.run_number) || format('News and live v1.0.205 (run {0})', github.run_number) }}
         body: |
           تحديث جديد لتطبيق Quswis tvOS Launcher من مستودعك:
           - إضافة مواقيت الصلاة

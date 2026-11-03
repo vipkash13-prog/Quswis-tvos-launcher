@@ -30,6 +30,18 @@ final class WorldNews {
     private WorldNews() {
     }
 
+    static android.content.SharedPreferences prefs(android.content.Context c) {
+        return c.getSharedPreferences("worldnews", android.content.Context.MODE_PRIVATE);
+    }
+
+    static boolean enabled(android.content.Context c) {
+        return prefs(c).getBoolean("enabled", false);
+    }
+
+    static void setEnabled(android.content.Context c, boolean on) {
+        prefs(c).edit().putBoolean("enabled", on).apply();
+    }
+
     static synchronized List<Item> cached() {
         return cache != null && System.currentTimeMillis() - cachedAt < TTL_MS ? cache : null;
     }

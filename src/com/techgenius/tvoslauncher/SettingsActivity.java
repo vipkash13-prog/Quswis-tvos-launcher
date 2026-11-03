@@ -57,6 +57,8 @@ public class SettingsActivity extends Activity {
             WEATHER = "Weather",
             PRAYER = "مواقيت الصلاة",
             FOOTBALL = "المباريات",
+            NEWS = "الأخبار العالمية",
+            LIVE = "البث المباشر",
             LOOK_SCENES = "Look and scenes",
             APPS = "Apps",
             PROFILES = "Profiles",
@@ -78,6 +80,8 @@ public class SettingsActivity extends Activity {
         {WEATHER, "cloud"},
         {PRAYER, "clock"},
         {FOOTBALL, "trophy"},
+        {NEWS, "globe"},
+        {LIVE, "antenna"},
         {APPS, "apps"},
         {PROFILES, "person"},
         {CONTROL_PANEL, "sliders"},
@@ -129,6 +133,8 @@ public class SettingsActivity extends Activity {
                 currentSection = FOOTBALL;
             } else if (PRAYER.equals(pg)) {
                 currentSection = PRAYER;
+            } else if (NEWS.equals(pg) || LIVE.equals(pg)) {
+                currentSection = pg;
             } else if (LOCATION.equals(pg) || WEATHER.equals(pg)) {
                 currentSection = WEATHER;
             } else if (SHELF.equals(pg) || PRESENT.equals(pg) || WATCHING.equals(pg) || HOME.equals(pg) || PERMS.equals(pg)) {
@@ -156,6 +162,8 @@ public class SettingsActivity extends Activity {
             case WEATHER: return tr("Weather and location", "Hava durumu ve konum");
             case PRAYER: return "مواقيت الصلاة";
             case FOOTBALL: return "المباريات";
+            case NEWS: return "الأخبار العالمية";
+            case LIVE: return "البث المباشر";
             case APPS: return tr("Apps", "Uygulamalar");
             case PROFILES: return tr("People", "Kişiler");
             case CONTROL_PANEL: return tr("Control Panel", "Denetim Paneli");
@@ -599,6 +607,12 @@ public class SettingsActivity extends Activity {
                 case FOOTBALL:
                     pageFootball();
                     break;
+                case NEWS:
+                    pageNews();
+                    break;
+                case LIVE:
+                    pageLive();
+                    break;
                 case LOOK_SCENES:
                     pageLookAndScenes();
                     break;
@@ -847,6 +861,60 @@ public class SettingsActivity extends Activity {
                 this::chooseFootballLeagues);
         row("عرض جميع أندية الدوريات المختارة", () -> "تلقائي", () -> showStatusMsg("تُعرض مباريات جميع الأندية تلقائيًا دون اختيار فريق"));
         infoNote("تُعرض حتى 7 مباريات داخل العدسة من الدوريات المختارة. الأوقات حسب توقيت الجهاز، والتحديث كل 30 ثانية أثناء فتح العدسة. المصدر ESPN، وتظهر الأهداف والبطاقات والأحداث التي يوفرها. البيانات المحفوظة تُميّز عند تعذّر التحديث. لا يلزم مفتاح API.");
+    }
+
+    void pageNews() {
+        section("الأخبار العالمية");
+        row("إظهار الأخبار العالمية على الشاشة الرئيسية",
+                () -> WorldNews.enabled(this) ? "مفعّل" : "متوقف",
+                () -> { WorldNews.setEnabled(this, !WorldNews.enabled(this)); rebuildMainRows(); });
+        infoNote("تُعرض أحدث عناوين الأخبار العالمية بالعربية داخل العدسة عند الضغط على الزر. المصدر BBC عربي وفرانس 24، ولا يلزم مفتاح.");
+    }
+
+    void pageLive() {
+        section("البث المباشر");
+        row("إظهار البث المباشر على الشاشة الرئيسية",
+                () -> LiveStream.enabled(this) ? "مفعّل" : "متوقف",
+                () -> { LiveStream.setEnabled(this, !LiveStream.enabled(this)); rebuildMainRows(); });
+        row("التطبيق الذي يفتحه الزر",
+                () -> {
+                    String name = LiveStream.appLabel(this, LiveStream.packageName(this));
+                    return name != null ? name : "غير مثبت (" + LiveStream.packageName(this) + ")";
+                },
+                this::chooseLiveApp);
+        infoNote("يفتح الزر تطبيق البث المباشر المختار، وهو TiviMate افتراضياً (الحزمة ar.tvplayer.tv). يمكنك اختيار أي تطبيق مثبت آخر.");
+    }
+
+    private void chooseLiveApp() {
+        android.content.pm.PackageManager pm = getPackageManager();
+        Intent main = new Intent(Intent.ACTION_MAIN);
+        main.addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER);
+        java.util.List<android.content.pm.ResolveInfo> found = pm.queryIntentActivities(main, 0);
+        if (found.isEmpty()) {
+            main = new Intent(Intent.ACTION_MAIN);
+            main.addCategory(Intent.CATEGORY_LAUNCHER);
+            found = pm.queryIntentActivities(main, 0);
+        }
+        final java.util.List<String> pkgs = new ArrayList<>();
+        final java.util.List<String> names = new ArrayList<>();
+        for (android.content.pm.ResolveInfo ri : found) {
+            String pkg = ri.activityInfo.packageName;
+            if (pkg.equals(getPackageName()) || pkgs.contains(pkg)) continue;
+            pkgs.add(pkg);
+            names.add(ri.loadLabel(pm).toString());
+        }
+        if (pkgs.isEmpty()) {
+            showStatusMsg("لا توجد تطبيقات مثبتة للاختيار");
+            return;
+        }
+        dialog("اختر تطبيق البث المباشر")
+                .setItems(names.toArray(new String[0]), (d, which) -> {
+                    LiveStream.setPackage(this, pkgs.get(which));
+                    rebuildMainRows();
+                    showStatusMsg("تم اختيار " + names.get(which));
+                })
+                .setNegativeButton("إلغاء", null)
+                .show();
     }
 
     private void chooseFootballTeamLeague(){
