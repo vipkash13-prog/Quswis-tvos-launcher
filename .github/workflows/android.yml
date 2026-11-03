@@ -93,7 +93,7 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         tag_name: prayer-glass-1.0.205
-        target_commitish: aec57f360ef3e0f5c768b6fc24d30fbf5b1d0b3b
+        target_commitish: ${{ github.sha }}
         name: Prayer glass window - 1.0.205 preview
         body: |
           نافذة مواقيت الصلاة الزجاجية - نسخة تجريبية.
