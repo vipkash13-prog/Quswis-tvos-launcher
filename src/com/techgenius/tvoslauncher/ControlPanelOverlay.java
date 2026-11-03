@@ -118,7 +118,7 @@ public final class ControlPanelOverlay {
             try {
                 wm.removeViewImmediate(root);
             } catch (Exception ignored) { }
-            if (MainActivity.activeInstance != null) MainActivity.activeInstance.hideInfoHud(false);
+            if (MainActivity.activeInstance != null) MainActivity.activeInstance.releaseInfoHudSoon();
         }
     }
 
@@ -1010,9 +1010,13 @@ public final class ControlPanelOverlay {
                     continue; // Skip Android TV stub activities that immediately exit
                 }
                 i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                // Another screen is opening over Home: keep Home's shortcuts hidden until it returns.
+                if (MainActivity.activeInstance != null) MainActivity.activeInstance.infoHudHold = true;
                 c.startActivity(i);
                 return true;
-            } catch (Exception ignored) { }
+            } catch (Exception ignored) {
+                if (MainActivity.activeInstance != null) MainActivity.activeInstance.infoHudHold = false;
+            }
         }
         return false;
     }

@@ -439,6 +439,8 @@ public class MainActivity extends Activity {
         }
         if (returningFromSettings && !folderMode && launchOverlay == null && moveIndex < 0) reload(currentKey());
         returningFromSettings = false;
+        infoHudHold = false;
+        if (!ControlPanelOverlay.isShowing()) hideInfoHud(false);
         updateStatusClockFormat();
         if (avatarView != null) {
             avatarView.setImageBitmap(Profiles.avatar(this, Profiles.current(this), avatarSize));
@@ -4664,6 +4666,15 @@ public class MainActivity extends Activity {
 
     /** True while the system Control Panel window is open over Home: the info shortcuts must not show through it. */
     boolean infoHudHidden;
+    /** Kept while another screen (Settings, an app) is opening from the Control Panel, until Home is resumed. */
+    boolean infoHudHold;
+
+    /** Shows the shortcuts again shortly after the Control Panel closes, unless a screen is opening over Home. */
+    void releaseInfoHudSoon() {
+        handler.postDelayed(() -> {
+            if (resumed && !infoHudHold && !ControlPanelOverlay.isShowing()) hideInfoHud(false);
+        }, 320);
+    }
 
     /** Hides or restores the weather / prayer / football shortcuts while the Control Panel window is open. */
     void hideInfoHud(boolean hide) {
@@ -4693,7 +4704,7 @@ public class MainActivity extends Activity {
     }
 
     float weatherAlpha() {
-        if (infoHudHidden || folderMode || weatherOpen || pickerLayer != null || menuLayer != null) return 0f;
+        if (infoHudHidden || infoHudHold || returningFromSettings || folderMode || weatherOpen || pickerLayer != null || menuLayer != null) return 0f;
         return Scenes.isScenesLook(this) ? 1f : clockAlpha();
     }
 
@@ -5224,7 +5235,12 @@ public class MainActivity extends Activity {
         if (pickerLayer == null) return;
         FrameLayout l = pickerLayer;
         pickerLayer = null;
-        l.animate().alpha(0f).setDuration(220).withEndAction(() -> root.removeView(l)).start();
+        // The shortcuts stay hidden while the layer fades out (and while Settings opens over Home).
+        hideInfoHud(true);
+        l.animate().alpha(0f).setDuration(220).withEndAction(() -> {
+            root.removeView(l);
+            if (!returningFromSettings && !infoHudHold) hideInfoHud(false);
+        }).start();
         weatherOpen = false;
         weatherCard.animate().alpha(weatherAlpha()).setDuration(220).start();
         if (popoverReturn != null && popoverReturn.isAttachedToWindow()) popoverReturn.requestFocus();
