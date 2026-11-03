@@ -1779,14 +1779,15 @@ final class SceneHome {
         boolean prayerVisible = prayer != null && prayer.getVisibility() == View.VISIBLE;
         boolean footballVisible = football != null && football.getVisibility() == View.VISIBLE;
         java.util.List<View> pills = new java.util.ArrayList<>();
-        for (View v : new View[]{host.prayerCard, host.footballShortcut, host.newsShortcut, host.liveShortcut}) {
+        for (View v : new View[]{host.quranShortcut, host.prayerCard, host.footballShortcut, host.newsShortcut, host.liveShortcut}) {
             if (v != null && v.getVisibility() == View.VISIBLE) pills.add(v);
         }
         int pillIdx = pills.indexOf(f);
         if (pillIdx >= 0) {
             if (k == KeyEvent.KEYCODE_DPAD_CENTER || k == KeyEvent.KEYCODE_ENTER) {
                 if (down && ev.getRepeatCount() == 0) {
-                    if (f == host.prayerCard) host.showPrayerPanel();
+                    if (f == host.quranShortcut) QuranRadio.toggle(host);
+                    else if (f == host.prayerCard) host.showPrayerPanel();
                     else if (f == host.footballShortcut) host.showFootballPanel();
                     else if (f == host.newsShortcut) host.showNewsPanel();
                     else host.openLiveBroadcast();

@@ -201,9 +201,10 @@ public class MainActivity extends Activity {
         int v = shouldShowInfoPills() ? View.VISIBLE : View.GONE;
         if (newsShortcut != null) newsShortcut.setVisibility(WorldNews.enabled(this) ? v : View.GONE);
         if (liveShortcut != null) liveShortcut.setVisibility(LiveStream.enabled(this) ? v : View.GONE);
+        if (quranShortcut != null) quranShortcut.setVisibility(QuranRadio.enabled(this) ? v : View.GONE);
     }
 
-    View footballShortcut, newsShortcut, liveShortcut;
+    View footballShortcut, newsShortcut, liveShortcut, quranShortcut;
     FrameLayout root;
     ImageView wallView;
     /** Top shelf carousel: two crossfading backdrops + info panel. */
@@ -440,6 +441,8 @@ public class MainActivity extends Activity {
         }
         resumed = true;
         activeInstance = this;
+        QuranRadio.setListener(this::updateQuranPill);
+        updateQuranPill();
         clearLaunchDim();
         boolean wasReturningFromSettings = returningFromSettings;
         if (!Scenes.isScenesLook(this)) {
@@ -522,6 +525,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
+        QuranRadio.setListener(null);
         cancelGridScroll();
         resumed = false;
         if (ambientShowcase && (android.os.SystemClock.uptimeMillis() - ambientEnterTime > 1000L)) {
@@ -927,9 +931,13 @@ public class MainActivity extends Activity {
         // World news and live broadcast: the same glass pill, directly under the football one.
         newsShortcut = makeInfoPill(3, "الأخبار العالمية", "🌍", this::showNewsPanel);
         liveShortcut = makeInfoPill(4, "البث المباشر", "📡", this::openLiveBroadcast);
+        // Quran radio: top row, directly to the right of the weather pill.
+        quranShortcut = makeInfoPill(0, "القرآن الكريم", "📻", () -> QuranRadio.toggle(this));
         syncInfoPills();
+        layoutInfoShortcuts();
         root.getViewTreeObserver().addOnPreDrawListener(() -> {
             float a = pickerLayer != null ? 0f : weatherAlpha();
+            if (quranShortcut != null && quranShortcut.getVisibility() == View.VISIBLE) quranShortcut.setAlpha(a);
             if (newsShortcut != null && newsShortcut.getVisibility() == View.VISIBLE) newsShortcut.setAlpha(a);
             if (liveShortcut != null && liveShortcut.getVisibility() == View.VISIBLE) liveShortcut.setAlpha(a);
             return true;
@@ -942,6 +950,7 @@ public class MainActivity extends Activity {
         footballShortcut.bringToFront();
         newsShortcut.bringToFront();
         liveShortcut.bringToFront();
+        quranShortcut.bringToFront();
         updateWeather();
 
 
@@ -2122,7 +2131,7 @@ public class MainActivity extends Activity {
         View focused = getCurrentFocus();
         boolean known = tiles.contains(focused) || statusFocused() || focused == shelfView
                 || focused == switcher || focused == weatherCard || focused == prayerCard || focused == footballShortcut
-                || focused == newsShortcut || focused == liveShortcut;
+                || focused == newsShortcut || focused == liveShortcut || focused == quranShortcut;
         if (!known || !visibleClassicFocus(focused)) {
             if (!tiles.isEmpty()) focusIndex(focusedIndex);
             else if (ccButton != null) ccButton.requestFocus();
@@ -4652,6 +4661,15 @@ public class MainActivity extends Activity {
                 lp.leftMargin = dockOuter; lp.topMargin = top; lp.gravity = gravity; views[i].setLayoutParams(lp);
             }
         }
+        if (quranShortcut != null) {
+            // Top row: to the right of the weather pill, or in its place when the weather pill is off.
+            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) quranShortcut.getLayoutParams();
+            int left = weatherCard.getVisibility() == View.VISIBLE ? dockOuter + dp(WeatherView.COMPACT_W + 12) : dockOuter;
+            int top = dp(24);
+            if (lp.leftMargin != left || lp.topMargin != top) {
+                lp.leftMargin = left; lp.topMargin = top; quranShortcut.setLayoutParams(lp);
+            }
+        }
     }
 
     List<View> classicInfoViews() {
@@ -4666,6 +4684,44 @@ public class MainActivity extends Activity {
     }
 
     boolean classicInfoKeys(KeyEvent ev) {
+        if (quranShortcut != null && quranShortcut.getVisibility() == View.VISIBLE
+                && !Scenes.isScenesLook(this) && !folderMode) {
+            View cur = getCurrentFocus();
+            int qk = ev.getKeyCode();
+            boolean qdown = ev.getAction() == KeyEvent.ACTION_DOWN;
+            if (cur == weatherCard && qk == KeyEvent.KEYCODE_DPAD_RIGHT) {
+                if (qdown) quranShortcut.requestFocus();
+                return true;
+            }
+            if (cur == quranShortcut) {
+                switch (qk) {
+                    case KeyEvent.KEYCODE_DPAD_LEFT:
+                        if (qdown && weatherCard.getVisibility() == View.VISIBLE) weatherCard.requestFocus();
+                        return true;
+                    case KeyEvent.KEYCODE_DPAD_RIGHT:
+                        if (qdown) focusTop();
+                        return true;
+                    case KeyEvent.KEYCODE_DPAD_UP:
+                        return true;
+                    case KeyEvent.KEYCODE_DPAD_DOWN:
+                        if (qdown) {
+                            if (prayerCard != null && prayerCard.getVisibility() == View.VISIBLE) prayerCard.requestFocus();
+                            else focusIndex(Math.min(focusedIndex, COLS - 1));
+                        }
+                        return true;
+                    case KeyEvent.KEYCODE_BACK:
+                        if (qdown) focusIndex(0);
+                        return true;
+                    case KeyEvent.KEYCODE_DPAD_CENTER:
+                    case KeyEvent.KEYCODE_ENTER:
+                    case KeyEvent.KEYCODE_NUMPAD_ENTER:
+                        if (qdown && ev.getRepeatCount() == 0) quranShortcut.performClick();
+                        return true;
+                    default:
+                        break;
+                }
+            }
+        }
         List<View> info = classicInfoViews();
         int index = info.indexOf(getCurrentFocus());
         if (index < 0) return false;
@@ -4709,7 +4765,7 @@ public class MainActivity extends Activity {
     /** Hides or restores the weather / prayer / football shortcuts while the Control Panel window is open. */
     void hideInfoHud(boolean hide) {
         infoHudHidden = hide;
-        View[] hud = {weatherCard, prayerCard, footballShortcut, newsShortcut, liveShortcut};
+        View[] hud = {weatherCard, prayerCard, footballShortcut, newsShortcut, liveShortcut, quranShortcut};
         for (View v : hud) {
             if (v == null) continue;
             v.animate().cancel();
@@ -4719,7 +4775,7 @@ public class MainActivity extends Activity {
 
     /** Draws Home for a blurred backdrop without the info shortcuts, so they are not baked into the blur. */
     void drawRootWithoutInfoHud(Canvas c) {
-        View[] hud = {weatherCard, prayerCard, footballShortcut, newsShortcut, liveShortcut};
+        View[] hud = {weatherCard, prayerCard, footballShortcut, newsShortcut, liveShortcut, quranShortcut};
         float[] saved = new float[hud.length];
         for (int i = 0; i < hud.length; i++) {
             if (hud[i] == null) continue;
@@ -4877,6 +4933,16 @@ public class MainActivity extends Activity {
         lp.leftMargin = dockOuter;
         root.addView(pill, lp);
         return pill;
+    }
+
+    /** Updates the Quran pill's words and icon to match the radio's state. */
+    void updateQuranPill() {
+        if (quranShortcut == null) return;
+        int st = QuranRadio.state();
+        android.widget.LinearLayout pill = (android.widget.LinearLayout) quranShortcut;
+        ((android.widget.TextView) pill.getChildAt(0)).setText(
+                st == QuranRadio.IDLE ? "القرآن الكريم" : st == QuranRadio.LOADING ? "جارٍ التحميل…" : "إيقاف الإذاعة");
+        ((android.widget.TextView) pill.getChildAt(1)).setText(st == QuranRadio.PLAYING ? "⏸" : "📻");
     }
 
     /** Opens the TV's live broadcast; falls back to the inputs list when the TV has no live-TV screen. */

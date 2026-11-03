@@ -59,6 +59,7 @@ public class SettingsActivity extends Activity {
             FOOTBALL = "المباريات",
             NEWS = "الأخبار العالمية",
             LIVE = "البث المباشر",
+            QURAN = "إذاعة القرآن",
             LOOK_SCENES = "Look and scenes",
             APPS = "Apps",
             PROFILES = "Profiles",
@@ -82,6 +83,7 @@ public class SettingsActivity extends Activity {
         {FOOTBALL, "trophy"},
         {NEWS, "globe"},
         {LIVE, "antenna"},
+        {QURAN, "audio"},
         {APPS, "apps"},
         {PROFILES, "person"},
         {CONTROL_PANEL, "sliders"},
@@ -133,7 +135,7 @@ public class SettingsActivity extends Activity {
                 currentSection = FOOTBALL;
             } else if (PRAYER.equals(pg)) {
                 currentSection = PRAYER;
-            } else if (NEWS.equals(pg) || LIVE.equals(pg)) {
+            } else if (NEWS.equals(pg) || LIVE.equals(pg) || QURAN.equals(pg)) {
                 currentSection = pg;
             } else if (LOCATION.equals(pg) || WEATHER.equals(pg)) {
                 currentSection = WEATHER;
@@ -164,6 +166,7 @@ public class SettingsActivity extends Activity {
             case FOOTBALL: return "المباريات";
             case NEWS: return "الأخبار العالمية";
             case LIVE: return "البث المباشر";
+            case QURAN: return "إذاعة القرآن";
             case APPS: return tr("Apps", "Uygulamalar");
             case PROFILES: return tr("People", "Kişiler");
             case CONTROL_PANEL: return tr("Control Panel", "Denetim Paneli");
@@ -613,6 +616,9 @@ public class SettingsActivity extends Activity {
                 case LIVE:
                     pageLive();
                     break;
+                case QURAN:
+                    pageQuran();
+                    break;
                 case LOOK_SCENES:
                     pageLookAndScenes();
                     break;
@@ -883,6 +889,66 @@ public class SettingsActivity extends Activity {
                 },
                 this::chooseLiveApp);
         infoNote("يفتح الزر تطبيق البث المباشر المختار، وهو TiviMate افتراضياً (الحزمة ar.tvplayer.tv). يمكنك اختيار أي تطبيق مثبت آخر.");
+    }
+
+    void pageQuran() {
+        section("إذاعة القرآن الكريم");
+        row("إظهار إذاعة القرآن على الشاشة الرئيسية",
+                () -> QuranRadio.enabled(this) ? "مفعّل" : "متوقف",
+                () -> { QuranRadio.setEnabled(this, !QuranRadio.enabled(this)); rebuildMainRows(); });
+        row("تشغيل الإذاعة الآن",
+                () -> QuranRadio.state() == QuranRadio.IDLE ? "متوقفة"
+                        : QuranRadio.state() == QuranRadio.LOADING ? "جارٍ التحميل…" : "تعمل",
+                () -> {
+                    QuranRadio.toggle(this);
+                    uiHandlerRefresh();
+                });
+        row("المحطة",
+                () -> QuranRadio.current(this)[0],
+                this::chooseQuranStation);
+        row("رابط إذاعة مخصص",
+                () -> QuranRadio.prefs(this).getString("custom", "").isEmpty() ? "لا يوجد" : "محفوظ",
+                this::promptQuranCustom);
+        infoNote("يظهر زر «القرآن الكريم» في أعلى الشاشة الرئيسية على يمين الطقس. اضغط OK عليه لتشغيل الإذاعة أو إيقافها. تُحمَّل قائمة المحطات من mp3quran.net، ويمكنك إضافة رابط بث مباشر خاص بك.");
+        QuranRadio.refreshStations(this, null);
+    }
+
+    private void uiHandlerRefresh() {
+        list.postDelayed(this::refreshAll, 900);
+    }
+
+    private void chooseQuranStation() {
+        final java.util.List<String[]> all = QuranRadio.stations(this);
+        String[] names = new String[all.size()];
+        for (int i = 0; i < names.length; i++) names[i] = all.get(i)[0];
+        dialog("اختر المحطة")
+                .setItems(names, (d, which) -> {
+                    QuranRadio.choose(this, all.get(which)[1]);
+                    rebuildMainRows();
+                    showStatusMsg("تم اختيار " + all.get(which)[0]);
+                })
+                .setNegativeButton("إلغاء", null)
+                .show();
+    }
+
+    private void promptQuranCustom() {
+        final android.widget.EditText in = new android.widget.EditText(this);
+        in.setSingleLine(true);
+        in.setHint("https://…");
+        in.setText(QuranRadio.prefs(this).getString("custom", ""));
+        dialog("رابط بث الإذاعة")
+                .setView(in)
+                .setPositiveButton("حفظ", (d, w) -> {
+                    String u = in.getText().toString().trim();
+                    if (u.isEmpty() || u.startsWith("http")) {
+                        QuranRadio.setCustom(this, u);
+                        rebuildMainRows();
+                    } else {
+                        showStatusMsg("الرابط يجب أن يبدأ بـ http");
+                    }
+                })
+                .setNegativeButton("إلغاء", null)
+                .show();
     }
 
     private void chooseLiveApp() {

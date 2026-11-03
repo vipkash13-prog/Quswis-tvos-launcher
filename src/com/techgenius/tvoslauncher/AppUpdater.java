@@ -40,6 +40,12 @@ public final class AppUpdater {
     public static final String GITHUB_FALLBACK_APK =
             "https://github.com/vipkash13-prog/Quswis-tvos-launcher/releases/latest/download/Quswis-tvOS-Launcher.apk";
 
+    /**
+     * 1.0.205 is the approved release: while this is true the launcher never checks for, offers or installs
+     * updates. Set it to false only when new modifications are approved.
+     */
+    public static final boolean UPDATES_FROZEN = true;
+
     private static final String PREF_NAME = "updates";
     private static final String KEY_AUTO_UPDATE = "auto_update";
     private static final String KEY_LATEST_VER = "latest_version";
@@ -61,6 +67,7 @@ public final class AppUpdater {
     }
 
     public static boolean isAutoUpdateEnabled(Context c) {
+        if (UPDATES_FROZEN) return false;
         return prefs(c).getBoolean(KEY_AUTO_UPDATE, true);
     }
 
@@ -213,7 +220,7 @@ public final class AppUpdater {
      * in the background and automatically pulls & installs if a newer release is found.
      */
     public static void checkAutoUpdateIfNeeded(Activity activity) {
-        if (activity == null || activity.isFinishing()) return;
+        if (UPDATES_FROZEN || activity == null || activity.isFinishing()) return;
         if (!isAutoUpdateEnabled(activity)) return;
         if (checking || downloading) return;
         long last = prefs(activity).getLong(KEY_LAST_CHECK, 0L);
@@ -238,6 +245,11 @@ public final class AppUpdater {
      */
     public static void manualCheckAndPrompt(Activity activity, Runnable onUiRefresh) {
         if (activity == null || activity.isFinishing()) return;
+        if (UPDATES_FROZEN) {
+            Toast.makeText(activity, "هذا هو الإصدار المعتمد (v" + getCurrentVersion(activity) + "). التحديثات متوقفة.",
+                    Toast.LENGTH_LONG).show();
+            return;
+        }
         if (checking || downloading) return;
         if (onUiRefresh != null) onUiRefresh.run();
         checkForUpdates(activity, (success, latestVersion, downloadUrl, updateAvailable, errorMsg) -> {
