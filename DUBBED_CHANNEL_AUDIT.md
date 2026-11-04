@@ -44,7 +44,7 @@ The MBC streams were initially rejected with an irrelevant third-party referrer.
 
 `assets/live-tv/dubbed-verified.json` records the exact catalogue URLs, first-frame decoding evidence, audio proof or explicit publisher language documentation, and the check time. This records a past successful audit, not a guarantee against future outages or regional restrictions. Actual playback errors override the availability status shown on the device.
 
-Successful old endpoints are migrated before replacing a daily cached playlist. They keep their original order; a failed new URL never replaces them. The pre-existing Spacetoon URL is also available as a protected fallback. Stable channel IDs deduplicate rows within each section. Favorites, last channel and existing Arabic confirmations are retained. A catalogue refresh does not manufacture a new local playback-success record.
+Successful old endpoints are migrated before replacing a daily cached playlist. They keep their original order; a failed new URL never replaces them. The pre-existing Spacetoon URL is also available as a protected fallback. Stable channel IDs deduplicate rows within each section. Favorites, last channel and existing Arabic confirmations are retained. Historical Arabic confirmations do not silently disappear after 24 hours; they remain separate from the latest playback/error status. A catalogue refresh does not manufacture a new local playback-success record.
 
 The eighth section uses documented channel identities plus playback/audio evidence. A Korean/Turkish name, country or Arabic subtitle is never enough. New candidate sources can be tested through the existing player/settings flow before qualification.
 
