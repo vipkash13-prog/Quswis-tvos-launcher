@@ -24,7 +24,7 @@ jobs:
         run: sha256sum --quiet -c tests/audio-perf-protected.sha256
       - name: Build exact installed-version baseline with identical profiler and candidate APK
         run: |
-          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
           mkdir -p /tmp/quswis-baseline dist
           git archive d4e48f239fec17935e8ba2747b275be930d00fea | tar -x -C /tmp/quswis-baseline
           rm /tmp/quswis-baseline/tests/live-tv-android/*.java
