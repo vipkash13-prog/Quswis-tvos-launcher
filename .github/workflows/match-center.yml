@@ -1,0 +1,143 @@
+name: Match Center Preview
+
+on:
+  push:
+    branches: [ "feature/match-center-glass" ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Verify protected launcher, Islamic services and provider files
+        run: sha256sum -c tests/match-center-protected.sha256
+
+      - name: Install Android API 34 tools
+        run: |
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Build and verify APK
+        run: |
+          VERSION_NAME="1.0.205" VERSION_CODE="205" bash build.sh
+          mkdir -p dist
+          cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          "$SDK/build-tools/34.0.0/apksigner" verify --verbose dist/Quswis-tvOS-Launcher.apk
+
+      - name: Test original prayer and football parsers and new match-center policy
+        run: |
+          curl --fail --silent --show-error --location https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar -o /tmp/quswis-json.jar
+          mkdir -p /tmp/quswis-tests
+          python3 - <<'PYTEST'
+          from pathlib import Path
+          source = Path('src/com/techgenius/tvoslauncher/PrayerTimes.java').read_text()
+          Path('/tmp/quswis-tests/PrayerPanelClock.java').write_text('package com.techgenius.tvoslauncher;\n' + source[source.index('final class PrayerPanelClock {'):])
+          PYTEST
+          javac -encoding UTF-8 -cp /tmp/quswis-json.jar:build/classes -d /tmp/quswis-tests src/com/techgenius/tvoslauncher/PrayerPlan.java /tmp/quswis-tests/PrayerPanelClock.java tests/PrayerPlanTest.java tests/PrayerPanelClockTest.java src/com/techgenius/tvoslauncher/PrayerFocusNavigation.java tests/PrayerFocusNavigationTest.java src/com/techgenius/tvoslauncher/FootballData.java tests/FootballDataTest.java src/com/techgenius/tvoslauncher/MatchCenterData.java tests/MatchCenterDataTest.java
+          java -cp /tmp/quswis-tests:/tmp/quswis-json.jar:build/classes com.techgenius.tvoslauncher.PrayerPlanTest
+          java -cp /tmp/quswis-tests:/tmp/quswis-json.jar:build/classes com.techgenius.tvoslauncher.PrayerPanelClockTest
+          java -cp /tmp/quswis-tests:/tmp/quswis-json.jar:build/classes com.techgenius.tvoslauncher.PrayerFocusNavigationTest
+          java -cp /tmp/quswis-tests:/tmp/quswis-json.jar:build/classes com.techgenius.tvoslauncher.FootballDataTest
+          java -cp /tmp/quswis-tests:/tmp/quswis-json.jar:build/classes com.techgenius.tvoslauncher.MatchCenterDataTest
+
+      - name: Build independent native UI tests
+        run: |
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          BT="$SDK/build-tools/34.0.0"
+          JAR="$SDK/platforms/android-34/android.jar"
+          build_ui_test() {
+            TEST_NAME="$1"
+            TEST_MANIFEST="$2"
+            TEST_SOURCE="$3"
+            TEST_DIR="/tmp/quswis-$TEST_NAME-ui"
+            mkdir -p "$TEST_DIR/classes" "$TEST_DIR/dex"
+            "$BT/aapt2" link -o "$TEST_DIR/unsigned.apk" -I "$JAR" --manifest "$TEST_MANIFEST" --min-sdk-version 24 --target-sdk-version 34
+            javac -encoding UTF-8 --release 11 -cp "$JAR:build/classes" -d "$TEST_DIR/classes" "$TEST_SOURCE"
+            jar cf "$TEST_DIR/app-classes.jar" -C build/classes .
+            "$BT/d8" --min-api 24 --lib "$JAR" --classpath "$TEST_DIR/app-classes.jar" --output "$TEST_DIR/dex" $(find "$TEST_DIR/classes" -name '*.class')
+            (cd "$TEST_DIR/dex" && zip -q ../unsigned.apk classes.dex)
+            "$BT/zipalign" -f 4 "$TEST_DIR/unsigned.apk" "$TEST_DIR/aligned.apk"
+            "$BT/apksigner" sign --ks debug.keystore --ks-pass pass:android --key-pass pass:android --out "$TEST_DIR/test.apk" "$TEST_DIR/aligned.apk"
+          }
+          build_ui_test prayer tests/prayer-window-test-manifest.xml tests/PrayerWindowInstrumentation.java
+          build_ui_test match tests/match-center-test-manifest.xml tests/MatchCenterInstrumentation.java
+          sudo chmod 666 /dev/kvm
+
+      - name: Test unchanged prayer window, match center and offline cache on Android 14
+        timeout-minutes: 16
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: tv_1080p
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: |
+            adb shell wm size 1920x1080
+            adb install -r dist/Quswis-tvOS-Launcher.apk
+            adb install -r /tmp/quswis-prayer-ui/test.apk
+            adb install -r /tmp/quswis-match-ui/test.apk
+            timeout 150 adb shell am instrument -w -r com.techgenius.tvoslauncher.windowtest/com.techgenius.tvoslauncher.PrayerWindowInstrumentation | tee /tmp/quswis-prayer-ui/result.txt
+            grep -q PRAYER_UI_OK /tmp/quswis-prayer-ui/result.txt
+            adb shell am force-stop com.techgenius.tvoslauncher
+            timeout 180 adb shell am instrument -w -r com.techgenius.tvoslauncher.matchcentertest/com.techgenius.tvoslauncher.MatchCenterInstrumentation | tee /tmp/quswis-match-ui/result-1080.txt
+            adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/match-center.png dist/match-center-1080.png
+            grep -q MATCH_UI_OK /tmp/quswis-match-ui/result-1080.txt
+            adb shell am force-stop com.techgenius.tvoslauncher
+            adb shell wm size 3840x2160
+            timeout 150 adb shell am instrument -w -r com.techgenius.tvoslauncher.windowtest/com.techgenius.tvoslauncher.PrayerWindowInstrumentation | tee /tmp/quswis-prayer-ui/result-4k.txt
+            grep -q PRAYER_UI_OK /tmp/quswis-prayer-ui/result-4k.txt
+            adb shell am force-stop com.techgenius.tvoslauncher
+            timeout 180 adb shell am instrument -w -r com.techgenius.tvoslauncher.matchcentertest/com.techgenius.tvoslauncher.MatchCenterInstrumentation | tee /tmp/quswis-match-ui/result-4k.txt
+            adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/match-center.png dist/match-center-4k.png
+            grep -q MATCH_UI_OK /tmp/quswis-match-ui/result-4k.txt
+            adb shell am force-stop com.techgenius.tvoslauncher
+            adb shell wm size 1920x1080
+            adb shell svc wifi disable
+            adb shell svc data disable
+            timeout 180 adb shell am instrument -w -r -e offline true com.techgenius.tvoslauncher.matchcentertest/com.techgenius.tvoslauncher.MatchCenterInstrumentation | tee /tmp/quswis-match-ui/result-offline.txt
+            adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/match-center.png dist/match-center-offline.png
+            grep -q MATCH_UI_OK /tmp/quswis-match-ui/result-offline.txt
+
+      - name: Upload preview images and APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Match-center-preview
+          path: dist/*
+          if-no-files-found: warn
+
+      - name: Publish direct APK and actual screenshots for testing
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: match-center-v1.0.205-${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: Match Center - 1.0.205 preview ${{ github.run_number }}
+          body: |
+            نافذة مركز المباريات في فرع مستقل؛ لا دمج في main.
+            مصدر البيانات الحالي ESPN، اختيار الدوريات كاملًا، توقيت السعودية، تخزين مؤقت وشعارات حقيقية من المصدر.
+            فحوص حماية ملفات اللانشر والصلاة والأذان والقرآن، واختبار النافذتين على Android 14 بدقتَي 1080p و4K مع اختبار البيانات المحفوظة دون اتصال.
+            APK تجريبي بتوقيع تطوير، وقد لا يثبت فوق APK موقّع بمفتاح مختلف.
+          prerelease: true
+          make_latest: false
+          fail_on_unmatched_files: true
+          files: |
+            dist/Quswis-tvOS-Launcher.apk
+            dist/match-center-1080.png
+            dist/match-center-4k.png
+            dist/match-center-offline.png
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

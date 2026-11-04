@@ -525,6 +525,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         super.onPause();
+        if (matchCenterDialog != null) matchCenterDialog.dispose();
         QuranRadio.setListener(null);
         cancelGridScroll();
         resumed = false;
@@ -560,6 +561,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (matchCenterDialog != null) matchCenterDialog.dispose();
         if (prayerGlassDialog != null) prayerGlassDialog.dispose();
         super.onDestroy();
         if (pkgReceiver != null) unregisterReceiver(pkgReceiver);
@@ -4585,7 +4587,7 @@ public class MainActivity extends Activity {
      */
     void enterIdle() {
         if (idle || !resumed || !heroShown || heroItems.isEmpty() || continueMode() || folderMode
-                || launchOverlay != null || pickerLayer != null || prayerGlassDialog != null || menuLayer != null || moveIndex >= 0) {
+                || launchOverlay != null || pickerLayer != null || prayerGlassDialog != null || matchCenterDialog != null || menuLayer != null || moveIndex >= 0) {
             resetIdle();
             return;
         }
@@ -4860,8 +4862,15 @@ public class MainActivity extends Activity {
         });
     }
 
-    /** Prayer popover uses the same fixed root layer and animation as the weather forecast. */
+    MatchCenterDialog matchCenterDialog;
+
     void showFootballPanel() {
+        stopSway(null);
+        MatchCenterDialog.open(this, footballShortcut);
+    }
+
+    /** Previous provider-backed popover retained without changing its implementation. */
+    void showLegacyFootballPanel() {
         dropPicker();
         stopSway(null);
         popoverReturn = footballShortcut;

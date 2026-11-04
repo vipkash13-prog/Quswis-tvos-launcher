@@ -1,0 +1,4 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.techgenius.tvoslauncher.matchcentertest">
+    <application android:label="Match center smoke tests" />
+    <instrumentation android:name="com.techgenius.tvoslauncher.MatchCenterInstrumentation" android:targetPackage="com.techgenius.tvoslauncher" />
+</manifest>
