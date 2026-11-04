@@ -1,3 +1,4 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <application android:label="Live TV native verification" />
+    <instrumentation android:name="com.techgenius.tvoslauncher.AudioPerfInstrumentation" android:targetPackage="com.techgenius.tvoslauncher" />
 </manifest>

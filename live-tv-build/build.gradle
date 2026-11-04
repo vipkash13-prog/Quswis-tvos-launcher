@@ -38,6 +38,7 @@ android {
         androidTest {
             java.srcDirs = ['../tests/live-tv-android']
             manifest.srcFile '../tests/live-tv-test-manifest.xml'
+            assets.srcDirs = ['../tests/live-tv-fixtures']
         }
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_11; targetCompatibility JavaVersion.VERSION_11 }

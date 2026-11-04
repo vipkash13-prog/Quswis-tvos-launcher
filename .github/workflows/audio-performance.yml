@@ -1,0 +1,144 @@
+name: Audio Focus and Measured Performance 206
+on:
+  push:
+    branches: ["fix/audio-focus-performance-206"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 65
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Verify protected original components, data, art and settings
+        run: sha256sum --quiet -c tests/audio-perf-protected.sha256
+      - name: Build exact installed-version baseline with identical profiler and candidate APK
+        run: |
+          sdkmanager "platforms;android-35" "build-tools;35.0.0"
+          mkdir -p /tmp/quswis-baseline dist
+          git archive d4e48f239fec17935e8ba2747b275be930d00fea | tar -x -C /tmp/quswis-baseline
+          rm /tmp/quswis-baseline/tests/live-tv-android/*.java
+          cp tests/live-tv-android/AudioPerfInstrumentation.java /tmp/quswis-baseline/tests/live-tv-android/
+          cp tests/live-tv-test-manifest.xml /tmp/quswis-baseline/tests/live-tv-test-manifest.xml
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('/tmp/quswis-baseline/live-tv-build/build.gradle')
+          s=p.read_text().replace("manifest.srcFile '../tests/live-tv-test-manifest.xml'", "manifest.srcFile '../tests/live-tv-test-manifest.xml'\n            assets.srcDirs = ['../tests/live-tv-fixtures']")
+          p.write_text(s)
+          PY
+          gradle -p /tmp/quswis-baseline/live-tv-build --no-daemon assembleDebug assembleDebugAndroidTest
+          cp /tmp/quswis-baseline/live-tv-build/build/outputs/apk/debug/*.apk /tmp/baseline.apk
+          cp /tmp/quswis-baseline/live-tv-build/build/outputs/apk/androidTest/debug/*.apk /tmp/baseline-test.apk
+          gradle -p live-tv-build --no-daemon assembleDebug assembleDebugAndroidTest
+          cp live-tv-build/build/outputs/apk/debug/*.apk dist/Quswis-tvOS-Launcher.apk
+          cp live-tv-build/build/outputs/apk/androidTest/debug/*.apk /tmp/candidate-test.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify dist/Quswis-tvOS-Launcher.apk
+          python3 tests/verify-live-manifest.py
+          if grep -q "versionName '1.0.206'" live-tv-build/build.gradle; then echo "release_ready=true" >> "$GITHUB_ENV"; fi
+          sudo chmod 666 /dev/kvm
+      - name: Same-device before/after profiling, actual audio and full remote regression
+        timeout-minutes: 50
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: tv_1080p
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -no-boot-anim -camera-back none -camera-front none
+          script: |
+            adb shell settings put global window_animation_scale 1
+            adb shell settings put global transition_animation_scale 1
+            adb shell settings put global animator_duration_scale 1
+            adb shell svc wifi disable
+            adb shell svc data disable
+            adb shell wm size 1920x1080
+            adb install -r /tmp/baseline.apk
+            adb install -r -t /tmp/baseline-test.apk
+            adb shell pm clear com.techgenius.tvoslauncher
+            adb shell atrace --async_start -b 16384 gfx view input sched am wm
+            timeout 400 adb shell am instrument -w -r -e label baseline com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.AudioPerfInstrumentation | tee dist/profile-baseline-1080.log
+            adb shell atrace --async_stop > dist/trace-baseline-1080.txt
+            adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/profile-baseline-1920x1080.json dist/
+            grep -q PROFILE_OK dist/profile-baseline-1080.log
+            adb shell dumpsys meminfo com.techgenius.tvoslauncher > dist/memory-baseline-1080.txt
+            adb shell am force-stop com.techgenius.tvoslauncher
+            adb shell wm size 3840x2160
+            timeout 400 adb shell am instrument -w -r -e label baseline com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.AudioPerfInstrumentation | tee dist/profile-baseline-4k.log
+            adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/profile-baseline-3840x2160.json dist/
+            grep -q PROFILE_OK dist/profile-baseline-4k.log
+            adb shell dumpsys meminfo com.techgenius.tvoslauncher > dist/memory-baseline-4k.txt
+            adb shell am force-stop com.techgenius.tvoslauncher
+            adb install -r dist/Quswis-tvOS-Launcher.apk
+            adb install -r -t /tmp/candidate-test.apk
+            adb shell pm clear com.techgenius.tvoslauncher
+            adb shell wm size 1920x1080
+            adb shell atrace --async_start -b 16384 gfx view input sched am wm
+            timeout 400 adb shell am instrument -w -r -e label candidate com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.AudioPerfInstrumentation | tee dist/profile-candidate-1080.log
+            adb shell atrace --async_stop > dist/trace-candidate-1080.txt
+            adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/profile-candidate-1920x1080.json dist/
+            grep -q PROFILE_OK dist/profile-candidate-1080.log
+            adb shell dumpsys meminfo com.techgenius.tvoslauncher > dist/memory-candidate-1080.txt
+            adb shell am force-stop com.techgenius.tvoslauncher
+            adb shell wm size 3840x2160
+            timeout 400 adb shell am instrument -w -r -e label candidate com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.AudioPerfInstrumentation | tee dist/profile-candidate-4k.log
+            adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/profile-candidate-3840x2160.json dist/
+            grep -q PROFILE_OK dist/profile-candidate-4k.log
+            adb shell dumpsys meminfo com.techgenius.tvoslauncher > dist/memory-candidate-4k.txt
+            adb shell am force-stop com.techgenius.tvoslauncher
+            adb shell svc wifi enable
+            adb shell svc data enable
+            adb shell wm size 1920x1080
+            if [ "$release_ready" = "true" ]; then timeout 750 adb shell am instrument -w -r -e audio true com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.AudioPerfInstrumentation | tee dist/audio-regression.log; fi
+            if [ "$release_ready" = "true" ]; then grep -q AUDIO_REGRESSIONS_OK dist/audio-regression.log; fi
+            adb logcat -d > dist/audio-performance-logcat.txt
+            adb shell dumpsys audio > dist/audio-routing.txt
+            if [ "$release_ready" = "true" ]; then adb shell am force-stop com.techgenius.tvoslauncher; timeout 850 adb shell am instrument -w -r -e repairs true com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/full-regression-1080.log; fi
+            if [ "$release_ready" = "true" ]; then grep -q LIVE_TV_UI_OK dist/full-regression-1080.log; fi
+            if [ "$release_ready" = "true" ]; then adb shell am force-stop com.techgenius.tvoslauncher; adb shell wm size 3840x2160; timeout 850 adb shell am instrument -w -r -e repairs true -e persisted true com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/full-regression-4k.log; fi
+            if [ "$release_ready" = "true" ]; then grep -q LIVE_TV_UI_OK dist/full-regression-4k.log; fi
+            adb logcat -d > dist/final-logcat.txt
+            adb shell dumpsys gfxinfo com.techgenius.tvoslauncher framestats > dist/final-gfxinfo.txt
+      - name: Compare measured profiles
+        run: python3 tests/compare-performance.py dist
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Audio-performance-evidence-${{ github.run_attempt }}
+          path: dist/*
+      - name: Publish new version APK and evidence after all checks
+        if: env.release_ready == 'true'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: audio-performance-v1.0.206-${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: Quswis 1.0.206 Audio and Performance Preview ${{ github.run_number }}
+          prerelease: true
+          make_latest: false
+          fail_on_unmatched_files: true
+          body: |
+            نسخة 1.0.206 تجريبية على فرع مستقل، دون دمج main أو رفع صوت النظام.
+            إصلاح إدارة أولوية الصوت والتبديل بين البث وإذاعة القرآن واستعادة الصوت بعد الأذان، وتحسينات أداء بقياسات قبل/بعد على المحاكي نفسه.
+            راجع AUDIO_PERFORMANCE.md والتقرير المرفق لحدود الاختبارات؛ لا يوجد قياس لمستوى الصوت المسموع أو HDMI على جهاز MECOOL فعلي.
+            APK بتوقيع تطوير قد يختلف عن توقيع نسختك المثبتة. التحديث التلقائي يبقى مجمدًا.
+          files: |
+            dist/Quswis-tvOS-Launcher.apk
+            dist/performance-comparison.md
+            dist/profile-baseline-1920x1080.json
+            dist/profile-candidate-1920x1080.json
+            dist/profile-baseline-3840x2160.json
+            dist/profile-candidate-3840x2160.json
+            dist/audio-regression.log
+            AUDIO_PERFORMANCE.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
