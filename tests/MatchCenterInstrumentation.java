@@ -48,7 +48,7 @@ public final class MatchCenterInstrumentation extends Instrumentation {
             if(!offline){Set<String> all=new HashSet<>();for(String[] l:MatchCenterData.LEAGUES)all.add(l[0]);repository.select(all);}
             Set<String> selected=repository.selected();String oldFootball=FootballScores.selectedLeagues(app).toString();
             progress("MATCH_UI_LAUNCHING");
-            host=(MainActivity)startActivitySync(new Intent(app,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK));waitForIdleSync();SystemClock.sleep(400);
+            host=(MainActivity)startActivitySync(new Intent(app,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK));waitForIdleSync();SystemClock.sleep(2000);
             View[] original={host.wallView,host.dockRow,host.footballShortcut,host.prayerCard};
             runOnMainSync(()->{host.showFootballPanel();dialog=host.matchCenterDialog;check(original[0]==host.wallView&&original[1]==host.dockRow&&original[2]==host.footballShortcut&&original[3]==host.prayerCard,"Window opening replaced Home views");});SystemClock.sleep(600);waitForIdleSync();check(dialog!=null&&dialog.isShowing(),"Dialog did not open");
             progress("MATCH_UI_DISPLAY_"+host.screenW+"x"+host.screenH);
@@ -85,7 +85,12 @@ public final class MatchCenterInstrumentation extends Instrumentation {
             Bitmap preview=Bitmap.createScaledBitmap(picture,960,540,true);ByteArrayOutputStream bytes=new ByteArrayOutputStream();preview.compress(Bitmap.CompressFormat.JPEG,78,bytes);
             result.putString("preview_base64",android.util.Base64.encodeToString(bytes.toByteArray(),android.util.Base64.NO_WRAP));preview.recycle();picture.recycle();
             key(KeyEvent.KEYCODE_BACK);SystemClock.sleep(400);waitForIdleSync();check(!dialog.isShowing(),"BACK did not close");
-            runOnMainSync(()->check(host.getCurrentFocus()==host.footballShortcut,"BACK did not restore the original match lens"));
+            boolean[] restored={false};String[] actual={""};long focusDeadline=SystemClock.elapsedRealtime()+2000;
+            while(!restored[0]&&SystemClock.elapsedRealtime()<focusDeadline){
+                runOnMainSync(()->{restored[0]=host.getCurrentFocus()==host.footballShortcut;actual[0]=String.valueOf(host.getCurrentFocus());});
+                if(!restored[0])SystemClock.sleep(100);
+            }
+            check(restored[0],"BACK did not restore the original match lens; actual="+actual[0]);
             result.putString("stream","MATCH_UI_OK: remote, original Home, persistence, viewport and BACK focus; offline="+offline+"\n");finish(Activity.RESULT_OK,result);
         }catch(Throwable error){result.putString("stream","MATCH_UI_FAILED: "+error+"\n");finish(Activity.RESULT_CANCELED,result);}
     }
