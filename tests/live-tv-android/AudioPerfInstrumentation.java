@@ -58,6 +58,7 @@ public final class AudioPerfInstrumentation {
             PrayerTimes.prefs(app).edit().putString("calendar_location",PrayerCalendar.location(app)).putString("calendar_days",month.toString()).putLong("calendar_at",System.currentTimeMillis()).commit();PrayerCalendar.applyToday(app);
         }
         home=(MainActivity)startActivitySync(new Intent(app,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK));waitForIdleSync();SystemClock.sleep(2500);
+        if("true".equals(args.getString("smoke"))){android.graphics.Bitmap screenshot=instrumentation.getUiAutomation().takeScreenshot();if(screenshot!=null){try(FileOutputStream image=new FileOutputStream(new File(getTargetContext().getExternalFilesDir(null),"candidate-smoke.png"))){screenshot.compress(android.graphics.Bitmap.CompressFormat.PNG,100,image);}screenshot.recycle();}result.putString("stream","SMOKE_OK\n");instrumentation.finish(Activity.RESULT_OK,result);return;}
         if("true".equals(args.getString("audio"))){Class<?> checks=Class.forName("com.techgenius.tvoslauncher.AudioRegressions");Method run=checks.getDeclaredMethod("run",AudioPerfInstrumentation.class,MainActivity.class);run.setAccessible(true);run.invoke(null,this,home);result.putString("stream","AUDIO_REGRESSIONS_OK\n");}
         else {profile();result.putString("stream","PROFILE_OK\n");}
         instrumentation.finish(Activity.RESULT_OK,result);

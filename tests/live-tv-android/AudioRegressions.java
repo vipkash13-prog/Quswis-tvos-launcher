@@ -46,6 +46,7 @@ final class AudioRegressions {
         live(dialog,nhk);t.main(()->t.check(QuranRadio.state()==QuranRadio.IDLE&&radio()==null,"Radio not released on TV replacement"));
         startAdhan();await("TV paused during adhan",10000,()->!dialog.engine.player.isPlaying());stopAdhan();await("TV resumes unity after adhan stop path",15000,()->dialog.engine.player.isPlaying()&&dialog.engine.player.getVolume()==1f);
         startAdhan();t.main(dialog.engine::pause);stopAdhan();SystemClock.sleep(1500);t.main(()->t.check(!dialog.engine.player.getPlayWhenReady(),"User pause was undone after adhan"));
+        t.key(KeyEvent.KEYCODE_MEDIA_PLAY);await("hardware Play reconnects stopped live source",20000,()->dialog.engine.player.isPlaying());t.key(KeyEvent.KEYCODE_MEDIA_PAUSE);await("hardware Pause cancels play intent",5000,()->!dialog.engine.player.getPlayWhenReady()&&!dialog.engine.audioFocus.wantsPlay());
         t.main(dialog::dismiss);SystemClock.sleep(500);t.check(dialog.engine.released,"TV decoder not released on close");
         for(int n=0;n<4;n++){t.main(home::openLiveBroadcast);SystemClock.sleep(350);LiveTvDialog opened=home.liveTvDialog;t.main(opened::dismiss);SystemClock.sleep(350);t.check(opened.engine.released,"Repeated close retained player");}
         t.main(home::showPrayerPanel);SystemClock.sleep(400);PrayerGlassDialog prayer=home.prayerGlassDialog;

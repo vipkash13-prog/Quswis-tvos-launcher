@@ -80,7 +80,15 @@ jobs:
             adb shell svc wifi disable
             adb shell svc data disable
             adb shell wm size 1920x1080
-            adb install -r /tmp/baseline.apk
+            adb install -r dist/Quswis-tvOS-Launcher.apk
+            adb install -r -t /tmp/candidate-test.apk
+            timeout 80 adb shell am instrument -w -r -e profile true -e smoke true com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/candidate-smoke.log
+            adb logcat -d > dist/candidate-smoke-logcat.txt
+            grep -nE -A28 -B3 "FATAL EXCEPTION|Fatal signal|ANR in" dist/candidate-smoke-logcat.txt || true
+            grep -q SMOKE_OK dist/candidate-smoke.log
+            adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/candidate-smoke.png dist/
+            adb shell am force-stop com.techgenius.tvoslauncher
+            adb install -r -d /tmp/baseline.apk
             adb install -r -t /tmp/baseline-test.apk
             adb shell pm clear com.techgenius.tvoslauncher
             adb shell atrace --async_start -b 16384 gfx view input sched am wm
@@ -103,6 +111,8 @@ jobs:
             adb shell wm size 1920x1080
             adb shell atrace --async_start -b 16384 gfx view input sched am wm
             timeout 400 adb shell am instrument -w -r -e profile true -e label candidate com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/profile-candidate-1080.log
+            adb logcat -d > dist/profile-candidate-1080-logcat.txt
+            grep -nE -A28 -B3 "FATAL EXCEPTION|Fatal signal|ANR in" dist/profile-candidate-1080-logcat.txt || true
             adb shell atrace --async_stop > dist/trace-candidate-1080.txt
             adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/profile-candidate-1920x1080.json dist/
             grep -q PROFILE_OK dist/profile-candidate-1080.log
