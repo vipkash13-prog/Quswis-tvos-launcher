@@ -20,6 +20,25 @@ public final class MatchCenterInstrumentation extends Instrumentation {
     private int id(){int[] value={-1};runOnMainSync(()->{if(dialog.getCurrentFocus()!=null)value[0]=dialog.getCurrentFocus().getId();});return value[0];}
     private void key(int code){sendKeyDownUpSync(code);waitForIdleSync();}
     private void cycle(int code){Set<Integer> visited=new HashSet<>();int first=id();for(int i=0;i<4;i++){visited.add(id());key(code);}check(visited.size()==4&&id()==first,"Tab traversal failed, key="+code);}
+    private android.widget.TextView title(View v){
+        if(v instanceof android.widget.TextView&&((android.widget.TextView)v).getText().toString().contains("مركز المباريات"))return (android.widget.TextView)v;
+        if(v instanceof ViewGroup)for(int i=0;i<((ViewGroup)v).getChildCount();i++){android.widget.TextView found=title(((ViewGroup)v).getChildAt(i));if(found!=null)return found;}
+        return null;
+    }
+    private void unclipped(android.widget.TextView text,String label){
+        check(text!=null&&text.getLayout()!=null,label+" layout missing");
+        int available=text.getHeight()-text.getCompoundPaddingTop()-text.getCompoundPaddingBottom();
+        check(text.getLayout().getHeight()<=available,label+" line is vertically clipped");
+        check(text.getLayout().getEllipsisCount(0)==0,label+" is ellipsized");
+    }
+    private View rowView(Object row)throws Exception{Field f=row.getClass().getDeclaredField("view");f.setAccessible(true);return (View)f.get(row);}
+    private void allPages()throws Exception{
+        int total=(Integer)field("total");if(total<=5){progress("MATCH_PAGING_SOURCE_COUNT_"+total);return;}
+        Object[] rows=(Object[])field("rows");View first=rowView(rows[0]);runOnMainSync(first::requestFocus);
+        for(int i=1;i<total;i++){key(KeyEvent.KEYCODE_DPAD_DOWN);check(((Integer)field("page"))==i/5&&id()==rowView(rows[i%5]).getId(),"DOWN did not reach match "+(i+1));}
+        for(int i=total-2;i>=0;i--){key(KeyEvent.KEYCODE_DPAD_UP);check(((Integer)field("page"))==i/5&&id()==rowView(rows[i%5]).getId(),"UP did not return to match "+(i+1));}
+        progress("MATCH_PAGING_ALL_"+total+"_DOWN_AND_UP_OK");
+    }
     @Override public void onStart(){
         Bundle result=new Bundle();
         try{
@@ -52,8 +71,12 @@ public final class MatchCenterInstrumentation extends Instrumentation {
                 View surface=root.getChildAt(0);int[] point=new int[2];surface.getLocationOnScreen(point);bounds.bottom=point[1]+surface.getHeight();bounds.width=surface.getWidth();bounds.height=surface.getHeight();
             });
             check(Math.abs(bounds.width-host.screenW*.625)<8,"Window width differs from reference");
-            check(Math.abs(bounds.height-host.screenH*1050.0/2160)<8,"Window height differs from reference");
+            check(Math.abs(bounds.height-host.screenH*1110.0/2160)<8,"Window height differs from text-safe reference");
+            double oldBottom=Math.round(host.screenH*.16f)+Math.round(host.screenH*1050f/2160f);
+            check(Math.abs(bounds.bottom-oldBottom)<8,"Window bottom moved toward the app dock");
             check(bounds.bottom<host.screenH*.78,"Window covers the bottom app dock area");
+            runOnMainSync(()->{try{unclipped(title(dialog.getWindow().getDecorView()),"Window title");unclipped((android.widget.TextView)field("footer"),"Last-update footer");}catch(Exception error){throw new RuntimeException(error);}});
+            allPages();runOnMainSync(()->tabs[0].requestFocus());
             check(oldFootball.equals(FootballScores.selectedLeagues(app).toString()),"Existing football settings changed");
             check(selected.equals(new MatchCenterRepository(app).selected()),"League choices did not persist");
             Bitmap picture=getUiAutomation().takeScreenshot();check(picture!=null,"Screenshot unavailable");

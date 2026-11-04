@@ -17,6 +17,20 @@ public final class MatchCenterDataTest {
         check(!matches.get(0).getJSONObject("league").getString("logo").isEmpty());
         long now=at("2026-11-04T00:00Z");
         check(MatchCenterData.select(matches,selected,0,now,5).size()==5);
+        check(MatchCenterData.select(matches,selected,0,now,Integer.MAX_VALUE).size()==matches.size());
+        JSONObject tomorrow=copy(matches.get(0));tomorrow.getJSONObject("fixture").put("id","tomorrow-only").put("date","2026-11-05T17:45Z");
+        check(MatchCenterData.select(Collections.singletonList(tomorrow),selected,0,now,Integer.MAX_VALUE).isEmpty());
+        check(MatchCenterData.select(Collections.singletonList(tomorrow),selected,MatchCenterData.LEAGUE_TAB,now,5).size()==1);
+        for(int section:new int[]{MatchCenterData.UPCOMING,MatchCenterData.LIVE,MatchCenterData.RESULTS}){
+            List<JSONObject> many=new ArrayList<>();
+            for(int i=0;i<601;i++){
+                JSONObject m=copy(matches.get(0));m.getJSONObject("fixture").put("id","pagination-"+i)
+                    .put("state",section==MatchCenterData.LIVE?"in":section==MatchCenterData.RESULTS?"post":"pre")
+                    .put("completed",section==MatchCenterData.RESULTS)
+                    .put("statusCode",section==MatchCenterData.LIVE?"STATUS_IN_PROGRESS":section==MatchCenterData.RESULTS?"STATUS_FULL_TIME":"STATUS_SCHEDULED");many.add(m);
+            }
+            check(MatchCenterData.select(many,selected,section,now,Integer.MAX_VALUE).size()==601);
+        }
         check(MatchCenterData.select(matches,Collections.emptySet(),0,now,5).isEmpty());
         check(MatchCenterData.select(matches,selected,1,now,5).isEmpty());
         check(MatchCenterData.select(matches,selected,2,now,5).isEmpty());

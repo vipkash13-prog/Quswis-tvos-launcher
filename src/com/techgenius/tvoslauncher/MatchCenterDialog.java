@@ -46,7 +46,13 @@ final class MatchCenterDialog extends Dialog {
         try(java.io.InputStream in=host.getAssets().open("match-center/stadium.png")){stadium=BitmapFactory.decodeStream(in);}catch(Exception ignored){}
         ImageView banner=new ImageView(host);banner.setImageBitmap(stadium);banner.setScaleType(ImageView.ScaleType.CENTER_CROP);banner.setAlpha(.88f);put(body,banner,0,0,2400,300);
         View fade=new View(host);fade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0x5506152C,0x3306152C,0xDD0A1A2D}));put(body,fade,0,0,2400,310);
-        TextView title=text("⚽  مركز المباريات",24,true);title.setShadowLayer(px(2),0,px(1),0xFF000000);put(body,title,850,25,700,100);
+        TextView title=text("⚽  مركز المباريات",24,true);title.setShadowLayer(px(2),0,px(1),0xFF000000);
+        // Arabic and emoji fallback metrics exceed the old 100-pixel title line box.
+        title.setIncludeFontPadding(true);title.setEllipsize(null);
+        if(Build.VERSION.SDK_INT>=28)title.setFallbackLineSpacing(true);
+        float titleWidth=Math.max(x(700),android.text.Layout.getDesiredWidth(title.getText(),title.getPaint())+px(4));
+        FrameLayout.LayoutParams titleBounds=new FrameLayout.LayoutParams((int)Math.ceil(titleWidth),y(160),Gravity.TOP|Gravity.LEFT);
+        titleBounds.leftMargin=Math.round((x(2400)-titleWidth)/2);body.addView(title,titleBounds);
         close=button("×",26,this::dismiss);close.setContentDescription("إغلاق مركز المباريات");put(body,close,50,45,85,85);
         for(int i=0;i<4;i++){
             final int index=i;TextView button=button(LABELS[i],12,true,()->selectTab(index));tabs[i]=button;
@@ -62,7 +68,7 @@ final class MatchCenterDialog extends Dialog {
             focus(choice,()->toggleLeague(index));choices[i]=choice;put(leaguePanel,choice,20,80+i*73,580,65);
         }
         FrameLayout games=new FrameLayout(host);games.setBackground(skin(false,false,18));put(body,games,700,310,1640,690);
-        heading=text("أبرز 5 مباريات قادمة",14,true);heading.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);put(games,heading,475,4,1135,68);
+        heading=text("المباريات القادمة • اليوم",14,true);heading.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);put(games,heading,475,4,1135,68);
         pageLabel=text("",7.5f,false);put(games,pageLabel,30,12,430,48);
         for(int i=0;i<5;i++){
             MatchRow row=new MatchRow();rows[i]=row;row.view=new FrameLayout(host);
@@ -76,7 +82,9 @@ final class MatchCenterDialog extends Dialog {
             focus(row.view,()->{if(row.data!=null)openDetails(row.data);});put(games,row.view,30,82+i*118,1580,110);
         }
         empty=text("لا توجد مباريات متاحة حاليًا",14,true);empty.setFocusable(false);put(games,empty,35,200,1570,220);
-        footer=text("",8,false);put(body,footer,65,1008,2270,32);
+        footer=text("",8,false);footer.setIncludeFontPadding(true);
+        if(Build.VERSION.SDK_INT>=28)footer.setFallbackLineSpacing(true);
+        put(body,footer,65,1008,2270,80);
         setContentView(surface);host.matchCenterDialog=this;
         setOnDismissListener(d->{
             generation++;ui.removeCallbacksAndMessages(null);if(request!=null)request.cancel(true);
@@ -88,8 +96,9 @@ final class MatchCenterDialog extends Dialog {
     }
     @Override protected void onStart(){
         super.onStart();Window w=getWindow();if(w!=null){w.setBackgroundDrawableResource(android.R.color.transparent);w.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-            w.setGravity(Gravity.TOP|Gravity.RIGHT);w.setLayout(Math.round(host.screenW*.625f),Math.round(host.screenH*1050f/2160f));
-            WindowManager.LayoutParams p=w.getAttributes();p.x=Math.round(host.screenW*.028f);p.y=Math.round(host.screenH*.16f);w.setAttributes(p);w.setWindowAnimations(0);
+            // Add 60 reference pixels upward; keep the previous bottom edge and every row size.
+            w.setGravity(Gravity.TOP|Gravity.RIGHT);w.setLayout(Math.round(host.screenW*.625f),y(1110));
+            WindowManager.LayoutParams p=w.getAttributes();p.x=Math.round(host.screenW*.028f);p.y=Math.round(host.screenH*.16f)-y(60);w.setAttributes(p);w.setWindowAnimations(0);
             w.getDecorView().setSystemUiVisibility(host.getWindow().getDecorView().getSystemUiVisibility());}
         surface.setAlpha(0);surface.setScaleX(.9f);surface.setScaleY(.9f);surface.animate().alpha(1).scaleX(1).scaleY(1).setDuration(300).setInterpolator(new android.view.animation.DecelerateInterpolator()).start();
         surface.post(()->tabs[0].requestFocus());refresh();ui.postDelayed(poll,300000);
@@ -109,11 +118,11 @@ final class MatchCenterDialog extends Dialog {
     private void render(){
         for(int i=0;i<4;i++){tabs[i].setSelected(i==tab);paintFocus(tabs[i]);}
         for(int i=0;i<8;i++){checks[i].setText(chosen.contains(MatchCenterData.LEAGUES[i][0])?"☑":"☐");MatchCenterImages.load(host,leagueLogos[i],snapshot.logos.get(MatchCenterData.LEAGUES[i][0]));}
-        List<JSONObject> all=MatchCenterData.select(snapshot.matches,chosen,tab,System.currentTimeMillis(),tab==MatchCenterData.LIVE||tab==MatchCenterData.RESULTS?500:5);
+        List<JSONObject> all=MatchCenterData.select(snapshot.matches,chosen,tab,System.currentTimeMillis(),tab==MatchCenterData.LEAGUE_TAB?5:Integer.MAX_VALUE);
         total=all.size();page=Math.min(page,Math.max(0,(total-1)/5));int from=page*5;
         List<JSONObject> matches=all.subList(from,Math.min(total,from+5));
         pageLabel.setText(total>5?(from+1)+"–"+Math.min(total,from+5)+" / "+total+" • ↑ ↓ للمزيد":"");
-        heading.setText(tab==MatchCenterData.LIVE?"مباشر الآن  🔴":tab==MatchCenterData.RESULTS?"نتائج اليوم":tab==MatchCenterData.LEAGUE_TAB?"مباريات الدوريات المختارة":"أبرز 5 مباريات قادمة");
+        heading.setText(tab==MatchCenterData.LIVE?"مباشر الآن  🔴":tab==MatchCenterData.RESULTS?"نتائج اليوم":tab==MatchCenterData.LEAGUE_TAB?"مباريات الدوريات المختارة":"المباريات القادمة • اليوم");
         empty.setVisibility(matches.isEmpty()?View.VISIBLE:View.GONE);
         View previous=getCurrentFocus();boolean lost=false;
         for(int i=0;i<5;i++){

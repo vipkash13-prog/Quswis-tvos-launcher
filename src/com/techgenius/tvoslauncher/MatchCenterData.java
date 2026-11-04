@@ -41,7 +41,7 @@ final class MatchCenterData {
             String state=f.optString("state"),code=f.optString("statusCode");
             boolean include=tab==LIVE?"in".equals(state):tab==RESULTS?
                     "post".equals(state)&&f.optBoolean("completed")&&!code.contains("CANCEL")&&!code.contains("POSTPON")&&today.equals(day(when.getTime())):
-                    "pre".equals(state)&&when.getTime()>=now&&!code.contains("CANCEL");
+                    "pre".equals(state)&&when.getTime()>=now&&!code.contains("CANCEL")&&(tab!=UPCOMING||today.equals(day(when.getTime())));
             if(!include)continue;
             String id=f.optString("id");String key=id.isEmpty()?f.optString("leagueId")+"|"+when.getTime()+"|"+m.optJSONObject("teams"):id;
             if(seen.add(key))result.add(m);
