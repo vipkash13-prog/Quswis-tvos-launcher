@@ -27,7 +27,7 @@ final class GlobalNewsImages {
     private static final Map<String,List<WeakReference<ImageView>>> PENDING=new HashMap<>();
     private static final Map<String,Runnable> TASKS=new HashMap<>();
     static void load(Context context,ImageView view,String raw,int side){
-        String url=GlobalNewsData.webUrl(raw);String key=url+"|"+side;
+        String url=GlobalNewsData.photoUrl(raw);String key=url+"|"+side;
         if(key.equals(view.getTag())&&MEMORY.get(key)!=null&&view.getDrawable()!=null)return;
         view.setTag(key);
         Bitmap thumbnail=side>320?MEMORY.get(url+"|320"):null;
@@ -68,6 +68,7 @@ final class GlobalNewsImages {
         synchronized(PENDING){TASKS.put(key,task);}
         WORK.execute(task);
     }
+    static boolean ready(ImageView view){Object key=view.getTag();return key instanceof String&&MEMORY.get((String)key)!=null&&view.getDrawable()!=null;}
     private static String hash(String key)throws Exception{
         byte[] digest=MessageDigest.getInstance("SHA-256").digest(key.getBytes("UTF-8"));StringBuilder result=new StringBuilder();for(byte b:digest)result.append(String.format(Locale.US,"%02x",b&255));return result.toString();
     }
@@ -79,7 +80,7 @@ final class GlobalNewsImages {
             ByteArrayOutputStream bytes=new ByteArrayOutputStream();try(InputStream in=c.getInputStream()){byte[] buffer=new byte[4096];int n;while((n=in.read(buffer))!=-1){bytes.write(buffer,0,n);if(bytes.size()>5*1024*1024)return null;}}
             byte[] data=bytes.toByteArray();BitmapFactory.Options bounds=new BitmapFactory.Options();bounds.inJustDecodeBounds=true;BitmapFactory.decodeByteArray(data,0,data.length,bounds);
             if(bounds.outWidth<=0||bounds.outHeight<=0||bounds.outWidth>8192||bounds.outHeight>8192)return null;
-            BitmapFactory.Options options=new BitmapFactory.Options();options.inSampleSize=1;while(Math.max(bounds.outWidth,bounds.outHeight)/options.inSampleSize>side)options.inSampleSize*=2;
+            BitmapFactory.Options options=new BitmapFactory.Options();options.inSampleSize=1;while(Math.max(bounds.outWidth,bounds.outHeight)/(options.inSampleSize*2)>=side)options.inSampleSize*=2;
             return BitmapFactory.decodeByteArray(data,0,data.length,options);
         }finally{c.disconnect();}
     }

@@ -73,7 +73,15 @@ jobs:
             "$BT/zipalign" -f 4 "$TEST_DIR/unsigned.apk" "$TEST_DIR/aligned.apk"
             "$BT/apksigner" sign --ks debug.keystore --ks-pass pass:android --key-pass pass:android --out "$TEST_DIR/test.apk" "$TEST_DIR/aligned.apk"
           }
-          build_ui_test prayer tests/prayer-window-test-manifest.xml tests/PrayerWindowInstrumentation.java
+          # Connect screenshot/remote automation before launch to avoid late touch-mode changes.
+          mkdir -p /tmp/quswis-prayer-harness
+          python3 - <<'PYHARNESS'
+          from pathlib import Path
+          source=Path('tests/PrayerWindowInstrumentation.java').read_text()
+          source=source.replace('            getTargetContext().getSharedPreferences("setup",0)', '            getUiAutomation();\n            getTargetContext().getSharedPreferences("setup",0)', 1)
+          Path('/tmp/quswis-prayer-harness/PrayerWindowInstrumentation.java').write_text(source)
+          PYHARNESS
+          build_ui_test prayer tests/prayer-window-test-manifest.xml /tmp/quswis-prayer-harness/PrayerWindowInstrumentation.java
           build_ui_test match tests/match-center-test-manifest.xml tests/MatchCenterInstrumentation.java
           build_ui_test news tests/global-news-test-manifest.xml tests/GlobalNewsInstrumentation.java
           sudo chmod 666 /dev/kvm
@@ -120,7 +128,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Global-news-preview
+          name: Global-news-preview-${{ github.run_attempt }}
           path: dist/*
           if-no-files-found: warn
 

@@ -4,6 +4,7 @@ import android.app.*;import android.content.*;import android.graphics.*;import a
 public final class GlobalNewsInstrumentation extends Instrumentation {
  private MainActivity host;private GlobalNewsDialog dialog;private boolean offline;
  public void onCreate(Bundle a){super.onCreate(a);offline=a!=null&&"true".equals(a.getString("offline"));start();}
+ private Object uncheckedField(String n){try{return field(n);}catch(Exception e){throw new RuntimeException(e);}}
  private void check(boolean b,String why){if(!b)throw new AssertionError(why);}
  private Object field(String n)throws Exception{Field f=GlobalNewsDialog.class.getDeclaredField(n);f.setAccessible(true);return f.get(dialog);}
  private void mainCheck(Runnable r){Throwable[] e={null};runOnMainSync(()->{try{r.run();}catch(Throwable x){e[0]=x;}});if(e[0]!=null)throw new AssertionError(e[0]);}
@@ -25,14 +26,16 @@ public final class GlobalNewsInstrumentation extends Instrumentation {
   List<?> rows=(List<?>)field("rows");check(rows.size()==GlobalNewsData.select(data.stories,0,System.currentTimeMillis()).size(),"List silently capped");if(!rows.isEmpty()){View first=row(rows.get(0));runOnMainSync(first::requestFocus);int count=rows.size();for(int i=1;i<count;i++){key(KeyEvent.KEYCODE_DPAD_DOWN);check(id()==row(rows.get(i)).getId(),"Cannot reach story "+i);}ScrollView scroll=(ScrollView)field("list");check(count<=5||scroll.getScrollY()>0,"Remote did not scroll list");runOnMainSync(first::requestFocus);key(KeyEvent.KEYCODE_DPAD_LEFT);check(id()==((View)field("feature")).getId(),"Feature unreachable");key(KeyEvent.KEYCODE_DPAD_CENTER);check(field("details")!=null,"Native article summary did not open");key(KeyEvent.KEYCODE_BACK);check(field("details")==null&&dialog.isShowing(),"Article BACK closed entire popup");}
   // Select a true carousel photo after traversing the entire feed; it must not starve behind obsolete requests.
   List<?> featured=(List<?>)field("featured");if(!featured.isEmpty()){
-   View[] dots=(View[])field("dots");runOnMainSync(()->{dots[0].performClick();tabs[0].requestFocus();});
+   View[] dots=(View[])field("dots");runOnMainSync(()->{dots[0].performClick();((View)uncheckedField("feature")).requestFocus();});
    ImageView hero=(ImageView)field("featureImage");GlobalNewsData.Story first=(GlobalNewsData.Story)featured.get(0);
    if(!first.image.isEmpty()){boolean[] shown={false};long photoDeadline=SystemClock.elapsedRealtime()+18000;
-    while(!shown[0]&&SystemClock.elapsedRealtime()<photoDeadline){runOnMainSync(()->shown[0]=hero.getDrawable()!=null);if(!shown[0])SystemClock.sleep(200);}
+    while(!shown[0]&&SystemClock.elapsedRealtime()<photoDeadline){runOnMainSync(()->shown[0]=GlobalNewsImages.ready(hero));if(!shown[0])SystemClock.sleep(200);}
     check(shown[0],"Current hero photo starved behind old image requests");}
   }
-  runOnMainSync(()->tabs[0].requestFocus());waitForIdleSync();SystemClock.sleep(1000);check(football.equals(FootballScores.selectedLeagues(app).toString()),"Existing match preferences changed");
+  runOnMainSync(()->((View)uncheckedField("feature")).requestFocus());waitForIdleSync();SystemClock.sleep(1000);check(football.equals(FootballScores.selectedLeagues(app).toString()),"Existing match preferences changed");
   Bitmap image=getUiAutomation().takeScreenshot();check(image!=null,"Screenshot missing");try(FileOutputStream out=new FileOutputStream(new File(app.getExternalFilesDir(null),"global-news.png"))){image.compress(Bitmap.CompressFormat.PNG,100,out);}Bitmap small=Bitmap.createScaledBitmap(image,960,540,true);ByteArrayOutputStream bytes=new ByteArrayOutputStream();small.compress(Bitmap.CompressFormat.JPEG,80,bytes);result.putString("preview_base64",android.util.Base64.encodeToString(bytes.toByteArray(),android.util.Base64.NO_WRAP));small.recycle();image.recycle();
-  key(KeyEvent.KEYCODE_BACK);SystemClock.sleep(450);waitForIdleSync();check(!dialog.isShowing(),"Popup BACK did not close");mainCheck(()->check(host.getCurrentFocus()==host.newsShortcut,"Focus not restored to news lens"));result.putString("stream","GLOBAL_NEWS_UI_OK: "+host.screenW+"x"+host.screenH+"; real stories="+data.stories.size()+"; offline="+offline+"\n");finish(Activity.RESULT_OK,result);
+  key(KeyEvent.KEYCODE_BACK);SystemClock.sleep(450);waitForIdleSync();check(!dialog.isShowing(),"Popup BACK did not close");boolean[] restored={false};String[] focus={""};long focusDeadline=SystemClock.elapsedRealtime()+2200;
+  while(!restored[0]&&SystemClock.elapsedRealtime()<focusDeadline){runOnMainSync(()->{restored[0]=host.getCurrentFocus()==host.newsShortcut;focus[0]=String.valueOf(host.getCurrentFocus());});if(!restored[0])SystemClock.sleep(80);}
+  check(restored[0],"Focus not restored to news lens; actual="+focus[0]);result.putString("stream","GLOBAL_NEWS_UI_OK: "+host.screenW+"x"+host.screenH+"; real stories="+data.stories.size()+"; offline="+offline+"\n");finish(Activity.RESULT_OK,result);
  }catch(Throwable e){result.putString("stream","GLOBAL_NEWS_UI_FAILED: "+e+"\n");finish(Activity.RESULT_CANCELED,result);}}
 }

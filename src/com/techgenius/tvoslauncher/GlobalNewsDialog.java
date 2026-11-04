@@ -77,8 +77,19 @@ final class GlobalNewsDialog extends Dialog {
         refreshButton=text("",7.5f,true);focus(refreshButton,()->refresh(true));put(body,refreshButton,95,982,1480,55);
         sourceNote=text("أخبار من مصادر عالمية • توقيت السعودية",7.5f,false);put(body,sourceNote,1640,982,640,55);
         setContentView(surface);host.globalNewsDialog=this;
-        setOnDismissListener(d->{generation++;ui.removeCallbacksAndMessages(null);if(request!=null)request.cancel(true);destroyWeb();header.setImageDrawable(null);host.globalNewsDialog=null;if(anchor!=null&&anchor.isAttachedToWindow())anchor.requestFocus();});
+        setOnDismissListener(d->{generation++;ui.removeCallbacksAndMessages(null);if(request!=null)request.cancel(true);destroyWeb();header.setImageDrawable(null);host.globalNewsDialog=null;restoreLens();});
         render();
+    }
+    private void restoreLens(){
+        final View target=host.newsShortcut!=null?host.newsShortcut:anchor;
+        if(target==null)return;
+        final View home=host.getWindow().getDecorView();
+        // Dialog removal returns window focus asynchronously; Home also restores its own focus.
+        home.post(new Runnable(){int attempts;@Override public void run(){
+            if(host.isFinishing()||host.isDestroyed()||host.globalNewsDialog!=null||!target.isAttachedToWindow())return;
+            if(host.hasWindowFocus()){target.requestFocus();return;}
+            if(++attempts<25)home.postDelayed(this,40);
+        }});
     }
     @Override protected void onStart(){
         super.onStart();Window window=getWindow();if(window!=null){window.setBackgroundDrawableResource(android.R.color.transparent);window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);window.setGravity(Gravity.TOP|Gravity.RIGHT);window.setLayout(x(2400),y(1050));WindowManager.LayoutParams p=window.getAttributes();p.x=Math.round(host.screenW*.028f);p.y=Math.round(host.screenH*.16f);window.setAttributes(p);window.setWindowAnimations(0);window.getDecorView().setSystemUiVisibility(host.getWindow().getDecorView().getSystemUiVisibility());}

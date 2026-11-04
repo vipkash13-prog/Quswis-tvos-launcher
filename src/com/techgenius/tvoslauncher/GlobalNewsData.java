@@ -34,6 +34,12 @@ final class GlobalNewsData {
         if(value.startsWith("http://"))value="https://"+value.substring(7);
         try{URI uri=new URI(value).normalize();if(!"https".equalsIgnoreCase(uri.getScheme())||uri.getHost()==null||uri.getUserInfo()!=null)return "";return limited(uri.toASCIIString(),3000);}catch(Exception error){return "";}
     }
+    /** The source's own image resize route, retaining the original asset ID and publisher. */
+    static String photoUrl(String raw){
+        String safe=webUrl(raw);
+        Matcher sky=Pattern.compile("^(https://images\\.skynewsarabia\\.com/images/v1/\\d{4}/\\d{2}/\\d{2}/\\d+/)\\d+/\\d+(/[^?]+(?:\\?.*)?)$").matcher(safe);
+        return sky.matches()?sky.group(1)+"1600/900"+sky.group(2):safe;
+    }
     static String canonical(String url){
         String safe=webUrl(url);if(safe.isEmpty())return "";
         try{URI u=new URI(safe);StringBuilder result=new StringBuilder("https://").append(u.getHost().toLowerCase(Locale.US));if(u.getPort()!=-1&&u.getPort()!=443)result.append(':').append(u.getPort());String path=u.getRawPath();result.append(path==null||path.isEmpty()?"/":path);List<String> query=new ArrayList<>();
