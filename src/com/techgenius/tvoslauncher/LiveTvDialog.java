@@ -97,7 +97,17 @@ final class LiveTvDialog extends Dialog {
  private int index(View[] a,View v){for(int i=0;i<a.length;i++)if(a[i]==v)return i;return -1;}
  @Override public void dismiss(){if(closing)return;if(panel!=null){closePanel();}closing=true;ui.removeCallbacksAndMessages(null);engine.release();surface.animate().cancel();surface.animate().alpha(0).scaleX(.9f).scaleY(.9f).setDuration(220).withEndAction(()->super.dismiss()).start();}
  void dispose(){closing=true;surface.animate().cancel();super.dismiss();}
- private void restoreLens(){View target=host.liveShortcut!=null?host.liveShortcut:anchor;if(target==null)return;View home=host.getWindow().getDecorView();home.post(new Runnable(){int attempts;public void run(){if(host.isFinishing()||host.isDestroyed()||host.liveTvDialog!=null||!target.isAttachedToWindow())return;if(host.hasWindowFocus()){target.requestFocus();return;}if(++attempts<25)home.postDelayed(this,40);}});}
+ private void restoreLens(){
+  View home=host.getWindow().getDecorView();
+  // Window focus, Home's own restoration and HUD visibility settle on separate frames.
+  home.postDelayed(new Runnable(){int attempts;public void run(){
+   if(host.isFinishing()||host.isDestroyed()||host.liveTvDialog!=null||host.globalNewsDialog!=null||host.matchCenterDialog!=null||host.prayerGlassDialog!=null)return;
+   View target=host.liveShortcut!=null?host.liveShortcut:anchor;
+   if(host.resumed&&host.hasWindowFocus()&&target!=null&&target.isAttachedToWindow()&&host.visibleClassicFocus(target)&&target.requestFocus()&&host.getCurrentFocus()==target){host.resetIdle();return;}
+   if(++attempts<60)home.postDelayed(this,40);
+  }},80);
+ }
+
  final class ChannelAdapter extends BaseAdapter {final List<LiveTvData.Channel> items=new ArrayList<>();public int getCount(){return items.size();}public LiveTvData.Channel getItem(int i){return items.get(i);}public long getItemId(int i){if(i<0||i>=items.size())return AdapterView.INVALID_ROW_ID;long hash=0xcbf29ce484222325L;for(char c:getItem(i).key().toCharArray()){hash^=c;hash*=0x100000001b3L;}return hash;}public boolean hasStableIds(){return true;}
   public View getView(int p,View recycled,ViewGroup parent){FrameLayout row;ImageView logo;TextView name,detail,star;if(recycled instanceof FrameLayout){row=(FrameLayout)recycled;logo=(ImageView)row.getChildAt(0);name=(TextView)row.getChildAt(1);detail=(TextView)row.getChildAt(2);star=(TextView)row.getChildAt(3);}else{row=new FrameLayout(host);row.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);row.setBackground(art("06_channel_row_680x100.png"));row.setLayoutParams(new AbsListView.LayoutParams(-1,y(90)));logo=new ImageView(host);logo.setScaleType(ImageView.ScaleType.FIT_CENTER);put(row,logo,580,10,100,70);name=text("",9.5f,true);name.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);put(row,name,100,0,465,55);detail=text("",6,false);detail.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);put(row,detail,100,52,465,35);star=text("",11,false);put(row,star,15,5,75,75);}LiveTvData.Channel c=getItem(p);name.setText(c.name);detail.setText(c.arabicDeclared()?"لغة عربية بحسب بيانات المصدر • "+(p+1):repository.state(c));star.setText(repository.favorite(c)?"★":"☆");star.setTextColor(repository.favorite(c)?0xFFFFD54D:0xFFB4D0E6);LiveTvImages.load(host,logo,c.logo,160);row.setContentDescription(c.name+" • "+repository.state(c));return row;}
  }
