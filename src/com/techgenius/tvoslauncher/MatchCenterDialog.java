@@ -68,8 +68,8 @@ final class MatchCenterDialog extends Dialog {
             MatchRow row=new MatchRow();rows[i]=row;row.view=new FrameLayout(host);
             row.leagueLogo=image();put(row.view,row.leagueLogo,1460,20,70,70);
             row.league=text("",9,true);row.league.setSingleLine(false);row.league.setMaxLines(2);put(row.view,row.league,1100,5,330,100);
-            row.home=text("",12,true);put(row.view,row.home,820,15,250,80);row.homeLogo=image();put(row.view,row.homeLogo,710,10,90,90);
-            row.away=text("",12,true);put(row.view,row.away,35,15,260,80);row.awayLogo=image();put(row.view,row.awayLogo,310,10,90,90);
+            row.home=text("",12,true);fitTeam(row.home);put(row.view,row.home,820,5,250,100);row.homeLogo=image();put(row.view,row.homeLogo,710,10,90,90);
+            row.away=text("",12,true);fitTeam(row.away);put(row.view,row.away,35,5,260,100);row.awayLogo=image();put(row.view,row.awayLogo,310,10,90,90);
             row.date=text("",7.5f,false);put(row.view,row.date,420,0,260,29);
             row.score=text("",12,true);row.score.setTextDirection(View.TEXT_DIRECTION_LTR);put(row.view,row.score,420,27,260,50);
             row.state=text("",7.5f,false);put(row.view,row.state,420,77,260,30);
@@ -176,6 +176,7 @@ final class MatchCenterDialog extends Dialog {
     private int y(float n){return Math.round(n*host.screenH/2160f);}
     private void put(FrameLayout parent,View child,float left,float top,float width,float height){FrameLayout.LayoutParams p=new FrameLayout.LayoutParams(x(width),y(height),Gravity.LEFT|Gravity.TOP);p.leftMargin=x(left);p.topMargin=y(top);parent.addView(child,p);}
     private void round(View v,float radius){v.setOutlineProvider(new ViewOutlineProvider(){@Override public void getOutline(View view,Outline out){out.setRoundRect(0,0,view.getWidth(),view.getHeight(),px(radius));}});v.setClipToOutline(true);}
+    private void fitTeam(TextView text){text.setSingleLine(false);text.setMaxLines(2);if(Build.VERSION.SDK_INT>=26)text.setAutoSizeTextTypeUniformWithConfiguration(Math.max(1,px(8)),px(12),Math.max(1,px(.5f)),android.util.TypedValue.COMPLEX_UNIT_PX);}
     private ImageView image(){ImageView v=new ImageView(host);v.setScaleType(ImageView.ScaleType.FIT_CENTER);v.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);return v;}
     private TextView text(String value,float size,boolean bold){TextView t=new TextView(host);t.setText(value);Ui.textSize(t,size);t.setTextColor(Color.WHITE);t.setGravity(Gravity.CENTER);t.setSingleLine(true);t.setIncludeFontPadding(false);t.setEllipsize(android.text.TextUtils.TruncateAt.END);if(bold)t.setTypeface(Typeface.DEFAULT,Typeface.BOLD);return t;}
     private TextView button(String value,float size,Runnable action){return button(value,size,true,action);}

@@ -28,6 +28,9 @@ public final class MatchCenterDataTest {
         check(MatchCenterData.clock(at("2026-11-04T09:00Z")).equals("12:00 م"));
         check(MatchCenterData.select(Collections.singletonList(late),selected,2,now,5).size()==1);
         check(MatchCenterData.select(Collections.singletonList(late),selected,0,now,5).isEmpty());
+        late.getJSONObject("fixture").put("statusCode","STATUS_CANCELED");
+        check(MatchCenterData.select(Collections.singletonList(late),selected,2,now,5).isEmpty());
+        late.getJSONObject("fixture").put("statusCode","STATUS_FULL_TIME");
         late.getJSONObject("fixture").put("state","in").put("completed",false);
         check(MatchCenterData.select(Collections.singletonList(late),selected,1,now,5).size()==1);
         check(late.getJSONObject("goals").getString("home").equals("0"));

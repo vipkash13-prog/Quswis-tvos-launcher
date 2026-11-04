@@ -40,7 +40,7 @@ final class MatchCenterData {
             Date when=FootballData.parseDate(f.optString("date"));if(when==null)continue;
             String state=f.optString("state"),code=f.optString("statusCode");
             boolean include=tab==LIVE?"in".equals(state):tab==RESULTS?
-                    "post".equals(state)&&f.optBoolean("completed")&&today.equals(day(when.getTime())):
+                    "post".equals(state)&&f.optBoolean("completed")&&!code.contains("CANCEL")&&!code.contains("POSTPON")&&today.equals(day(when.getTime())):
                     "pre".equals(state)&&when.getTime()>=now&&!code.contains("CANCEL");
             if(!include)continue;
             String id=f.optString("id");String key=id.isEmpty()?f.optString("leagueId")+"|"+when.getTime()+"|"+m.optJSONObject("teams"):id;
