@@ -31,7 +31,7 @@ public final class MatchCenterInstrumentation extends Instrumentation {
             progress("MATCH_UI_LAUNCHING");
             host=(MainActivity)startActivitySync(new Intent(app,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK));waitForIdleSync();SystemClock.sleep(400);
             View[] original={host.wallView,host.dockRow,host.footballShortcut,host.prayerCard};
-            runOnMainSync(()->{host.showFootballPanel();dialog=host.matchCenterDialog;});SystemClock.sleep(600);waitForIdleSync();check(dialog!=null&&dialog.isShowing(),"Dialog did not open");
+            runOnMainSync(()->{host.showFootballPanel();dialog=host.matchCenterDialog;check(original[0]==host.wallView&&original[1]==host.dockRow&&original[2]==host.footballShortcut&&original[3]==host.prayerCard,"Window opening replaced Home views");});SystemClock.sleep(600);waitForIdleSync();check(dialog!=null&&dialog.isShowing(),"Dialog did not open");
             progress("MATCH_UI_DISPLAY_"+host.screenW+"x"+host.screenH);
             cycle(KeyEvent.KEYCODE_DPAD_LEFT);cycle(KeyEvent.KEYCODE_DPAD_RIGHT);
             key(KeyEvent.KEYCODE_DPAD_LEFT);key(KeyEvent.KEYCODE_DPAD_CENTER);check(((Integer)field("tab"))==1,"Live tab did not activate");
@@ -54,7 +54,6 @@ public final class MatchCenterInstrumentation extends Instrumentation {
             check(Math.abs(bounds.width-host.screenW*.625)<8,"Window width differs from reference");
             check(Math.abs(bounds.height-host.screenH*1050.0/2160)<8,"Window height differs from reference");
             check(bounds.bottom<host.screenH*.78,"Window covers the bottom app dock area");
-            check(original[0]==host.wallView&&original[1]==host.dockRow&&original[2]==host.footballShortcut&&original[3]==host.prayerCard,"Home views were replaced");
             check(oldFootball.equals(FootballScores.selectedLeagues(app).toString()),"Existing football settings changed");
             check(selected.equals(new MatchCenterRepository(app).selected()),"League choices did not persist");
             Bitmap picture=getUiAutomation().takeScreenshot();check(picture!=null,"Screenshot unavailable");

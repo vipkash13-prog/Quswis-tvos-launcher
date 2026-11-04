@@ -58,7 +58,7 @@ final class MatchCenterDialog extends Dialog {
             final int index=i;FrameLayout choice=new FrameLayout(host);choice.setContentDescription(MatchCenterData.LEAGUES[i][1]);
             checks[i]=text("",11,true);checks[i].setTextColor(0xFF8FD7FF);put(choice,checks[i],518,9,45,45);
             leagueLogos[i]=image();put(choice,leagueLogos[i],447,6,52,52);
-            TextView label=text(MatchCenterData.LEAGUES[i][1],8.5f,true);label.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);put(choice,label,12,0,420,65);
+            TextView label=text(MatchCenterData.LEAGUES[i][1],10,true);if(Build.VERSION.SDK_INT>=26)label.setAutoSizeTextTypeUniformWithConfiguration(Math.max(1,px(8.5f)),px(10),Math.max(1,px(.5f)),android.util.TypedValue.COMPLEX_UNIT_PX);label.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);put(choice,label,12,0,420,65);
             focus(choice,()->toggleLeague(index));choices[i]=choice;put(leaguePanel,choice,20,80+i*73,580,65);
         }
         FrameLayout games=new FrameLayout(host);games.setBackground(skin(false,false,18));put(body,games,700,310,1640,690);
