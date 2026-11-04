@@ -29,17 +29,22 @@ public final class PrayerWindowInstrumentation extends Instrumentation {
         check(visited.size()==4,"All four shortcuts must be reachable, key="+key+" trace="+trace);
         check(focusedId()==first,"DPAD must wrap back to its start");
     }
+    private void progress(String stage){Bundle b=new Bundle();b.putString("stream",stage+"\n");sendStatus(1,b);}
     @Override public void onStart() {
         Bundle result=new Bundle();
         try {
             getTargetContext().getSharedPreferences("setup",0).edit().putBoolean("setup_done",true).commit();
             Profiles.homePrefs(getTargetContext()).edit().putBoolean("asked_default_home",true).commit();
             PrayerTimes.setEnabled(getTargetContext(),true);
-            Intent launch=new Intent(getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            progress("PRAYER_UI_LAUNCHING");
+            Intent launch=new Intent(getTargetContext(),MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             host=(MainActivity)startActivitySync(launch); waitForIdleSync();
             runOnMainSync(() -> { host.showPrayerPanel(); dialog=host.prayerGlassDialog; });
+            progress("PRAYER_UI_OPENED");
             SystemClock.sleep(600); waitForIdleSync();
             check(dialog!=null&&dialog.isShowing(),"Prayer window did not open");
+            check(host.screenW==1920||host.screenW==3840,"Unexpected display width: "+host.screenW);
+            progress("PRAYER_UI_DISPLAY_"+host.screenW+"x"+host.screenH);
             check(host.quranShortcut==null,"Duplicate Home Quran lens still exists");
             Bitmap preview=getUiAutomation().takeScreenshot();
             if(preview!=null) {
@@ -77,3 +82,4 @@ public final class PrayerWindowInstrumentation extends Instrumentation {
         }
     }
 }
+

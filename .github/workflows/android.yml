@@ -72,7 +72,7 @@ jobs:
         sudo chmod 666 /dev/kvm
 
     - name: Test remote navigation on Android 14 and capture window
-      timeout-minutes: 10
+      timeout-minutes: 14
       uses: reactivecircus/android-emulator-runner@v2
       with:
         api-level: 34
@@ -88,13 +88,20 @@ jobs:
           timeout 120 adb shell am instrument -w -r com.techgenius.tvoslauncher.windowtest/com.techgenius.tvoslauncher.PrayerWindowInstrumentation | tee /tmp/quswis-ui/result.txt
           adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/prayer-window-1080.png dist/prayer-window-1080.png
           grep -q PRAYER_UI_OK /tmp/quswis-ui/result.txt
+          adb shell am force-stop com.techgenius.tvoslauncher
+          adb shell wm size 3840x2160
+          timeout 150 adb shell am instrument -w -r com.techgenius.tvoslauncher.windowtest/com.techgenius.tvoslauncher.PrayerWindowInstrumentation | tee /tmp/quswis-ui/result-4k.txt
+          adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/prayer-window-1080.png dist/prayer-window-4k.png
+          grep -q PRAYER_UI_OK /tmp/quswis-ui/result-4k.txt
 
     - name: Upload native window screenshot
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: Prayer-window-Android-14
-        path: dist/prayer-window-1080.png
+        name: Prayer-window-Android-14-1080p-4K
+        path: |
+          dist/prayer-window-1080.png
+          dist/prayer-window-4k.png
         if-no-files-found: error
 
     - name: Upload APK artifact
@@ -125,12 +132,12 @@ jobs:
       if: github.ref == 'refs/heads/feature/prayer-glass-window'
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: prayer-glass-1.0.205-r3
+        tag_name: prayer-glass-reference-4k-r4
         target_commitish: ${{ github.sha }}
-        name: Prayer glass window - remote and reference design fixes
+        name: Islamic Services - supplied reference design - 4K
         body: |
-          تحسين التنقل بالريموت يمينًا ويسارًا بين الاختصارات الأربعة.
-          تصميم النافذة بخلفية الحرم وأيقونات ومقاسات أقرب للصورة المرجعية.
+          إعادة تنفيذ نافذة الخدمات الإسلامية من حزمة التصميم المرجعي المرفقة.
+          خلفية الحرم والمسجد وأيقونات مستقلة مع نصوص ومواقيت حية، والتحقق على 1080p و4K.
           إزالة عدسة القرآن من الرئيسية مع إبقاء القرآن والإذاعات داخل الخدمات الإسلامية.
           النسخة المستقرة محفوظة في backup/stable-1.0.205 وإصدار approved-v1.0.217.
           توقيع تطوير؛ قد لا يمكن تثبيته فوق نسخة موقعة بمفتاح مختلف.
@@ -139,6 +146,8 @@ jobs:
         files: |
           dist/Quswis-tvOS-Launcher.apk
           dist/prayer-window-1080.png
+          dist/prayer-window-4k.png
         fail_on_unmatched_files: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
