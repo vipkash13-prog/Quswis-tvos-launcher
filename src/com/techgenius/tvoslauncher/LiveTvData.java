@@ -24,7 +24,7 @@ final class LiveTvData {
  }
  static final class Playlist {final List<Channel> channels=new ArrayList<>();String epg="";}
  static String web(String raw){if(raw==null)return "";try{URI u=new URI(raw.trim());if((!"https".equalsIgnoreCase(u.getScheme())&&!"http".equalsIgnoreCase(u.getScheme()))||u.getHost()==null||u.getUserInfo()!=null)return "";return u.toASCIIString();}catch(Exception e){return "";}}
- static boolean allowed(String name,String raw){String n=normalize(name);if(n.matches(".*(?:bein|بيانسبورت|بينسبورت|osn|اواس ان|sscpremium|sscsports|skysport|bt sport|tntsports|dazn|adult|xxx|18\\+).*"))return false;
+ static boolean allowed(String name,String raw){String n=normalize(name);if(n.matches(".*(?:bein|بيانسبورت|بينسبورت|osn|اواس ان|sscpremium|sscsports|ssc sports|premium|اشتراك|مشفر|skysport|bt sport|tntsports|dazn|adult|xxx|18\\+).*"))return false;
   String url=web(raw);if(url.isEmpty())return false;try{URI u=new URI(url);String h=u.getHost().toLowerCase(Locale.ROOT);if(h.matches("[0-9.]+")||h.contains(":")||h.equals("localhost")||h.endsWith(".local")||h.equals("freem3u.xyz"))return false;String q=u.getRawQuery();return q==null||!q.toLowerCase(Locale.ROOT).matches(".*(?:username|password|drm|license_key)=.*");}catch(Exception e){return false;}}
  static boolean hasArabic(String languages){return Arrays.asList(languages.toLowerCase(Locale.ROOT).split("[,;\\s]+")).stream().anyMatch(x->x.equals("ar")||x.equals("ara")||x.startsWith("ar-"));}
  static String normalize(String s){return s==null?"":s.toLowerCase(Locale.ROOT).replaceAll("[\\u064B-\\u065F\\u0670ـ]","").replaceAll("[أإآ]","ا").replace('ى','ي').replaceAll("\\s+"," ").trim();}

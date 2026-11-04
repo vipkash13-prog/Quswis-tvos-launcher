@@ -13,7 +13,7 @@ final class LiveTvDialog extends Dialog {
  int section,position,loadTicket,searchTicket,epgTicket;boolean favoritesOnly,full,closing,controlsVisible=true;private int videoWidth=16,videoHeight=9;
  private View beforeFull,beforePanel;private FrameLayout panel;private Runnable panelBack;private Future<?> request,guideRequest,searchRequest;private EditText searchInput;
  private final Runnable hideControls=()->{if(full){controls.setVisibility(View.INVISIBLE);channelTitle.setVisibility(View.INVISIBLE);controlsVisible=false;texture.requestFocus();}};
- private final Runnable daily=new Runnable(){public void run(){if(!closing){load(false);ui.postDelayed(this,60000);}}};
+ private final Runnable daily=new Runnable(){public void run(){if(!closing){if(snapshot==null||snapshot.updated==0||System.currentTimeMillis()-snapshot.updated>=LiveTvData.DAY)load(false);ui.postDelayed(this,60000);}}};
  static void open(MainActivity host,View anchor){if(host.isFinishing()||host.liveTvDialog!=null)return;new LiveTvDialog(host,anchor).show();}
  private LiveTvDialog(MainActivity activity,View returnTo){
   super(activity);host=activity;anchor=returnTo;repository=new LiveTvRepository(host);section=repository.section();requestWindowFeature(Window.FEATURE_NO_TITLE);setCancelable(false);
@@ -81,7 +81,7 @@ final class LiveTvDialog extends Dialog {
  private void showKeyboard(EditText edit){ui.postDelayed(()->{if(!closing&&edit.isAttachedToWindow())((InputMethodManager)host.getSystemService(Context.INPUT_METHOD_SERVICE)).showSoftInput(edit,InputMethodManager.SHOW_IMPLICIT);},150);}
  private void hideKeyboard(View view){((InputMethodManager)host.getSystemService(Context.INPUT_METHOD_SERVICE)).hideSoftInputFromWindow(view.getWindowToken(),0);}
  @Override public boolean dispatchKeyEvent(KeyEvent e){int k=e.getKeyCode();if(k==KeyEvent.KEYCODE_BACK){if(e.getAction()==KeyEvent.ACTION_UP){if(panel!=null)closePanel();else if(full)setFull(false);else dismiss();}return true;}if(closing)return true;
-  if(e.getAction()==KeyEvent.ACTION_DOWN&&(k==KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE||k==KeyEvent.KEYCODE_MEDIA_PLAY||k==KeyEvent.KEYCODE_MEDIA_PAUSE)){if(k==KeyEvent.KEYCODE_MEDIA_PLAY)engine.player.play();else if(k==KeyEvent.KEYCODE_MEDIA_PAUSE)engine.player.pause();else engine.toggle();showControls();return true;}
+  if(k==KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE||k==KeyEvent.KEYCODE_MEDIA_PLAY||k==KeyEvent.KEYCODE_MEDIA_PAUSE){if(e.getAction()==KeyEvent.ACTION_DOWN){if(k==KeyEvent.KEYCODE_MEDIA_PLAY)engine.player.play();else if(k==KeyEvent.KEYCODE_MEDIA_PAUSE)engine.player.pause();else engine.toggle();showControls();}return true;}
   if(panel!=null)return super.dispatchKeyEvent(e);
   boolean direction=k==KeyEvent.KEYCODE_DPAD_LEFT||k==KeyEvent.KEYCODE_DPAD_RIGHT||k==KeyEvent.KEYCODE_DPAD_UP||k==KeyEvent.KEYCODE_DPAD_DOWN;View focus=getCurrentFocus();
   if(full){if(e.getAction()==KeyEvent.ACTION_DOWN&&(direction||k==KeyEvent.KEYCODE_DPAD_CENTER)){if(!controlsVisible||focus==texture){showControls();play.requestFocus();return true;}showControls();if(direction){View[] actions={play,favorite,source,fullscreen};int index=index(actions,focus);actions[Math.floorMod(index+(k==KeyEvent.KEYCODE_DPAD_LEFT?-1:1),actions.length)].requestFocus();return true;}}return super.dispatchKeyEvent(e);}

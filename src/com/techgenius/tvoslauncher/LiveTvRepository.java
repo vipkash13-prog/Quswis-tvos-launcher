@@ -6,6 +6,7 @@ import org.json.*;import java.io.*;import java.net.*;import java.util.*;import j
 /** Daily, atomic on-disk source snapshots. A bad response never destroys a successful catalogue. */
 final class LiveTvRepository {
  static final ExecutorService WORK=Executors.newFixedThreadPool(2);private static final Handler MAIN=new Handler(Looper.getMainLooper());
+ private static final ConcurrentHashMap<String,Object> FILE_LOCKS=new ConcurrentHashMap<>();
  private static final Object META_LOCK=new Object();private static Map<String,LiveTvData.Meta> metadata;private static Map<String,String> languages;
  private final Context app;private final File directory;final SharedPreferences prefs;
  static final class Snapshot {final List<LiveTvData.Channel> channels=new ArrayList<>(),candidates=new ArrayList<>();long updated;boolean cached,failed;String epg="",message="";int section;}
@@ -30,7 +31,8 @@ final class LiveTvRepository {
    metadata=m;languages=l;
   }}
  private static String strings(JsonReader r)throws IOException{StringBuilder s=new StringBuilder();r.beginArray();while(r.hasNext()){if(s.length()>0)s.append(';');s.append(r.nextString());}r.endArray();return s.toString();}
- private boolean fetch(String url,File file,int limit,boolean force){long age=System.currentTimeMillis()-file.lastModified();if(file.exists()&&age<(force?60000:LiveTvData.DAY))return true;File temp=new File(file.getPath()+".tmp");HttpURLConnection c=null;try{
+ private boolean fetch(String url,File file,int limit,boolean force){synchronized(FILE_LOCKS.computeIfAbsent(file.getAbsolutePath(),key->new Object())){return fetchLocked(url,file,limit,force);}}
+ private boolean fetchLocked(String url,File file,int limit,boolean force){long age=System.currentTimeMillis()-file.lastModified();if(file.exists()&&age<(force?60000:LiveTvData.DAY))return true;File temp=new File(file.getPath()+".tmp");HttpURLConnection c=null;try{
    if(Thread.currentThread().isInterrupted())return false;c=(HttpURLConnection)new URL(url).openConnection();c.setConnectTimeout(6000);c.setReadTimeout(9000);c.setRequestProperty("User-Agent","Quswis-LiveTV/1.0");if(c.getResponseCode()!=200)throw new IOException("HTTP "+c.getResponseCode());int total=0;try(InputStream in=c.getInputStream();FileOutputStream out=new FileOutputStream(temp)){byte[] b=new byte[16384];int n;while((n=in.read(b))!=-1){if(Thread.currentThread().isInterrupted())throw new InterruptedIOException();total+=n;if(total>limit)throw new IOException("Source exceeds limit");out.write(b,0,n);}out.getFD().sync();}
    // Validate before replacing the last successful source.
    if(url.endsWith(".m3u"))LiveTvData.parse(readText(temp,limit));else try(JsonReader r=new JsonReader(new FileReader(temp))){r.beginArray();while(r.hasNext())r.skipValue();r.endArray();}
