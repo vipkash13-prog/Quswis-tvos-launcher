@@ -12,6 +12,7 @@ final class AudioRegressions {
     void await(String name,long timeout,Check test){long end=SystemClock.elapsedRealtime()+timeout;boolean[] yes={false};while(!yes[0]&&SystemClock.elapsedRealtime()<end){t.main(()->yes[0]=test.ok());if(!yes[0])SystemClock.sleep(100);}t.check(yes[0],name);t.status("AUDIO_CHECK "+name);}
     Object field(Object o,String key)throws Exception{Field f=o.getClass().getDeclaredField(key);f.setAccessible(true);return f.get(o);}
     ExoPlayer radio(){try{Field f=QuranRadio.class.getDeclaredField("player");f.setAccessible(true);return(ExoPlayer)f.get(null);}catch(Exception e){throw new RuntimeException(e);}}
+    PlaybackAudio radioFocus(){try{Field f=QuranRadio.class.getDeclaredField("audioFocus");f.setAccessible(true);return(PlaybackAudio)f.get(null);}catch(Exception e){throw new RuntimeException(e);}}
     void playing(ExoPlayer player,String label)throws Exception{
         AtomicBoolean advancing=new AtomicBoolean();t.main(()->player.addAnalyticsListener(new AnalyticsListener(){@Override public void onAudioPositionAdvancing(EventTime event,long start){advancing.set(true);}}));
         await(label+" real audio format + playback",45000,()->player.isPlaying()&&player.getAudioFormat()!=null&&player.getCurrentPosition()>800&&player.getVolume()==1f);
@@ -22,9 +23,14 @@ final class AudioRegressions {
     void live(LiveTvDialog dialog,LiveTvData.Channel c)throws Exception{t.main(()->dialog.play(c,0));await("actual video "+c.id,45000,()->dialog.engine.rendered);playing(dialog.engine.player,c.id);}
     void probe(Check stopped,Check restored)throws Exception{
         Intent intent=new Intent().setComponent(new ComponentName(t.getContext().getPackageName(),FocusProbeService.class.getName()));
-        home.startForegroundService(intent);
-        await("separate-UID transient notification focus pauses owner",15000,stopped);
-        home.stopService(intent);
+        boolean[] granted={false},released={false};
+        intent.putExtra("reply",new ResultReceiver(new Handler(Looper.getMainLooper())){@Override protected void onReceiveResult(int code,Bundle data){if(code==AudioManager.AUDIOFOCUS_REQUEST_GRANTED)granted[0]=true;if(code==99)released[0]=true;}});
+        t.main(()->home.startForegroundService(intent));
+        try{
+            await("separate-UID service confirms foreground + granted focus",15000,()->granted[0]);
+            await("separate-UID transient notification focus pauses owner",15000,stopped);
+        }finally{t.main(()->home.stopService(intent));}
+        await("separate-UID service confirms focus released",15000,()->released[0]);
         await("focus gain restores owner at unity",15000,restored);
     }
     void startAdhan(){t.main(()->home.startForegroundService(new Intent(home,AdhanPlaybackService.class)));await("actual adhan owns transient priority",15000,PlaybackAudio::adhanRunning);}
@@ -38,7 +44,7 @@ final class AudioRegressions {
         LiveTvData.Channel nhk=channel("NHKWorldJapan.jp","NHK World Japan","https://masterpl.hls.nhkworld.jp/hls/w/live/smarttv.m3u8");live(dialog,nhk);
         probe(()->!dialog.engine.player.isPlaying()&&dialog.engine.audioFocus.interrupted(),()->dialog.engine.player.isPlaying()&&dialog.engine.player.getVolume()==1f&&dialog.engine.audioFocus.focused());
         t.main(()->QuranRadio.play(home));await("radio prepares",15000,()->radio()!=null);ExoPlayer radio=radio();playing(radio,"Quran Cairo");t.main(()->t.check(!dialog.engine.player.isPlaying()&&!dialog.engine.audioFocus.wantsPlay(),"Live and radio overlap"));
-        probe(()->!radio.isPlaying(),()->radio.isPlaying()&&radio.getVolume()==1f);
+        probe(()->!radio.isPlaying()&&radioFocus().interrupted(),()->radio.isPlaying()&&radio.getVolume()==1f&&radioFocus().focused());
         int index=AdhanRecording.index(home);t.main(()->PrayerTimes.prefs(home).edit().putInt("adhan_recording",0).apply());startAdhan();await("radio paused for real adhan",10000,()->!radio.isPlaying());
         // Wait for the entire shipped 246-second recording; no seek, fake completion or shortened asset.
         await("natural full adhan completion resumes radio",300000,()->!PlaybackAudio.adhanRunning()&&radio.isPlaying()&&radio.getVolume()==1f&&PrayerTimes.prefs(home).getString("last_alarm_status","").contains("اكتمل الأذان"));

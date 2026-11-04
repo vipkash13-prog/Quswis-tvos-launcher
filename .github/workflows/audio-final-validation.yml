@@ -1,0 +1,110 @@
+name: Audio 206 Final Native Validation
+on:
+  push:
+    branches: ["fix/audio-focus-performance-206"]
+    paths: [".github/workflows/audio-final-validation.yml", "tests/live-tv-android/AudioRegressions.java", "tests/live-tv-android/FocusProbeService.java"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Verify unchanged measured production implementation and build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git diff --exit-code f22dbc7edac375914a2a8a8db6cc1fe03cbe5aaf HEAD -- src assets res AndroidManifest.xml live-tv-build/build.gradle build.sh
+          sha256sum --quiet -c tests/audio-perf-protected.sha256
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
+          gradle -p live-tv-build --no-daemon assembleDebug assembleDebugAndroidTest
+          mkdir -p dist
+          cp live-tv-build/build/outputs/apk/debug/*.apk dist/Quswis-tvOS-Launcher.apk
+          cp live-tv-build/build/outputs/apk/androidTest/debug/*.apk /tmp/final-test.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs dist/Quswis-tvOS-Launcher.apk > dist/apk-certificate.txt
+          python3 tests/verify-live-manifest.py
+          gh release download audio-performance-v1.0.206-8 --repo "$GITHUB_REPOSITORY" --dir dist --pattern 'profile-*.json' --pattern performance-comparison.md
+          printf '\nMeasured production source: f22dbc7edac375914a2a8a8db6cc1fe03cbe5aaf, Actions run 41911139115 attempt 2. The final validation commit changes test/workflow files only; git diff verifies identical delivered application code/assets/build configuration. Focus service handshake and explicit resolution assertions are independently rechecked in this workflow.\n' >> dist/performance-comparison.md
+          sudo chmod 666 /dev/kvm
+      - name: Real audio, acknowledged cross-UID focus, natural adhan, full 1080p and 4K remote checks
+        timeout-minutes: 35
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: tv_1080p
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -no-boot-anim -camera-back none -camera-front none
+          script: |
+            adb shell settings put global window_animation_scale 1
+            adb shell settings put global transition_animation_scale 1
+            adb shell settings put global animator_duration_scale 1
+            adb shell wm size 1920x1080
+            adb install -r dist/Quswis-tvOS-Launcher.apk
+            adb install -r -t /tmp/final-test.apk
+            adb logcat -c
+            timeout 750 adb shell am instrument -w -r -e profile true -e audio true -e expected_size 1920x1080 com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/audio-regression.log
+            adb logcat -d > dist/audio-final-logcat.txt
+            grep -q AUDIO_REGRESSIONS_OK dist/audio-regression.log
+            adb shell am force-stop com.techgenius.tvoslauncher
+            adb shell wm size 1920x1080
+            timeout 850 adb shell am instrument -w -r -e repairs true -e expected_size 1920x1080 com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/full-regression-1080.log
+            adb logcat -d > dist/native-1080-logcat.txt
+            grep -q 'LIVE_TV_UI_OK: 1920x1080' dist/full-regression-1080.log
+            adb shell am force-stop com.techgenius.tvoslauncher
+            adb shell wm size 3840x2160
+            timeout 850 adb shell am instrument -w -r -e repairs true -e persisted true -e expected_size 3840x2160 com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/full-regression-4k.log
+            adb logcat -d > dist/native-final-logcat.txt
+            grep -q 'LIVE_TV_UI_OK: 3840x2160' dist/full-regression-4k.log
+            adb logcat -b crash -d > dist/native-crashes.txt
+            adb shell dumpsys audio > dist/audio-routing.txt
+            adb shell dumpsys meminfo com.techgenius.tvoslauncher > dist/final-memory.txt
+      - name: Reject launcher and test-helper crashes or ANRs
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          logs='\n'.join(p.read_text() for p in Path('dist').glob('*-logcat.txt'))+'\n'+Path('dist/native-crashes.txt').read_text()
+          crashes=re.findall(r'FATAL EXCEPTION[^\n]*\n[^\n]*Process: com\.techgenius\.tvoslauncher[^\n]*',logs)
+          anrs=re.findall(r'ANR in com\.techgenius\.tvoslauncher[^\n]*',logs)
+          assert not crashes+anrs, '\n'.join(crashes+anrs)
+          print('No launcher or separate test-service fatal exception/ANR in final logcat.')
+          Path('dist/VALIDATION_206.md').write_text('Version 1.0.206 / 206. Production implementation identical to measured commit f22dbc7edac375914a2a8a8db6cc1fe03cbe5aaf (verified by git diff). Real three-channel TV audio, Cairo Quran, separate-UID focus grant/release handshake, natural full 246-second adhan restoration, mutual exclusion, user pause and closure passed. Full remote/source/search/favorite/fullscreen/Back checks independently assert 1920x1080 and 3840x2160. Final logcat has no launcher or test-helper crash/ANR. Performance profiles are the actual before/after measurements from Actions 41911139115 attempt 2; all rows, including regressions, retained. These are emulator results, not physical MECOOL loudness or HDMI measurements. Development signing may differ from the installed APK. No main merge; automatic updates frozen.\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Final-audio-206-evidence-${{ github.run_attempt }}
+          path: dist/*
+      - name: Publish verified preview and direct APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: audio-performance-v1.0.206-verified-${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: Quswis 1.0.206 verified audio and performance preview
+          prerelease: true
+          make_latest: false
+          fail_on_unmatched_files: true
+          body_path: dist/VALIDATION_206.md
+          files: |
+            dist/Quswis-tvOS-Launcher.apk
+            dist/VALIDATION_206.md
+            dist/performance-comparison.md
+            dist/profile-*.json
+            dist/audio-regression.log
+            dist/apk-certificate.txt
+            AUDIO_PERFORMANCE.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

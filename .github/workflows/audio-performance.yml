@@ -2,6 +2,7 @@ name: Audio Focus and Measured Performance 206
 on:
   push:
     branches: ["fix/audio-focus-performance-206"]
+    paths: ["src/**", "assets/**", "res/**", "live-tv-build/**"]
   workflow_dispatch:
 permissions:
   contents: write
@@ -136,6 +137,7 @@ jobs:
             adb shell am force-stop com.techgenius.tvoslauncher
             adb shell svc wifi enable
             adb shell svc data enable
+            adb shell wm size 1920x1080
             if [ "$release_ready" = "true" ]; then adb shell am force-stop com.techgenius.tvoslauncher; timeout 850 adb shell am instrument -w -r -e repairs true com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/full-regression-1080.log; fi
             if [ "$release_ready" = "true" ]; then grep -q LIVE_TV_UI_OK dist/full-regression-1080.log; fi
             if [ "$release_ready" = "true" ]; then adb shell am force-stop com.techgenius.tvoslauncher; adb shell wm size 3840x2160; timeout 850 adb shell am instrument -w -r -e repairs true -e persisted true com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/full-regression-4k.log; fi
