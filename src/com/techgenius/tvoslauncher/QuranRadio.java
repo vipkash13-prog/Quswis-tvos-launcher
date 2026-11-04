@@ -189,7 +189,10 @@ final class QuranRadio {
                 @Override public void onPlayerError(PlaybackException error){if(player!=mp)return;android.util.Log.w("QuswisAudio","Radio source error "+error.errorCode,error);stop();Toast.makeText(c,"تعذّر تشغيل الإذاعة. جرّب محطة أخرى من الإعدادات.",Toast.LENGTH_LONG).show();}
             });
             notifyState(LOADING);
-            mp.setMediaItem(MediaItem.fromUri(station[1]));mp.prepare();
+            // Radiojar redirects the saved HTTPS entry to an HTTP audio/mpeg edge.
+            // Preserve the chosen station URL and follow its public stream redirect.
+            androidx.media3.datasource.DefaultHttpDataSource.Factory http=new androidx.media3.datasource.DefaultHttpDataSource.Factory().setUserAgent("Quswis Quran Radio").setConnectTimeoutMs(10000).setReadTimeoutMs(15000).setAllowCrossProtocolRedirects(true);
+            mp.setMediaSource(new androidx.media3.exoplayer.source.DefaultMediaSourceFactory(http).createMediaSource(MediaItem.fromUri(station[1])));mp.prepare();
             if(audioFocus.playIntent())mp.play();
         } catch (Exception error) {
             stop();Toast.makeText(c,"تعذّر تشغيل الإذاعة.",Toast.LENGTH_LONG).show();

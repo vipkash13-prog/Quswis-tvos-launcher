@@ -486,6 +486,7 @@ public final class Scenes {
         private final class SceneNode {
             final android.graphics.RenderNode node = new android.graphics.RenderNode("Quswis scene cache");
             long revision=-1;int width,height;
+            SceneNode(){node.setUseCompositingLayer(true,null);}
             void paint(Canvas canvas,LoadedScene scene,int w,int h){
                 if(scene!=null&&(revision!=frameRevision||width!=w||height!=h||!node.hasDisplayList())){
                     node.setPosition(0,0,w,h);Canvas recording=node.beginRecording(w,h);
