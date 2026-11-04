@@ -17,25 +17,35 @@ import java.lang.ref.WeakReference;
 /** Actual feed image URLs only. Separate bounded photo caches; late responses cannot swap stories. */
 final class GlobalNewsImages {
     private static final long MAX_DISK=64*1024*1024L, MAX_AGE=7*86400000L;
-    private static final ExecutorService WORK=Executors.newFixedThreadPool(2);
+    // Recent visible requests go first; old hero requests must never block the current story.
+    private static final ThreadPoolExecutor WORK=new ThreadPoolExecutor(2,2,0L,TimeUnit.MILLISECONDS,
+            new LinkedBlockingDeque<Runnable>(){@Override public boolean offer(Runnable task){return offerFirst(task);}});
     private static final Handler MAIN=new Handler(Looper.getMainLooper());
     private static final LruCache<String,Bitmap> MEMORY=new LruCache<String,Bitmap>(16*1024*1024){
         @Override protected int sizeOf(String key,Bitmap value){return value.getByteCount();}
     };
     private static final Map<String,List<WeakReference<ImageView>>> PENDING=new HashMap<>();
+    private static final Map<String,Runnable> TASKS=new HashMap<>();
     static void load(Context context,ImageView view,String raw,int side){
         String url=GlobalNewsData.webUrl(raw);String key=url+"|"+side;
-        if(key.equals(view.getTag())&&view.getDrawable()!=null)return;
-        view.setTag(key);view.setImageDrawable(null);
+        if(key.equals(view.getTag())&&MEMORY.get(key)!=null&&view.getDrawable()!=null)return;
+        view.setTag(key);
+        Bitmap thumbnail=side>320?MEMORY.get(url+"|320"):null;
+        if(thumbnail!=null)view.setImageBitmap(thumbnail);else view.setImageDrawable(null);
         if(url.isEmpty())return;
         Bitmap hit=MEMORY.get(key);if(hit!=null){view.setImageBitmap(hit);return;}
         synchronized(PENDING){
             List<WeakReference<ImageView>> waiting=PENDING.get(key);
-            if(waiting!=null){waiting.add(new WeakReference<>(view));return;}
+            if(waiting!=null){waiting.add(new WeakReference<>(view));Runnable pending=TASKS.get(key);if(pending!=null&&WORK.remove(pending))WORK.execute(pending);return;}
             waiting=new ArrayList<>();waiting.add(new WeakReference<>(view));PENDING.put(key,waiting);
         }
-        Context app=context.getApplicationContext();WORK.execute(()->{
+        Context app=context.getApplicationContext();Runnable task=()->{
             Bitmap image=null;
+            synchronized(PENDING){
+                List<WeakReference<ImageView>> waiting=PENDING.get(key);boolean needed=false;
+                if(waiting!=null)for(WeakReference<ImageView> ref:waiting){ImageView target=ref.get();if(target!=null&&key.equals(target.getTag())){needed=true;break;}}
+                if(!needed){PENDING.remove(key);TASKS.remove(key);return;}
+            }
             try{
                 File directory=new File(app.getCacheDir(),"global-news-images");directory.mkdirs();
                 File cached=new File(directory,hash(key)+".png");
@@ -51,10 +61,12 @@ final class GlobalNewsImages {
             }catch(Exception ignored){}
             final Bitmap result=image;
             MAIN.post(()->{
-                List<WeakReference<ImageView>> waiting;synchronized(PENDING){waiting=PENDING.remove(key);}
+                List<WeakReference<ImageView>> waiting;synchronized(PENDING){waiting=PENDING.remove(key);TASKS.remove(key);}
                 if(waiting!=null&&result!=null)for(WeakReference<ImageView> ref:waiting){ImageView target=ref.get();if(target!=null&&target.isAttachedToWindow()&&key.equals(target.getTag()))target.setImageBitmap(result);}
             });
-        });
+        };
+        synchronized(PENDING){TASKS.put(key,task);}
+        WORK.execute(task);
     }
     private static String hash(String key)throws Exception{
         byte[] digest=MessageDigest.getInstance("SHA-256").digest(key.getBytes("UTF-8"));StringBuilder result=new StringBuilder();for(byte b:digest)result.append(String.format(Locale.US,"%02x",b&255));return result.toString();
