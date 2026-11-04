@@ -849,6 +849,10 @@ public final class Scenes {
                         cachedFrameRevision = frameRevision;
                     }
                     canvas.drawBitmap(cachedFrameBmp, 0, 0, null);
+                } else if (cachedFrameBmp != null && !cachedFrameBmp.isRecycled()) {
+                    // Keep the last complete scene visible during a settings-driven
+                    // background decode, just as during an automatic rotation.
+                    canvas.drawBitmap(cachedFrameBmp, 0, 0, null);
                 }
             }
         }
