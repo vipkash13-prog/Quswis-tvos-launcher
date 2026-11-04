@@ -1,0 +1,53 @@
+plugins { id 'com.android.application' version '8.7.3' }
+
+// Independent Media3 build: the original SDK-only build and all launcher components remain intact.
+def launcherRoot = file('..')
+def preparedManifest = layout.buildDirectory.file('generated/live/AndroidManifest.xml')
+tasks.register('prepareLiveManifest') {
+    inputs.file(new File(launcherRoot, 'AndroidManifest.xml'))
+    outputs.file(preparedManifest)
+    doLast {
+        def source = new File(launcherRoot, 'AndroidManifest.xml').getText('UTF-8')
+        // Namespace is identical. Public M3U sources also contain legacy, unencrypted HTTP broadcasts.
+        source = source.replace('package="com.techgenius.tvoslauncher"', '')
+        source = source.replace('<application\n', '<application android:usesCleartextTraffic="true"\n')
+        def target = preparedManifest.get().asFile
+        target.parentFile.mkdirs()
+        target.setText(source, 'UTF-8')
+    }
+}
+android {
+    namespace 'com.techgenius.tvoslauncher'
+    compileSdk 35
+    buildToolsVersion "35.0.0"
+    defaultConfig {
+        applicationId 'com.techgenius.tvoslauncher'
+        minSdk 24
+        targetSdk 34
+        versionCode 205
+        versionName '1.0.205'
+        testInstrumentationRunner 'com.techgenius.tvoslauncher.LiveTvInstrumentation'
+    }
+    sourceSets {
+        main {
+            manifest.srcFile preparedManifest
+            java.srcDirs = [new File(launcherRoot, 'src')]
+            res.srcDirs = [new File(launcherRoot, 'res')]
+            assets.srcDirs = [new File(launcherRoot, 'assets')]
+        }
+        androidTest {
+            java.srcDirs = ['../tests/live-tv-android']
+            manifest.srcFile '../tests/live-tv-test-manifest.xml'
+        }
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_11; targetCompatibility JavaVersion.VERSION_11 }
+    buildFeatures { buildConfig false }
+    lint { abortOnError false }
+    packaging { resources { excludes += ['META-INF/DEPENDENCIES', 'META-INF/LICENSE*', 'META-INF/NOTICE*'] } }
+}
+tasks.named('preBuild').configure { dependsOn 'prepareLiveManifest' }
+dependencies {
+    implementation 'androidx.media3:media3-exoplayer:1.5.1'
+    implementation 'androidx.media3:media3-exoplayer-hls:1.5.1'
+    implementation 'androidx.media3:media3-exoplayer-dash:1.5.1'
+}

@@ -527,6 +527,7 @@ public class MainActivity extends Activity {
         super.onPause();
         if (matchCenterDialog != null) matchCenterDialog.dispose();
         if (globalNewsDialog != null) globalNewsDialog.dispose();
+        if (liveTvDialog != null) liveTvDialog.dispose();
         QuranRadio.setListener(null);
         cancelGridScroll();
         resumed = false;
@@ -564,6 +565,7 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         if (matchCenterDialog != null) matchCenterDialog.dispose();
         if (globalNewsDialog != null) globalNewsDialog.dispose();
+        if (liveTvDialog != null) liveTvDialog.dispose();
         if (prayerGlassDialog != null) prayerGlassDialog.dispose();
         super.onDestroy();
         if (pkgReceiver != null) unregisterReceiver(pkgReceiver);
@@ -4589,7 +4591,7 @@ public class MainActivity extends Activity {
      */
     void enterIdle() {
         if (idle || !resumed || !heroShown || heroItems.isEmpty() || continueMode() || folderMode
-                || launchOverlay != null || pickerLayer != null || prayerGlassDialog != null || matchCenterDialog != null || globalNewsDialog != null || menuLayer != null || moveIndex >= 0) {
+                || launchOverlay != null || pickerLayer != null || prayerGlassDialog != null || matchCenterDialog != null || globalNewsDialog != null || liveTvDialog != null || menuLayer != null || moveIndex >= 0) {
             resetIdle();
             return;
         }
@@ -4866,6 +4868,7 @@ public class MainActivity extends Activity {
 
     MatchCenterDialog matchCenterDialog;
     GlobalNewsDialog globalNewsDialog;
+    LiveTvDialog liveTvDialog;
 
     void showFootballPanel() {
         stopSway(null);
@@ -4962,6 +4965,11 @@ public class MainActivity extends Activity {
 
     /** Opens the TV's live broadcast; falls back to the inputs list when the TV has no live-TV screen. */
     void openLiveBroadcast() {
+        stopSway(null);
+        LiveTvDialog.open(this, liveShortcut);
+    }
+
+    void openLegacyLiveBroadcast() {
         if (LiveStream.launch(this)) return;
         String name = LiveStream.appLabel(this, LiveStream.packageName(this));
         Toast.makeText(this, name == null ? "التطبيق المختار للبث المباشر غير مثبت. اختره من الإعدادات."
