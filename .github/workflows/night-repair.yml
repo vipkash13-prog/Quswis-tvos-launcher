@@ -67,7 +67,7 @@ jobs:
             for NAME in night-app-grid night-home-restored classic-unchanged night-uhd-wallpaper; do adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/$NAME.png dist/$NAME-1080.png; done
             grep -q LAUNCHER_REPAIRS_OK /tmp/live-tv-1080.txt
             adb logcat -d -t 500 > dist/live-tv-logcat-1080.txt
-            rg -n -A32 -B3 "FATAL EXCEPTION|Fatal signal" dist/live-tv-logcat-1080.txt || true
+            grep -nE -A32 -B3 "FATAL EXCEPTION|Fatal signal" dist/live-tv-logcat-1080.txt || true
             adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/live-tv-window.png dist/live-tv-1080.png
             adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/live-tv-fullscreen.png dist/live-tv-fullscreen-1080.png
             grep -q LIVE_TV_UI_OK /tmp/live-tv-1080.txt
@@ -77,7 +77,7 @@ jobs:
             for NAME in night-app-grid night-home-restored classic-unchanged night-uhd-wallpaper; do adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/$NAME.png dist/$NAME-4k.png; done
             grep -q LAUNCHER_REPAIRS_OK /tmp/live-tv-4k.txt
             adb logcat -d -t 500 > dist/live-tv-logcat-4k.txt
-            rg -n -A32 -B3 "FATAL EXCEPTION|Fatal signal" dist/live-tv-logcat-4k.txt || true
+            grep -nE -A32 -B3 "FATAL EXCEPTION|Fatal signal" dist/live-tv-logcat-4k.txt || true
             adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/live-tv-window.png dist/live-tv-4k.png
             adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/live-tv-fullscreen.png dist/live-tv-fullscreen-4k.png
             grep -q LIVE_TV_UI_OK /tmp/live-tv-4k.txt
