@@ -14,8 +14,8 @@ final class LiveTvPlayer {
   player=new ExoPlayer.Builder(context).setLoadControl(buffers).build();player.setVideoTextureView(video);player.setAudioAttributes(new AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(),false);player.setHandleAudioBecomingNoisy(true);player.setTrackSelectionParameters(player.getTrackSelectionParameters().buildUpon().setPreferredAudioLanguage("ar").build());
   player.setVolume(1.0f);
   audioFocus=new PlaybackAudio(context,android.media.AudioAttributes.CONTENT_TYPE_MOVIE,new PlaybackAudio.Client(){
-   public void pauseForFocus(){if(!released){cancelDeadline();player.pause();}}
-   public void resumeAtUnity(){if(!released){player.setVolume(1.0f);player.play();watchdog();}}
+   public void pauseForFocus(){if(!released){cancelDeadline();player.pause();if(PlaybackAudio.adhanRunning())player.stop();}}
+   public void resumeAtUnity(){if(!released){player.setVolume(1.0f);if(player.getPlaybackState()==Player.STATE_IDLE){rendered=false;player.seekToDefaultPosition();player.prepare();}player.play();watchdog();}}
    public void replaced(){if(!released){ticket++;cancelDeadline();player.pause();player.stop();rendered=false;listener.status("توقف البث عند الانتقال إلى مشغل صوت آخر");}}
   });
   player.addListener(new Player.Listener(){

@@ -178,8 +178,8 @@ final class QuranRadio {
             mp.setHandleAudioBecomingNoisy(true);
             mp.setVolume(1.0f);
             audioFocus = new PlaybackAudio(c, AudioAttributes.CONTENT_TYPE_SPEECH,new PlaybackAudio.Client(){
-                public void pauseForFocus(){if(player==mp)mp.pause();}
-                public void resumeAtUnity(){if(player==mp){mp.setVolume(1.0f);mp.play();}}
+                public void pauseForFocus(){if(player==mp){mp.pause();if(PlaybackAudio.adhanRunning())mp.stop();}}
+                public void resumeAtUnity(){if(player==mp){mp.setVolume(1.0f);if(mp.getPlaybackState()==Player.STATE_IDLE){mp.seekToDefaultPosition();mp.prepare();}mp.play();}}
                 public void replaced(){if(player==mp)stop();}
             });
             mp.addListener(new Player.Listener(){
