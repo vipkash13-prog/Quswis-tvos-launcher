@@ -83,6 +83,7 @@ jobs:
             adb shell wm size 1920x1080
             adb install -r dist/Quswis-tvOS-Launcher.apk
             adb install -r -t /tmp/candidate-test.apk
+            adb logcat -b all -c
             timeout 80 adb shell am instrument -w -r -e profile true -e smoke true com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/candidate-smoke.log
             adb logcat -d > dist/candidate-smoke-logcat.txt
             grep -nE -A28 -B3 "FATAL EXCEPTION|Fatal signal|ANR in" dist/candidate-smoke-logcat.txt || true
@@ -92,7 +93,7 @@ jobs:
             adb shell svc wifi enable
             adb shell svc data enable
             adb shell wm size 1920x1080
-            if [ "$release_ready" = "true" ]; then timeout 750 adb shell am instrument -w -r -e profile true -e audio true com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/audio-regression.log; fi
+            if [ "$release_ready" = "true" ]; then timeout 750 adb shell am instrument -w -r -e profile true -e audio true -e expected_size 1920x1080 com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/audio-regression.log; fi
             adb logcat -d > dist/audio-performance-logcat.txt
             adb shell dumpsys audio > dist/audio-routing.txt
             if [ "$release_ready" = "true" ]; then grep -q AUDIO_REGRESSIONS_OK dist/audio-regression.log; fi
@@ -138,12 +139,23 @@ jobs:
             adb shell svc wifi enable
             adb shell svc data enable
             adb shell wm size 1920x1080
-            if [ "$release_ready" = "true" ]; then adb shell am force-stop com.techgenius.tvoslauncher; timeout 850 adb shell am instrument -w -r -e repairs true com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/full-regression-1080.log; fi
+            if [ "$release_ready" = "true" ]; then adb shell am force-stop com.techgenius.tvoslauncher; timeout 850 adb shell am instrument -w -r -e repairs true -e expected_size 1920x1080 com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/full-regression-1080.log; fi
             if [ "$release_ready" = "true" ]; then grep -q LIVE_TV_UI_OK dist/full-regression-1080.log; fi
-            if [ "$release_ready" = "true" ]; then adb shell am force-stop com.techgenius.tvoslauncher; adb shell wm size 3840x2160; timeout 850 adb shell am instrument -w -r -e repairs true -e persisted true com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/full-regression-4k.log; fi
+            if [ "$release_ready" = "true" ]; then adb shell am force-stop com.techgenius.tvoslauncher; adb shell wm size 3840x2160; timeout 850 adb shell am instrument -w -r -e repairs true -e persisted true -e expected_size 3840x2160 com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/full-regression-4k.log; fi
             if [ "$release_ready" = "true" ]; then grep -q LIVE_TV_UI_OK dist/full-regression-4k.log; fi
             adb logcat -d > dist/final-logcat.txt
+            adb logcat -b crash -d > dist/crashes.txt
             adb shell dumpsys gfxinfo com.techgenius.tvoslauncher framestats > dist/final-gfxinfo.txt
+      - name: Reject launcher or test-helper crashes and ANRs
+        run: |
+          python3 - <<'PY'
+          import re
+          from pathlib import Path
+          logs='\n'.join(p.read_text() for p in Path('dist').glob('*-logcat.txt'))+'\n'+Path('dist/crashes.txt').read_text()
+          failures=re.findall(r'FATAL EXCEPTION[^\n]*\n[^\n]*Process: com\.techgenius\.tvoslauncher[^\n]*|ANR in com\.techgenius\.tvoslauncher[^\n]*',logs)
+          assert not failures, '\n'.join(failures)
+          print('No launcher or test-helper fatal exception/ANR.')
+          PY
       - name: Compare measured profiles
         run: python3 tests/compare-performance.py dist
       - uses: actions/upload-artifact@v4

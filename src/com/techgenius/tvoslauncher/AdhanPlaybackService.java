@@ -20,11 +20,26 @@ public final class AdhanPlaybackService extends Service {
  private PowerManager.WakeLock playbackWake;
  private AudioManager audio;
  private AudioFocusRequest focusRequest;
- private boolean hasFocus,finishing,destroyed,ownsMediaInterruption;
- private final AudioManager.OnAudioFocusChangeListener focusChange=change->{
-  // A call, another app or the user took focus: do not restart the film over it.
-  if(change<0){for(PausedSession session:paused)session.guard.invalidate();finish(false);}
- };
+ private boolean hasFocus,focusRequested,prepared,transientPause,finishing,destroyed,ownsMediaInterruption;
+ private final Runnable playbackWatchdog=()->finish(true);
+ private void armPlaybackWatchdog(){
+  handler.removeCallbacks(playbackWatchdog);
+  if(player!=null&&prepared&&hasFocus)try{handler.postDelayed(playbackWatchdog,Math.max(30000L,player.getDuration()-player.getCurrentPosition()+30000L));}catch(IllegalStateException e){finish(true);}
+ }
+ private void focusChanged(int change){
+  if(finishing||destroyed)return;
+  android.util.Log.i("Quswis-Adhan","focus change="+change+" paused="+transientPause);
+  if(change==AudioManager.AUDIOFOCUS_GAIN){
+   hasFocus=true;
+   if(transientPause&&prepared&&player!=null)try{player.setVolume(1f,1f);player.start();transientPause=false;armPlaybackWatchdog();PrayerTimes.prefs(this).edit().putString("last_alarm_status","استؤنف الأذان بعد المقاطعة الصوتية").apply();}catch(IllegalStateException e){finish(true);}
+  }else if(change==AudioManager.AUDIOFOCUS_LOSS_TRANSIENT||change==AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK){
+   hasFocus=false;handler.removeCallbacks(playbackWatchdog);
+   if(prepared&&player!=null)try{if(player.isPlaying())player.pause();transientPause=true;PrayerTimes.prefs(this).edit().putString("last_alarm_status","توقف الأذان مؤقتًا بسبب مقاطعة صوتية").apply();}catch(IllegalStateException e){finish(false);}
+  }else if(change==AudioManager.AUDIOFOCUS_LOSS){
+   hasFocus=false;for(PausedSession session:paused)session.guard.invalidate();finish(false);
+  }
+ }
+ private final AudioManager.OnAudioFocusChangeListener focusChange=this::focusChanged;
  @Override public IBinder onBind(Intent i){return null;}
  @Override public int onStartCommand(Intent intent,int flags,int id){
   if(intent!=null&&STOP.equals(intent.getAction())){finish(true);return START_NOT_STICKY;}
@@ -56,20 +71,21 @@ public final class AdhanPlaybackService extends Service {
    next.setOnPreparedListener(mp->{
     if(mp!=player||finishing)return;
     try{
+     prepared=true;
      capturePlayingSessions();
      PlaybackAudio.beginAdhan();ownsMediaInterruption=true;
      if(!requestFocus()){PrayerTimes.prefs(this).edit().putString("last_alarm_status","رفض النظام أولوية الصوت؛ لم يبدأ الأذان").apply();finish(false);return;}
      for(PausedSession session:paused)session.pause();
-     mp.start();
+     mp.setVolume(1f,1f);mp.start();
      PrayerTimes.prefs(this).edit().putString("last_alarm_status","بدأ تشغيل الأذان").putLong("last_playback_at",System.currentTimeMillis()).apply();
      // Only a stuck player uses this watchdog; normal completion comes from MediaPlayer.
-     handler.postDelayed(()->finish(true),Math.max(mp.getDuration()+30000L,60000L));
+     armPlaybackWatchdog();
     }catch(Exception e){android.util.Log.e("Quswis-Adhan","Playback failed",e);finish(true);}
    });
    next.setOnCompletionListener(mp->{PrayerTimes.prefs(this).edit().putString("last_alarm_status","اكتمل الأذان؛ استعادة الوسائط المؤهلة").apply();finish(true);});
    next.setOnErrorListener((mp,what,extra)->{PrayerTimes.prefs(this).edit().putString("last_alarm_status","خطأ تشغيل الأذان: "+what+"/"+extra).apply();finish(true);return true;});
    next.prepareAsync();
-   handler.postDelayed(()->{if(!hasFocus)finish(false);},30000L);
+   handler.postDelayed(()->{if(!prepared)finish(false);},30000L);
   }catch(Exception e){android.util.Log.e("Quswis-Adhan","Could not prepare adhan",e);finish(true);}
   return START_NOT_STICKY;
  }
@@ -81,7 +97,7 @@ public final class AdhanPlaybackService extends Service {
     .setAudioAttributes(attributes()).setWillPauseWhenDucked(true).setOnAudioFocusChangeListener(focusChange,handler).build();
    hasFocus=audio.requestAudioFocus(focusRequest)==AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
   }else hasFocus=audio.requestAudioFocus(focusChange,AudioManager.STREAM_ALARM,AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)==AudioManager.AUDIOFOCUS_REQUEST_GRANTED;
-  return hasFocus;
+  focusRequested=hasFocus;return hasFocus;
  }
  private void capturePlayingSessions(){
   if(!MediaWatchService.granted(this))return;
@@ -134,11 +150,12 @@ public final class AdhanPlaybackService extends Service {
  }
  private void releasePlayerAndFocus(boolean restore){
   if(player!=null){MediaPlayer old=player;player=null;old.release();}
-  if(audio!=null&&hasFocus){
-   hasFocus=false;
+  if(audio!=null&&focusRequested){
+   focusRequested=false;
    if(Build.VERSION.SDK_INT>=26&&focusRequest!=null)audio.abandonAudioFocusRequest(focusRequest);
    else audio.abandonAudioFocus(focusChange);
   }
+  hasFocus=false;transientPause=false;
   if(ownsMediaInterruption){ownsMediaInterruption=false;PlaybackAudio.endAdhan(restore);}
  }
  private void finish(boolean restore){

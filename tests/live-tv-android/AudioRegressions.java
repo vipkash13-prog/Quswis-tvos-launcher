@@ -21,7 +21,8 @@ final class AudioRegressions {
     }
     LiveTvData.Channel channel(String id,String name,String url){LiveTvData.Channel c=new LiveTvData.Channel();c.id=id;c.name=name;LiveTvData.Endpoint e=new LiveTvData.Endpoint();e.url=url;c.streams.add(e);return c;}
     void live(LiveTvDialog dialog,LiveTvData.Channel c)throws Exception{t.main(()->dialog.play(c,0));await("actual video "+c.id,45000,()->dialog.engine.rendered);playing(dialog.engine.player,c.id);}
-    void probe(Check stopped,Check restored)throws Exception{
+    void probe(Check stopped,Check restored)throws Exception{probe(stopped,restored,0);}
+    void probe(Check stopped,Check restored,long hold)throws Exception{
         Intent intent=new Intent().setComponent(new ComponentName(t.getContext().getPackageName(),FocusProbeService.class.getName()));
         boolean[] granted={false},released={false};
         intent.putExtra("reply",new ResultReceiver(new Handler(Looper.getMainLooper())){@Override protected void onReceiveResult(int code,Bundle data){if(code==AudioManager.AUDIOFOCUS_REQUEST_GRANTED)granted[0]=true;if(code==99)released[0]=true;}});
@@ -29,6 +30,7 @@ final class AudioRegressions {
         try{
             await("separate-UID service confirms foreground + granted focus",15000,()->granted[0]);
             await("separate-UID transient notification focus pauses owner",15000,stopped);
+            if(hold>0){SystemClock.sleep(hold);t.main(()->t.check(stopped.ok(),"Paused adhan lost while notification retains focus"));}
         }finally{t.main(()->home.stopService(intent));}
         await("separate-UID service confirms focus released",15000,()->released[0]);
         await("focus gain restores owner at unity",15000,restored);
@@ -46,6 +48,7 @@ final class AudioRegressions {
         t.main(()->QuranRadio.play(home));await("radio prepares",15000,()->radio()!=null);ExoPlayer radio=radio();playing(radio,"Quran Cairo");t.main(()->t.check(!dialog.engine.player.isPlaying()&&!dialog.engine.audioFocus.wantsPlay(),"Live and radio overlap"));
         probe(()->!radio.isPlaying()&&radioFocus().interrupted(),()->radio.isPlaying()&&radio.getVolume()==1f&&radioFocus().focused());
         int index=AdhanRecording.index(home);t.main(()->PrayerTimes.prefs(home).edit().putInt("adhan_recording",0).apply());startAdhan();await("radio paused for real adhan",10000,()->!radio.isPlaying());
+        probe(()->PlaybackAudio.adhanRunning()&&!radio.isPlaying()&&PrayerTimes.prefs(home).getString("last_alarm_status","").contains("توقف الأذان مؤقتًا"),()->PlaybackAudio.adhanRunning()&&!radio.isPlaying()&&PrayerTimes.prefs(home).getString("last_alarm_status","").contains("استؤنف الأذان"),35000);
         // Wait for the entire shipped 246-second recording; no seek, fake completion or shortened asset.
         await("natural full adhan completion resumes radio",300000,()->!PlaybackAudio.adhanRunning()&&radio.isPlaying()&&radio.getVolume()==1f&&PrayerTimes.prefs(home).getString("last_alarm_status","").contains("اكتمل الأذان"));
         t.main(()->PrayerTimes.prefs(home).edit().putInt("adhan_recording",index).apply());playing(radio,"Quran after complete adhan");
@@ -59,7 +62,7 @@ final class AudioRegressions {
         TextView countdown=(TextView)field(prayer,"next");String[] firstCountdown={""};t.main(()->firstCountdown[0]=countdown.getText().toString());SystemClock.sleep(1600);t.main(()->t.check(!firstCountdown[0].equals(countdown.getText().toString()),"Prayer countdown stopped updating"));
         t.main(()->{try{Method open=PrayerGlassDialog.class.getDeclaredMethod("openRadio");open.setAccessible(true);open.invoke(prayer);TextView station=text(prayer.getWindow().getDecorView(),QuranRadio.FALLBACK[0][0]);t.check(station!=null,"Radio station button absent");station.requestFocus();}catch(Exception e){throw new RuntimeException(e);}});t.key(KeyEvent.KEYCODE_DPAD_CENTER);await("remote OK starts Quran from prayer window",45000,()->radio()!=null&&radio().isPlaying());t.key(KeyEvent.KEYCODE_BACK);await("Back closes Quran player and releases audio",5000,()->radio()==null&&QuranRadio.state()==QuranRadio.IDLE);t.key(KeyEvent.KEYCODE_BACK);SystemClock.sleep(400);
         t.main(()->{t.check(manager.getStreamVolume(AudioManager.STREAM_MUSIC)==music,"System media volume was changed");t.check(manager.getStreamVolume(AudioManager.STREAM_ALARM)==alarm,"System alarm volume was changed");t.check(home.liveTvDialog==null&&QuranRadio.state()==QuranRadio.IDLE,"Audio/window remains after closing");});
-        t.status("AUDIO_TEST_SUMMARY three real TV channels, real Quran audio, external notification focus, full natural adhan, switching, user-pause guard, repeated close, unchanged system volume; no microphone or physical HDMI measurement");
+        t.status("AUDIO_TEST_SUMMARY three real TV channels, real Quran audio, external notification focus, 35-second notification pause inside full natural adhan, switching, user-pause guard, repeated close, unchanged system volume; no microphone or physical HDMI measurement");
     }
     static byte[] read(java.io.InputStream in)throws Exception{try(java.io.InputStream stream=in){java.io.ByteArrayOutputStream out=new java.io.ByteArrayOutputStream();byte[] data=new byte[4096];int n;while((n=stream.read(data))!=-1)out.write(data,0,n);return out.toByteArray();}}
     static void run(AudioPerfInstrumentation t,MainActivity home)throws Exception{new AudioRegressions(t,home).run();}
