@@ -17,6 +17,22 @@ import android.widget.TextView;
 public final class Ui {
     private Ui() { }
 
+    // Hot drawing/focus paths call px() many times. Display.getRealSize() crosses
+    // into the display service; query it once, not for every coordinate.
+    private static final java.util.WeakHashMap<Context, Scale> SCALES = new java.util.WeakHashMap<>();
+    private static final class Scale {
+        int width, height, density, orientation;
+        long checked;
+        float unit;
+    }
+    private static void remember(Context c, Point p) {
+        android.util.DisplayMetrics dm = c.getResources().getDisplayMetrics();
+        Scale s = new Scale(); s.width = dm.widthPixels; s.height = dm.heightPixels;
+        s.density = dm.densityDpi; s.orientation = c.getResources().getConfiguration().orientation;
+        s.unit = Math.min(p.x / 960f, p.y / 540f); s.checked = android.os.SystemClock.uptimeMillis();
+        synchronized (SCALES) { SCALES.put(c, s); }
+    }
+
     /** Display size in pixels for the window this context is shown on. */
     static Point screen(Context c) {
         Point p = new Point();
@@ -25,11 +41,19 @@ public final class Ui {
         if (d == null) d = wm.getDefaultDisplay();
         d.getRealSize(p);
         if (p.x < p.y) p.set(p.y, p.x);  // TVs are landscape; guard against a transient portrait report
+        remember(c, p);
         return p;
     }
 
     /** Pixels per design unit (1 unit = 1/960 of the screen width, capped by height for odd aspect ratios). */
     static float unit(Context c) {
+        android.util.DisplayMetrics dm = c.getResources().getDisplayMetrics();
+        synchronized (SCALES) {
+            Scale s = SCALES.get(c);
+            if (s != null && s.width == dm.widthPixels && s.height == dm.heightPixels
+                    && s.density == dm.densityDpi && s.orientation == c.getResources().getConfiguration().orientation
+                    && android.os.SystemClock.uptimeMillis() - s.checked < 1000L) return s.unit;
+        }
         Point p = screen(c);
         return Math.min(p.x / 960f, p.y / 540f);
     }

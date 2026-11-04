@@ -5,8 +5,8 @@ import android.app.*;import android.content.*;import android.os.*;import android
 /** Real catalogue + Media3 decoded-frame proof; no example channel is bundled in the app. */
 @androidx.media3.common.util.UnstableApi
 public final class LiveTvInstrumentation extends Instrumentation {
- private MainActivity host;private LiveTvDialog dialog;private boolean offline,persisted;private Bundle output=new Bundle();
- @Override public void onCreate(Bundle args){super.onCreate(args);offline=args!=null&&"true".equals(args.getString("offline"));persisted=args!=null&&"true".equals(args.getString("persisted"));start();}
+ private MainActivity host;private LiveTvDialog dialog;private boolean offline,persisted,repairs;private Bundle output=new Bundle();
+ @Override public void onCreate(Bundle args){super.onCreate(args);repairs=args!=null&&"true".equals(args.getString("repairs"));offline=args!=null&&"true".equals(args.getString("offline"));persisted=args!=null&&"true".equals(args.getString("persisted"));start();}
  private void check(boolean ok,String why){if(!ok)throw new AssertionError(why);}
  private void progress(String stage){Bundle b=new Bundle();b.putString("stream",stage+"\n");sendStatus(1,b);}
  private void mainCheck(Runnable r){Throwable[] e={null};runOnMainSync(()->{try{r.run();}catch(Throwable error){e[0]=error;}});if(e[0]!=null)throw new AssertionError(e[0]);}
@@ -24,6 +24,7 @@ public final class LiveTvInstrumentation extends Instrumentation {
   Context app=getTargetContext();epgParser(app);getUiAutomation();app.getSharedPreferences("setup",0).edit().putBoolean("setup_done",true).commit();Profiles.homePrefs(app).edit().putBoolean("asked_default_home",true).commit();LiveStream.setEnabled(app,true);WorldNews.setEnabled(app,true);FootballScores.setEnabled(app,true);PrayerTimes.setEnabled(app,true);
   String football=FootballScores.selectedLeagues(app).toString();String external=LiveStream.packageName(app);LiveTvRepository before=new LiveTvRepository(app);if(persisted){check(before.last()!=null,"Last channel lost across process restart");check(before.favorite(before.last()),"Favorite lost across process restart");}
   host=(MainActivity)startActivitySync(new Intent(app,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK));waitForIdleSync();SystemClock.sleep(1800);key(KeyEvent.KEYCODE_DPAD_RIGHT);runOnMainSync(()->host.liveShortcut.requestFocus());SystemClock.sleep(200);
+  if(repairs&&!offline)new LauncherRepairs(this,host,output).verify(persisted);
   int[][] original=new int[5][];runOnMainSync(()->{View[] views={host.wallView,host.dockRow,host.prayerCard,host.footballShortcut,host.newsShortcut};for(int i=0;i<views.length;i++)original[i]=bounds(views[i]);});key(KeyEvent.KEYCODE_DPAD_CENTER);runOnMainSync(()->dialog=host.liveTvDialog);SystemClock.sleep(500);check(dialog!=null&&dialog.isShowing(),"OK on original live lens did not open window");awaitLoad();progress("LIVE_TV_OPEN_"+host.screenW+"x"+host.screenH);
   mainCheck(()->{View[] views={host.wallView,host.dockRow,host.prayerCard,host.footballShortcut,host.newsShortcut};for(int i=0;i<views.length;i++)check(Arrays.equals(original[i],bounds(views[i])),"Home geometry changed: "+i);int[] b=bounds(dialog.surface);check(Math.abs(b[2]-host.screenW*.625)<8,"Wrong popup width");check(Math.abs(b[3]-host.screenH*1050.0/2160)<8,"Wrong popup height");check(b[1]+b[3]<host.screenH*.78,"Window covers bottom dock");unclipped(dialog.title,"Title");unclipped(dialog.footer,"Last update");});
   runOnMainSync(()->dialog.tabs[0].requestFocus());cycle(KeyEvent.KEYCODE_DPAD_LEFT);cycle(KeyEvent.KEYCODE_DPAD_RIGHT);

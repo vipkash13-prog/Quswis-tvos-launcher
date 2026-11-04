@@ -1,0 +1,98 @@
+{"provenance":"Original AI-generated landscape artwork. Generator source 1672x941; exported with Lanczos resampling as 3840x2160 WebP quality 90. These are UHD exports, not native 4K photographs.","artworks":[
+  {
+    "id": "night-lake",
+    "source_dimensions": [
+      1672,
+      941
+    ],
+    "export_dimensions": [
+      3840,
+      2160
+    ],
+    "bytes": 700584
+  },
+  {
+    "id": "night-coast",
+    "source_dimensions": [
+      1672,
+      941
+    ],
+    "export_dimensions": [
+      3840,
+      2160
+    ],
+    "bytes": 978006
+  },
+  {
+    "id": "classic-alpine",
+    "source_dimensions": [
+      1672,
+      941
+    ],
+    "export_dimensions": [
+      3840,
+      2160
+    ],
+    "bytes": 1033152
+  },
+  {
+    "id": "classic-coast",
+    "source_dimensions": [
+      1672,
+      941
+    ],
+    "export_dimensions": [
+      3840,
+      2160
+    ],
+    "bytes": 1054982
+  },
+  {
+    "id": "saudi-alula",
+    "source_dimensions": [
+      1672,
+      941
+    ],
+    "export_dimensions": [
+      3840,
+      2160
+    ],
+    "bytes": 777790
+  },
+  {
+    "id": "saudi-riyadh",
+    "source_dimensions": [
+      1672,
+      941
+    ],
+    "export_dimensions": [
+      3840,
+      2160
+    ],
+    "bytes": 643340
+  },
+  {
+    "id": "morocco-chefchaouen",
+    "source_dimensions": [
+      1672,
+      941
+    ],
+    "export_dimensions": [
+      3840,
+      2160
+    ],
+    "bytes": 1383932
+  },
+  {
+    "id": "morocco-atlas",
+    "source_dimensions": [
+      1672,
+      941
+    ],
+    "export_dimensions": [
+      3840,
+      2160
+    ],
+    "bytes": 1309736
+  }
+]}

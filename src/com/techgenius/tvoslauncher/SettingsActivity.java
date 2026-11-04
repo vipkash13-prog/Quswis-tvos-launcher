@@ -105,6 +105,7 @@ public class SettingsActivity extends Activity {
 
     private final List<Runnable> refreshers = new ArrayList<>();
     private final Map<String, Bitmap> sceneThumbCache = new HashMap<>();
+    private final java.util.concurrent.ExecutorService wallpaperIo = java.util.concurrent.Executors.newSingleThreadExecutor(r -> new Thread(r, "settings-wallpapers"));
     private final Map<String, View> sideRowViews = new HashMap<>();
     private final Map<String, ImageView> sideIcons = new HashMap<>();
     private final Map<String, GradientDrawable> sideIconBgs = new HashMap<>();
@@ -187,10 +188,10 @@ public class SettingsActivity extends Activity {
         // Blurred scene backdrop matching couch-tv's Home settings screen
         ImageView bgView = new ImageView(this);
         bgView.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        Bitmap blurredBg = buildSettingsBackdrop();
-        if (blurredBg != null) {
-            bgView.setImageDrawable(new BitmapDrawable(getResources(), blurredBg));
-        }
+        wallpaperIo.execute(() -> {
+            Bitmap blurredBg = buildSettingsBackdrop();
+            uiHandler.post(() -> { if (!isDestroyed() && blurredBg != null) bgView.setImageBitmap(blurredBg); });
+        });
         root.addView(bgView, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
@@ -2175,18 +2176,24 @@ public class SettingsActivity extends Activity {
 
     // ================================================================ Row Builders (.shead, .srow)
 
-    private Bitmap getSceneThumb(String assetPath, int reqW, int reqH) {
+    private void loadSceneThumb(ImageView target, String assetPath, int reqW, int reqH) {
         String key = assetPath + ":" + reqW + "x" + reqH;
+        target.setTag(key);
         Bitmap cached = sceneThumbCache.get(key);
-        if (cached != null) return cached;
-        Bitmap raw = Scenes.loadAssetBitmap(this, assetPath, reqW, reqH);
-        if (raw != null) {
+        if (cached != null) { target.setImageBitmap(cached); return; }
+        java.lang.ref.WeakReference<ImageView> ref = new java.lang.ref.WeakReference<>(target);
+        wallpaperIo.execute(() -> {
+            Bitmap raw = Scenes.loadAssetBitmap(this, assetPath, reqW, reqH);
+            if (raw == null) return;
             Bitmap scaled = Bitmap.createScaledBitmap(raw, reqW, reqH, true);
             if (scaled != raw) raw.recycle();
-            sceneThumbCache.put(key, scaled);
-            return scaled;
-        }
-        return null;
+            uiHandler.post(() -> {
+                if (isDestroyed()) { scaled.recycle(); return; }
+                sceneThumbCache.put(key, scaled);
+                ImageView view = ref.get();
+                if (view != null && key.equals(view.getTag())) view.setImageBitmap(scaled);
+            });
+        });
     }
 
     /** Sub-heading (.shead in couch-tv). */
@@ -2299,8 +2306,7 @@ public class SettingsActivity extends Activity {
         int tw = u(46), th = u(26);
         ImageView thumb = new ImageView(this);
         thumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        Bitmap tbmp = getSceneThumb(spec.bgAsset, tw * 2, th * 2);
-        if (tbmp != null) thumb.setImageBitmap(tbmp);
+        loadSceneThumb(thumb, spec.bgAsset, tw * 2, th * 2);
         final float trad = u(5.5f);
         thumb.setOutlineProvider(new ViewOutlineProvider() {
             @Override
@@ -2706,8 +2712,7 @@ public class SettingsActivity extends Activity {
         int tw = u(46), th = u(26);
         ImageView thumb = new ImageView(this);
         thumb.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        Bitmap tbmp = getSceneThumb(assetPath, tw * 2, th * 2);
-        if (tbmp != null) thumb.setImageBitmap(tbmp);
+        loadSceneThumb(thumb, assetPath, tw * 2, th * 2);
         final float trad = u(5.5f);
         thumb.setOutlineProvider(new ViewOutlineProvider() {
             @Override
@@ -3186,6 +3191,8 @@ public class SettingsActivity extends Activity {
     @Override
     protected void onDestroy() {
         uiHandler.removeCallbacks(rebuildTask);
+        wallpaperIo.shutdownNow();
+        sceneThumbCache.clear();
         ButtonMapper.captureListener = null;
         super.onDestroy();
     }

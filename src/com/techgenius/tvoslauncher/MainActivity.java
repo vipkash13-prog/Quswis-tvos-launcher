@@ -182,11 +182,18 @@ public class MainActivity extends Activity {
             handler.postDelayed(this, 60000L);
         }
     };
+    boolean nightAppsOpen() {
+        return Scenes.isScenesLook(this) && sceneHome != null && sceneHome.moreExpanded;
+    }
+    boolean shouldShowPrayer() {
+        return PrayerTimes.enabled(this) && !nightAppsOpen();
+    }
     boolean shouldShowFootball() {
-        return FootballScores.enabled(this) && !folderMode && (Scenes.isScenesLook(this) || sceneHome == null || !sceneHome.moreExpanded)
+        return !nightAppsOpen() && FootballScores.enabled(this) && !folderMode && (Scenes.isScenesLook(this) || sceneHome == null || !sceneHome.moreExpanded)
                 && (Scenes.isScenesLook(this) || scroll == null || scroll.getScrollY() < dp(65));
     }
     void syncFootballVisibility() {
+        if (Scenes.isScenesLook(this) && prayerCard != null) prayerCard.setVisibility(shouldShowPrayer() ? View.VISIBLE : View.GONE);
         if (footballCard != null) footballCard.setVisibility(pickerLayer != null && shouldShowFootball() ? View.VISIBLE : View.GONE);
         if (footballShortcut != null) footballShortcut.setVisibility(shouldShowFootball() ? View.VISIBLE : View.GONE);
         syncInfoPills();
@@ -194,7 +201,7 @@ public class MainActivity extends Activity {
 
     /** The world-news and live-broadcast shortcuts follow the same home-shelf visibility as the football one. */
     boolean shouldShowInfoPills() {
-        return !folderMode && (Scenes.isScenesLook(this) || sceneHome == null || !sceneHome.moreExpanded)
+        return !nightAppsOpen() && !folderMode && (Scenes.isScenesLook(this) || sceneHome == null || !sceneHome.moreExpanded)
                 && (Scenes.isScenesLook(this) || scroll == null || scroll.getScrollY() < dp(65));
     }
     void syncInfoPills() {
@@ -493,7 +500,7 @@ public class MainActivity extends Activity {
         }
         updateWeather();
         layoutInfoShortcuts();
-        if (prayerCard != null) prayerCard.setVisibility(PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
+        if (prayerCard != null) prayerCard.setVisibility(shouldShowPrayer() ? View.VISIBLE : View.GONE);
         if (footballShortcut != null) footballShortcut.setVisibility(shouldShowFootball() ? View.VISIBLE : View.GONE);
         syncInfoPills();
         handler.removeCallbacks(footballTick);
@@ -891,7 +898,7 @@ public class MainActivity extends Activity {
         root.addView(prayerCard, prayerLp);
         prayerCard.bringToFront();
         prayerCard.setOnClickListener(v -> showPrayerPanel());
-        prayerCard.setVisibility(PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
+        prayerCard.setVisibility(shouldShowPrayer() ? View.VISIBLE : View.GONE);
 
         // Compact glass football shortcut; details open only when selected.
         android.widget.LinearLayout footballLens = new android.widget.LinearLayout(this);
@@ -1009,7 +1016,7 @@ public class MainActivity extends Activity {
         if (weatherCard != null) {
             weatherCard.setVisibility(scenes ? View.GONE : (Weather.enabled(this) ? View.VISIBLE : View.GONE));
         }
-        if (prayerCard != null) prayerCard.setVisibility(PrayerTimes.enabled(this) ? View.VISIBLE : View.GONE);
+        if (prayerCard != null) prayerCard.setVisibility(shouldShowPrayer() ? View.VISIBLE : View.GONE);
         syncFootballVisibility();
         layoutInfoShortcuts();
         if (weatherCard != null) weatherCard.bringToFront();
@@ -1173,26 +1180,34 @@ public class MainActivity extends Activity {
     java.util.concurrent.FutureTask<Bitmap> wallPrefetch;
     String wallPrefetchStyle;
 
+    private int wallpaperRevision;
     void setWallpaper(String style) {
-        Bitmap wp = null;
-        if (wallPrefetch != null && style.equals(wallPrefetchStyle)) {
-            try {
-                wp = wallPrefetch.get();
-            } catch (Exception ignored) {
-                // generate below
-            }
-        }
+        final int revision = ++wallpaperRevision;
+        final java.util.concurrent.FutureTask<Bitmap> prefetch = style.equals(wallPrefetchStyle) ? wallPrefetch : null;
         wallPrefetch = null;
-        if (wp == null) wp = makeWallpaper(style);
-        Bitmap oldWp = wallView.getDrawable() instanceof BitmapDrawable
-                ? ((BitmapDrawable) wallView.getDrawable()).getBitmap() : null;
-        wallView.setImageBitmap(wp);
-        if (oldWp != null && oldWp != wp && !oldWp.isRecycled()) oldWp.recycle();
-        Bitmap oldBlur = wallBlur;
-        wallBlur = Ui.glassBackdrop(wp, 192, 108);
-        if (!heroShown || heroBlur == null) glassBg = wallBlur;
-        if (oldBlur != null && oldBlur != wallBlur && !oldBlur.isRecycled()) oldBlur.recycle();
-        invalidateGlass();
+        // Keep the current wallpaper visible while the next full-resolution image
+        // and its glass sample are decoded. Focus/key dispatch never waits for IO.
+        io.execute(() -> {
+            Bitmap decoded = null;
+            if (prefetch != null) { try { decoded = prefetch.get(); } catch (Exception ignored) { } }
+            if (decoded == null) decoded = makeWallpaper(style);
+            final Bitmap wp = decoded;
+            final Bitmap blur = Ui.glassBackdrop(wp, 192, 108);
+            handler.post(() -> {
+                if (revision != wallpaperRevision || isDestroyed()) {
+                    if (wp != null) wp.recycle(); if (blur != null) blur.recycle(); return;
+                }
+                Bitmap oldWp = wallView.getDrawable() instanceof BitmapDrawable
+                        ? ((BitmapDrawable) wallView.getDrawable()).getBitmap() : null;
+                wallView.setImageBitmap(wp);
+                if (oldWp != null && oldWp != wp && !oldWp.isRecycled()) oldWp.recycle();
+                Bitmap oldBlur = wallBlur;
+                wallBlur = blur;
+                if (!Scenes.isScenesLook(this) && (!heroShown || heroBlur == null)) glassBg = wallBlur;
+                if (oldBlur != null && oldBlur != wallBlur && !oldBlur.isRecycled()) oldBlur.recycle();
+                invalidateGlass();
+            });
+        });
     }
 
     void invalidateGlass() {
@@ -1240,7 +1255,9 @@ public class MainActivity extends Activity {
             }
         }
         if (style != null && style.startsWith("photo:")) {
-            Bitmap ph = Scenes.loadAssetBitmap(this, "backgrounds/" + style.substring(6), 1280, 720);
+            android.graphics.Point output = Ui.screen(this);
+            boolean uhd = style.startsWith("photo:uhd/");
+            Bitmap ph = Scenes.loadAssetBitmap(this, "backgrounds/" + style.substring(6), uhd ? output.x : 1280, uhd ? output.y : 720);
             if (ph != null) {
                 Bitmap copy = ph.copy(Bitmap.Config.ARGB_8888, true);
                 if (copy != ph) ph.recycle();

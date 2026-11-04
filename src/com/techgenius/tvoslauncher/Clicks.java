@@ -12,6 +12,10 @@ import android.view.KeyEvent;
 final class Clicks {
     static final float VOLUME = 0.6f;
     private static AudioManager audio;
+    private static final java.util.concurrent.ExecutorService SOUND_IO = new java.util.concurrent.ThreadPoolExecutor(
+            1, 1, 0L, java.util.concurrent.TimeUnit.MILLISECONDS,
+            new java.util.concurrent.ArrayBlockingQueue<>(8), r -> new Thread(r, "tv-navigation-audio"),
+            new java.util.concurrent.ThreadPoolExecutor.DiscardOldestPolicy());
 
     private Clicks() {
     }
@@ -29,8 +33,11 @@ final class Clicks {
     }
 
     private static void play(Context c, int effect) {
-        init(c);
-        if (audio != null && enabled(c)) audio.playSoundEffect(effect, VOLUME);
+        if (!enabled(c)) return;
+        final Context app = c.getApplicationContext();
+        // Audio-service IPC must not delay focus dispatch. Keep the same system
+        // effects and volume; a bounded queue cannot accumulate stale clicks.
+        SOUND_IO.execute(() -> { init(app); if (audio != null) audio.playSoundEffect(effect, VOLUME); });
     }
 
     /** Focus moved: Android's focus sound for that direction. */

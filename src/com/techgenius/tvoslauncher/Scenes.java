@@ -95,13 +95,15 @@ public final class Scenes {
         }
 
         public String title(Context c) {
+            String added = WallpaperPack.title(c, id);
+            if (added != null) return added;
             if ("iphone_desert_day".equals(id)) return "صحراء آيفون – النهار";
             if ("iphone_desert_night".equals(id)) return "صحراء آيفون – الليل";
             return I18n.s(c, nameEn, nameTr);
         }
     }
 
-    public static final Spec[] ALL = {
+    private static final Spec[] ORIGINAL_SCENES = {
         new Spec("night", "Night", "Gece",
                 "backgrounds/scene-night.jpg", "backgrounds/scene-night-glass.jpg", "backgrounds/scene-night-fg.webp",
                 false, false, false,
@@ -139,6 +141,8 @@ public final class Scenes {
                 45f, 0f, false)
     };
 
+    public static final Spec[] ALL = WallpaperPack.scenes(ORIGINAL_SCENES);
+
     public static final Spec CUSTOM_SPEC = new Spec(
             CUSTOM_ID, "Custom", "Özel",
             null, null, null,
@@ -171,13 +175,15 @@ public final class Scenes {
         return customSlotFromId(id) > 0;
     }
 
-    public static final String[][] CLASSIC_PHOTOS = {
+    private static final String[][] ORIGINAL_CLASSIC_PHOTOS = {
         {"tessellated-pavement.jpg", "Tessellated Pavement", "Mozaik Kıyı"},
         {"grose-valley.jpg", "Grose Valley", "Grose Vadisi"},
         {"albury-storm.jpg", "Albury Storm", "Albury Fırtınası"},
         {"aresquiers-beach.jpg", "Aresquiers Beach", "Aresquiers Plajı"},
         {"vang-vieng-sunset.jpg", "Vang Vieng Sunset", "Vang Vieng Gün Batımı"}
     };
+
+    public static final String[][] CLASSIC_PHOTOS = WallpaperPack.classics(ORIGINAL_CLASSIC_PHOTOS);
 
     private Scenes() { }
 
@@ -471,7 +477,13 @@ public final class Scenes {
 
         private Bitmap lastNotifiedBg;
         private Bitmap cachedFrameBmp;
-        private String cachedFrameKey;
+        private long frameRevision;
+        private long cachedFrameRevision = -1;
+        private int loadEpoch;
+        private String pendingRotation;
+        private boolean running;
+        private final java.util.Set<String> loading = new java.util.HashSet<>();
+        private static final java.util.concurrent.ExecutorService IMAGE_IO = java.util.concurrent.Executors.newSingleThreadExecutor(r -> new Thread(r, "scene-image-decode"));
         private String lastTickSignature;
 
         private final Runnable rotateTick = new Runnable() {
@@ -485,9 +497,10 @@ public final class Scenes {
             @Override
             public void run() {
                 Context ctx = getContext();
-                String sig = formatTime(ctx) + "|" + buildGreeting(ctx);
+                String sig = formatTime(ctx) + "|" + I18n.formatSceneDate(ctx, new Date()) + "|" + buildGreeting(ctx);
                 if (!sig.equals(lastTickSignature)) {
                     lastTickSignature = sig;
+                    frameRevision++;
                     invalidate();
                 }
                 long now = System.currentTimeMillis();
@@ -556,11 +569,19 @@ public final class Scenes {
             this.weatherTemp = temp;
             this.weatherDesc = desc;
             this.weatherCode = code;
-            if (changed) invalidate();
+            if (changed) { frameRevision++; invalidate(); }
         }
 
         public void syncSettings() {
+            pendingRotation = null;
+            frameRevision++;
             Context c = getContext();
+            // File timestamps are checked on settings/lifecycle changes, never on each draw.
+            for (String id : new ArrayList<>(cache.keySet())) {
+                int slot = customSlotFromId(id);
+                LoadedScene old = cache.get(id);
+                if (slot > 0 && old.customTs != CustomMedia.getCustomSceneTimestamp(c, slot)) { old.recycle(); cache.remove(id); }
+            }
             List<String> enabled = getEnabledSceneIds(c);
             activeIds = enabled;
             String prefer = prefs(c).getString("prefer_scene_id", null);
@@ -592,7 +613,7 @@ public final class Scenes {
             while (it.hasNext()) {
                 Map.Entry<String, LoadedScene> e = it.next();
                 String k = e.getKey();
-                if (!k.equals(currentId) && !k.equals(prevId)) {
+                if (!k.equals(currentId) && !k.equals(prevId) && !k.equals(pendingRotation)) {
                     LoadedScene ls = e.getValue();
                     if (ls != null) ls.recycle();
                     it.remove();
@@ -602,6 +623,7 @@ public final class Scenes {
 
         public void releaseCache() {
             stop();
+            loadEpoch++; loading.clear(); pendingRotation = null;
             for (LoadedScene ls : cache.values()) {
                 if (ls != null) ls.recycle();
             }
@@ -610,7 +632,7 @@ public final class Scenes {
                 cachedFrameBmp.recycle();
             }
             cachedFrameBmp = null;
-            cachedFrameKey = null;
+            cachedFrameRevision = -1;
             lastNotifiedBg = null;
         }
 
@@ -630,12 +652,14 @@ public final class Scenes {
         }
 
         public void start() {
+            running = true;
             handler.removeCallbacks(clockTick);
             handler.post(clockTick);
             scheduleNextRotation();
         }
 
         public void stop() {
+            running = false;
             handler.removeCallbacks(clockTick);
             handler.removeCallbacks(rotateTick);
             if (fadeAnim != null) fadeAnim.cancel();
@@ -643,13 +667,17 @@ public final class Scenes {
 
         private void scheduleNextRotation() {
             handler.removeCallbacks(rotateTick);
-            if (activeIds.size() > 1) {
+            if (running && activeIds.size() > 1) {
                 handler.postDelayed(rotateTick, getStaySeconds(getContext()) * 1000L);
             }
         }
 
         private void advanceScene() {
             if (activeIds.size() <= 1) return;
+            String next = activeIds.get((activeIdx + 1) % activeIds.size());
+            if (ensureLoaded(next) == null) { pendingRotation = next; return; }
+            pendingRotation = null;
+            frameRevision++;
             prevId = currentId;
             activeIdx = (activeIdx + 1) % activeIds.size();
             currentId = activeIds.get(activeIdx);
@@ -673,15 +701,35 @@ public final class Scenes {
         }
 
         private LoadedScene ensureLoaded(String id) {
+            LoadedScene ready = cache.get(id);
+            if (ready != null && ready.bg != null && !ready.bg.isRecycled()) return ready;
+            if (!loading.add(id)) return null;
+            final int epoch = loadEpoch;
+            final android.graphics.Point display = Ui.screen(getContext());
+            IMAGE_IO.execute(() -> {
+                LoadedScene decoded;
+                try { decoded = decodeScene(id, display.x, display.y); }
+                catch (RuntimeException | OutOfMemoryError error) { decoded = null; }
+                final LoadedScene result = decoded;
+                handler.post(() -> {
+                    if (epoch != loadEpoch) { if (result != null) result.recycle(); return; }
+                    loading.remove(id);
+                    if (result == null || result.bg == null) return;
+                    if (!id.equals(currentId) && !id.equals(prevId) && !id.equals(pendingRotation)) { result.recycle(); return; }
+                    cache.put(id, result); frameRevision++;
+                    notifySceneBackdrop(); invalidate();
+                    if (running && id.equals(pendingRotation)) advanceScene();
+                });
+            });
+            return null;
+        }
+
+        private LoadedScene decodeScene(String id, int width, int height) {
             Context c = getContext();
-            LoadedScene ls = cache.get(id);
+            LoadedScene ls;
             int cSlot = customSlotFromId(id);
             if (cSlot > 0) {
                 long ts = CustomMedia.getCustomSceneTimestamp(c, cSlot);
-                if (ls != null && ls.bg != null && !ls.bg.isRecycled() && ls.customTs == ts) {
-                    return ls;
-                }
-                if (ls != null) ls.recycle();
                 ls = new LoadedScene(CUSTOM_SPECS[cSlot - 1]);
                 ls.customTs = ts;
                 ls.ownsBg = false;
@@ -696,13 +744,11 @@ public final class Scenes {
                     ls.glassShader = new BitmapShader(ls.glassBaked, Shader.TileMode.CLAMP, Shader.TileMode.CLAMP);
                     if (rawGlass != ls.bg) rawGlass.recycle();
                 }
-                cache.put(id, ls);
                 return ls;
             }
-            if (ls != null && ls.bg != null && !ls.bg.isRecycled()) return ls;
             Spec spec = byId(id);
             ls = new LoadedScene(spec);
-            ls.bg = loadAssetBitmap(c, spec.bgAsset, 1920, 1080);
+            ls.bg = loadAssetBitmap(c, spec.bgAsset, spec.bgAsset.startsWith("backgrounds/uhd/") ? width : 1920, spec.bgAsset.startsWith("backgrounds/uhd/") ? height : 1080);
             if (spec.fgAsset != null) {
                 ls.fg = loadAssetBitmap(c, spec.fgAsset, 1920, 1080);
             }
@@ -716,7 +762,6 @@ public final class Scenes {
                 }
                 rawGlass.recycle();
             }
-            cache.put(id, ls);
             return ls;
         }
 
@@ -791,16 +836,7 @@ public final class Scenes {
             } else {
                 LoadedScene cur = ensureLoaded(currentId);
                 if (cur != null) {
-                    Context ctx = getContext();
-                    int cSlot = Math.max(1, customSlotFromId(currentId));
-                    String frameKey = currentId + "|" + formatTime(ctx) + "|"
-                            + I18n.formatSceneDate(ctx, new Date()) + "|"
-                            + (weatherTemp != null ? weatherTemp : "") + "|"
-                            + (weatherDesc != null ? weatherDesc : "") + "|"
-                            + weatherCode + "|" + getClockStyle(ctx) + "|"
-                            + getCustomClockPos(ctx) + "|" + CustomMedia.getCustomSceneTimestamp(ctx, cSlot) + "|"
-                            + buildGreeting(ctx) + "|" + w + "x" + h;
-                    if (!frameKey.equals(cachedFrameKey) || cachedFrameBmp == null
+                    if (cachedFrameRevision != frameRevision || cachedFrameBmp == null
                             || cachedFrameBmp.getWidth() != w || cachedFrameBmp.getHeight() != h) {
                         if (cachedFrameBmp == null || cachedFrameBmp.getWidth() != w || cachedFrameBmp.getHeight() != h) {
                             if (cachedFrameBmp != null) cachedFrameBmp.recycle();
@@ -810,7 +846,7 @@ public final class Scenes {
                         }
                         Canvas off = new Canvas(cachedFrameBmp);
                         drawScene(off, cur, w, h, 1f);
-                        cachedFrameKey = frameKey;
+                        cachedFrameRevision = frameRevision;
                     }
                     canvas.drawBitmap(cachedFrameBmp, 0, 0, null);
                 }
