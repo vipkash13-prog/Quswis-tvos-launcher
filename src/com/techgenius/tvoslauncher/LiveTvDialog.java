@@ -58,7 +58,7 @@ final class LiveTvDialog extends Dialog {
   for(int i=0;i<7;i++){tabs[i].setSelected(i==section);paint(tabs[i]);}
   footer.setText((snapshot.cached||snapshot.failed?"نسخة محفوظة • البث يحتاج اتصالًا • ":"")+"آخر تحديث: "+(snapshot.updated>0?LiveTvData.time(snapshot.updated):"غير متاح")+" — توقيت السعودية • "+items.size()+" قناة • iptv-org");
  }
- private void focusList(){if(adapter.getCount()>0){channelList.requestFocus();channelList.setSelection(Math.min(position,adapter.getCount()-1));}else tabs[section].requestFocus();}
+ private void focusList(){if(adapter.getCount()>0){channelList.requestFocus();channelList.setSelection(Math.min(position,adapter.getCount()-1));}else play.requestFocus();}
  void play(LiveTvData.Channel c,int index){if(c==null)return;playing=c;channelTitle.setText(c.name);LiveTvImages.load(host,playingLogo,c.logo,160);updateFavorite();engine.play(c,index);showControls();loadGuide();}
  private void updateFavorite(){favorite.setText(playing!=null&&repository.favorite(playing)?"★ إزالة المفضلة":"☆ المفضلة");adapter.notifyDataSetChanged();}
  private void loadGuide(){int ticket=++epgTicket;if(guideRequest!=null)guideRequest.cancel(true);String url=repository.prefs.getString("epg_url",snapshot==null?"":snapshot.epg);epgText.setText("جارٍ التحقق من دليل البرامج…");if(playing==null){epgText.setText("اختر قناة لعرض دليل البرامج عند توفره");return;}guideRequest=LiveTvEpg.load(host,url,playing.id,g->{if(closing||ticket!=epgTicket)return;epgText.setText(g.message.isEmpty()?LiveTvEpg.line(g.now,"الآن").replace('\n',' ')+"\n"+LiveTvEpg.line(g.next,"التالي").replace('\n',' ')+(g.cached?" • نسخة محفوظة":""):g.message);});}
