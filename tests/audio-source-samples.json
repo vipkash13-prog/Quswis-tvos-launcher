@@ -1,0 +1,37 @@
+{
+  "checked_utc": "2026-11-04T20:06:33.758932+00:00",
+  "duration_seconds": 8,
+  "measurement": "ffmpeg decoded-source volumedetect; dBFS, not device output or integrated LUFS",
+  "results": [
+    {
+      "name": "NHK",
+      "url": "https://masterpl.hls.nhkworld.jp/hls/w/live/smarttv.m3u8",
+      "code": 0,
+      "audio_evidence": "  Stream #0:0(en): Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 125 kb/s (default)\n  Stream #0:0(en): Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 125 kb/s (default)\n  Stream #0:0(en): Audio: aac (LC) (mp4a / 0x6134706D), 48000 Hz, stereo, fltp, 125 kb/s (default)\n  Stream #0:0(en): Audio: pcm_s16le, 48000 Hz, stereo, s16, 1536 kb/s (default)\n[Parsed_volumedetect_0 @ 0x7f8b4c001d40] mean_volume: -25.8 dB\n[Parsed_volumedetect_0 @ 0x7f8b4c001d40] max_volume: -8.5 dB"
+    },
+    {
+      "name": "MBC3USA.us",
+      "url": "https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-3-usa/5d58265a862a476dc7f97694addb5ded/index.m3u8",
+      "code": 0,
+      "audio_evidence": "  Stream #0:0(ar): Audio: aac (LC) ([15][0][0][0] / 0x000F), 48000 Hz, stereo, fltp, 192 kb/s\n  Stream #0:0(ar): Audio: aac (LC) ([15][0][0][0] / 0x000F), 48000 Hz, stereo, fltp, 192 kb/s\n  Stream #0:0(ar): Audio: aac (LC) ([15][0][0][0] / 0x000F), 48000 Hz, stereo, fltp, 192 kb/s\n  Stream #0:0(ar): Audio: aac (LC) ([15][0][0][0] / 0x000F), 48000 Hz, stereo, fltp, 192 kb/s\n  Stream #0:0(ar): Audio: aac (LC) ([15][0][0][0] / 0x000F), 48000 Hz, stereo, fltp, 192 kb/s\n  Stream #0:0(ar): Audio: aac (LC) ([15][0][0][0] / 0x000F), 48000 Hz, stereo, fltp, 192 kb/s\n  Stream #0:0(ar): Audio: pcm_s16le, 48000 Hz, stereo, s16, 1536 kb/s\n[Parsed_volumedetect_0 @ 0x7fe2c0001d40] mean_volume: -26.6 dB\n[Parsed_volumedetect_0 @ 0x7fe2c0001d40] max_volume: -7.0 dB"
+    },
+    {
+      "name": "Cairo-Quran",
+      "url": "https://stream.radiojar.com/8s5u5tpdtwzuv",
+      "code": 0,
+      "audio_evidence": "  Stream #0:0: Audio: mp3 (mp3float), 44100 Hz, stereo, fltp, 78 kb/s\n  Stream #0:0: Audio: pcm_s16le, 44100 Hz, stereo, s16, 1411 kb/s\n[Parsed_volumedetect_0 @ 0x7effd0001d40] mean_volume: -26.9 dB\n[Parsed_volumedetect_0 @ 0x7effd0001d40] max_volume: -8.9 dB"
+    },
+    {
+      "name": "MBCBollywood.ae",
+      "url": "https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-bollywood/546eb40d7dcf9a209255dd2496903764/index.m3u8",
+      "code": 0,
+      "audio_evidence": "  Stream #0:0(ar): Audio: aac (LC) ([15][0][0][0] / 0x000F), 48000 Hz, stereo, fltp, 171 kb/s\n  Stream #0:0(ar): Audio: aac (LC) ([15][0][0][0] / 0x000F), 48000 Hz, stereo, fltp, 171 kb/s\n  Stream #0:0(ar): Audio: aac (LC) ([15][0][0][0] / 0x000F), 48000 Hz, stereo, fltp, 171 kb/s\n  Stream #0:0(ar): Audio: aac (LC) ([15][0][0][0] / 0x000F), 48000 Hz, stereo, fltp, 171 kb/s\n  Stream #0:0(ar): Audio: aac (LC) ([15][0][0][0] / 0x000F), 48000 Hz, stereo, fltp, 171 kb/s\n  Stream #0:0(ar): Audio: aac (LC) ([15][0][0][0] / 0x000F), 48000 Hz, stereo, fltp, 171 kb/s\n  Stream #0:0(ar): Audio: pcm_s16le, 48000 Hz, stereo, s16, 1536 kb/s\n[Parsed_volumedetect_0 @ 0x7f8888001d40] mean_volume: -28.8 dB\n[Parsed_volumedetect_0 @ 0x7f8888001d40] max_volume: -11.3 dB"
+    },
+    {
+      "name": "Mishary-Quran",
+      "url": "https://backup.qurango.net/radio/mishary_alafasi",
+      "code": 8,
+      "audio_evidence": "[https @ 0x5590d124c9c0] HTTP error 500 Internal Server Error\n[in#0 @ 0x5590d124c0c0] Error opening input: Server returned 5XX Server Error reply\nError opening input file https://backup.qurango.net/radio/mishary_alafasi.\nError opening input files: Server returned 5XX Server Error reply"
+    }
+  ]
+}

@@ -35,6 +35,9 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
     private final Handler ui = new Handler(Looper.getMainLooper());
     private final FrameLayout surface;
     private android.graphics.Bitmap panorama, iconAtlas, calendarArt;
+    private boolean radioPage,ownsRadio;
+    private int ownedRadioSession;
+    private android.widget.ImageView calendarPicture;
     private final FrameLayout home;
     private final TextView date, status, next, hijriWeekday, gregorian;
     private final TextView[] clocks = new TextView[5];
@@ -45,9 +48,14 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
     private boolean closing, subpage;
     private int requestGeneration;
     private long refreshAt;
+    private boolean calendarDirty=true;
+    private JSONObject panelDays=new JSONObject();
+    private PrayerPlan.Event panelUpcoming;
+    private String panelZone,renderedDay="";
+    private final Runnable refreshRender=this::render;
     private View selectedShortcut;
     private final Runnable pulse = new Runnable() {
-        @Override public void run() { render(); ui.postDelayed(this, 1000); }
+        @Override public void run() { if(!closing&&!subpage){render();ui.postDelayed(this,1000);} }
     };
 
     static void open(MainActivity host, View anchor) {
@@ -60,9 +68,6 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
         host = activity; returnFocus = anchor;
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         setCancelable(false);
-        panorama = loadArt("prayer-reference/header.png");
-        iconAtlas = loadArt("prayer-reference/icons.png");
-        calendarArt = loadArt("prayer-reference/hijri.png");
         surface = new FrameLayout(host);
         GradientDrawable windowGlass = new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
                 new int[]{0xD32B364A, 0xEA1B202B});
@@ -123,7 +128,7 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
         close.setNextFocusLeftId(close.getId());close.setNextFocusRightId(close.getId());close.setNextFocusUpId(close.getId());
 
         FrameLayout calendar=new FrameLayout(host);calendar.setBackground(glass(false,21));rounded(calendar,21);
-        android.widget.ImageView picture=new android.widget.ImageView(host);picture.setImageBitmap(calendarArt);
+        android.widget.ImageView picture=new android.widget.ImageView(host);calendarPicture=picture;picture.setImageBitmap(calendarArt);
         picture.setScaleType(android.widget.ImageView.ScaleType.FIT_XY);picture.setAlpha(.85f);
         calendar.addView(picture,new FrameLayout.LayoutParams(-1,-1));
         View calendarShade=new View(host);
@@ -162,18 +167,17 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
             ui.removeCallbacksAndMessages(null);requestGeneration++;
             PrayerTimes.prefs(host).unregisterOnSharedPreferenceChangeListener(this);
             host.prayerGlassDialog=null;
-            for(android.graphics.Bitmap bitmap:new android.graphics.Bitmap[]{panorama,iconAtlas,calendarArt})
-                if(bitmap!=null&&!bitmap.isRecycled())bitmap.recycle();
+            if(ownsRadio){QuranRadio.stopOwned(ownedRadioSession);ownsRadio=false;}
             panorama=null;iconAtlas=null;calendarArt=null;
             if(returnFocus!=null&&returnFocus.isAttachedToWindow())returnFocus.requestFocus();
         });
+        UiArtwork.load(host,"prayer-reference/header.png",Math.round(host.screenW*.72f),Math.round(host.screenW*.24f),b->{if(!closing){panorama=b;invalidateArt(surface);}});
+        UiArtwork.load(host,"prayer-reference/icons.png",Math.round(host.screenW*.24f),Math.round(host.screenW*.24f),b->{if(!closing){iconAtlas=b;invalidateArt(surface);}});
+        UiArtwork.load(host,"prayer-reference/hijri.png",Math.round(host.screenW*.28f),Math.round(host.screenW*.14f),b->{if(!closing){calendarArt=b;if(calendarPicture!=null)calendarPicture.setImageBitmap(b);invalidateArt(surface);}});
         host.prayerGlassDialog=this;
     }
 
-    private android.graphics.Bitmap loadArt(String path) {
-        try(java.io.InputStream in=host.getAssets().open(path)){return android.graphics.BitmapFactory.decodeStream(in);}
-        catch(java.io.IOException error){android.util.Log.w("Quswis-Prayer","Missing bundled artwork: "+path,error);return null;}
-    }
+    private void invalidateArt(View view){view.invalidate();if(view instanceof android.view.ViewGroup){android.view.ViewGroup group=(android.view.ViewGroup)view;for(int n=0;n<group.getChildCount();n++)invalidateArt(group.getChildAt(n));}}
     private void rounded(View view,float radius) {
         view.setOutlineProvider(new android.view.ViewOutlineProvider(){
             @Override public void getOutline(View v,android.graphics.Outline o){o.setRoundRect(0,0,v.getWidth(),v.getHeight(),px(radius));}
@@ -256,7 +260,7 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
         closing = true; surface.animate().cancel(); super.dismiss();
     }
 
-    @Override public void onSharedPreferenceChanged(SharedPreferences p, String key) { ui.post(this::render); }
+    @Override public void onSharedPreferenceChanged(SharedPreferences p, String key) { calendarDirty=true;ui.removeCallbacks(refreshRender);ui.post(refreshRender); }
 
     private int px(float units) { return Ui.px(host, units); }
     private LinearLayout column() {
@@ -295,7 +299,7 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
         TextView t = text(value, size, true); t.setBackground(glass(false, 15)); focusable(t, action); return t;
     }
 
-    private String zone() { return PrayerCalendar.zone(host); }
+    private String zone() { return panelZone==null?TimeZone.getDefault().getID():panelZone; }
     private android.icu.util.IslamicCalendar hijri(long at) {
         android.icu.util.IslamicCalendar c = new android.icu.util.IslamicCalendar(
                 android.icu.util.TimeZone.getTimeZone(zone()), new Locale("ar", "SA"));
@@ -313,12 +317,20 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
     private void render() {
         if (closing) return;
         long now = System.currentTimeMillis();
-        JSONObject days = PrayerCalendar.days(host);
+        boolean changed=calendarDirty;
+        if(changed){
+            panelDays=PrayerCalendar.days(host);panelZone=TimeZone.getDefault().getID();
+            java.util.Iterator<String> keys=panelDays.keys();if(keys.hasNext()){JSONObject first=panelDays.optJSONObject(keys.next());if(first!=null)panelZone=first.optString("timezone",panelZone);}
+            calendarDirty=false;
+        }
+        JSONObject days=panelDays;
         String todayKey = PrayerPlan.day(now, zone());
+        changed|=!todayKey.equals(renderedDay)||panelUpcoming==null||now>panelUpcoming.at;
+        if(changed){List<PrayerPlan.Event> events=PrayerPlan.events(days,now,true,false,new int[5]);panelUpcoming=events.isEmpty()?null:events.get(0);renderedDay=todayKey;}
         JSONObject today = days.optJSONObject(todayKey);
         JSONObject times = today == null ? null : today.optJSONObject("timings");
-        List<PrayerPlan.Event> events = PrayerPlan.events(days, now, true, false, new int[5]);
-        PrayerPlan.Event upcoming = events.isEmpty() ? null : events.get(0);
+        PrayerPlan.Event upcoming=panelUpcoming;
+        if(changed) {
         for (int i = 0; i < 5; i++) {
             clocks[i].setText(times == null ? "—" : displayPrayerTime(times.optString(PrayerPlan.KEYS[i])));
             prayers[i].setBackground(glass(upcoming != null && upcoming.day.equals(todayKey) && upcoming.index == i, 10));
@@ -327,12 +339,13 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
         calendarDay.setTimeZone(TimeZone.getTimeZone(zone()));
         hijriWeekday.setText(calendarDay.format(new Date(now)));
         date.setText(hijriText(today, now));
-        next.setText(upcoming == null ? "بانتظار مواقيت اليوم" : "القادمة: " + names[upcoming.index] +
-                (upcoming.day.equals(todayKey) ? "" : " • " + upcoming.day) + "\n" + PrayerPanelClock.countdown(upcoming.at - now));
         java.text.SimpleDateFormat f = new java.text.SimpleDateFormat("d MMMM yyyy", new Locale("ar"));
         f.setTimeZone(TimeZone.getTimeZone(zone()));
         gregorian.setText(f.format(new Date(now)) + " م");
         status.setText(times == null ? "مواقيت اليوم غير متاحة؛ تحقق من الاتصال وإعدادات المدينة" : "");
+        }
+        next.setText(upcoming == null ? "بانتظار مواقيت اليوم" : "القادمة: " + names[upcoming.index] +
+                (upcoming.day.equals(todayKey) ? "" : " • " + upcoming.day) + "\n" + PrayerPanelClock.countdown(upcoming.at - now));
         home.setContentDescription("الخدمات الإسلامية • " + next.getText());
         if (times == null && now - refreshAt > 60000L) {
             refreshAt = now; PrayerTimes.refresh(host, null, false);
@@ -347,6 +360,7 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
     }
 
     private LinearLayout page(String title) {
+        ui.removeCallbacks(pulse);
         requestGeneration++; subpage = true; home.setVisibility(View.GONE);
         if (surface.getChildCount() > 1) surface.removeViewAt(1);
         LinearLayout page = column();
@@ -359,9 +373,10 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
         surface.addView(page, new FrameLayout.LayoutParams(-1, -1)); back.requestFocus(); return page;
     }
     private void showHome() {
+        if(radioPage&&ownsRadio){QuranRadio.stopOwned(ownedRadioSession);ownsRadio=false;}radioPage=false;
         requestGeneration++; subpage = false;
         if (surface.getChildCount() > 1) surface.removeViewAt(1);
-        home.setVisibility(View.VISIBLE);
+        home.setVisibility(View.VISIBLE);render();ui.removeCallbacks(pulse);ui.postDelayed(pulse,1000);
         (selectedShortcut == null ? shortcuts.get(0) : selectedShortcut).requestFocus();
     }
     private LinearLayout scrolling(LinearLayout page) {
@@ -374,16 +389,15 @@ final class PrayerGlassDialog extends Dialog implements SharedPreferences.OnShar
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, px(36)); p.bottomMargin = px(5); list.addView(b, p);
     }
     private void openRadio() {
-        LinearLayout list = scrolling(page("إذاعات القرآن"));
-        item(list, "إيقاف الإذاعة", () -> { QuranRadio.stop(); openRadio(); });
-        for (String[] station : QuranRadio.stations(host)) {
-            item(list, (station[1].equals(QuranRadio.current(host)[1]) && QuranRadio.state() != QuranRadio.IDLE ? "▶  " : "") + station[0],
-                    () -> { QuranRadio.choose(host, station[1]); QuranRadio.play(host); openRadio(); });
-        }
-        item(list, "إعدادات الإذاعة والرابط المخصص", () -> {
-            dismiss(); host.startActivity(new android.content.Intent(host, SettingsActivity.class).putExtra("page", "إذاعة القرآن"));
-        });
-        QuranRadio.refreshStations(host, null);
+        LinearLayout list = scrolling(page("إذاعات القرآن"));radioPage=true;
+        java.util.List<String[]> stations=QuranRadio.stations(host);
+        java.util.List<TextView> rows=new java.util.ArrayList<>();
+        Runnable update=()->{String current=QuranRadio.current(host)[1];for(int i=0;i<rows.size();i++){String[] station=stations.get(i);rows.get(i).setText((station[1].equals(current)&&QuranRadio.state()!=QuranRadio.IDLE?"▶  ":"")+station[0]);}};
+        item(list,"إيقاف الإذاعة",()->{QuranRadio.stop();ownsRadio=false;update.run();});
+        for(String[] station:stations){item(list,station[0],()->{ownsRadio=true;QuranRadio.choose(host,station[1]);if(QuranRadio.state()==QuranRadio.IDLE)QuranRadio.play(host);ownedRadioSession=QuranRadio.session();update.run();});rows.add((TextView)list.getChildAt(list.getChildCount()-1));}
+        update.run();
+        item(list,"إعدادات الإذاعة والرابط المخصص",()->{dismiss();host.startActivity(new android.content.Intent(host,SettingsActivity.class).putExtra("page","إذاعة القرآن"));});
+        QuranRadio.refreshStationsIfStale(host);
     }
     private void openDhikr() {
         LinearLayout list = scrolling(page("الأذكار والتسبيح"));

@@ -447,6 +447,8 @@ public class MainActivity extends Activity {
             return;
         }
         resumed = true;
+        UiArtwork.prewarm(this,screenW,screenH);
+        LiveTvRepository.prewarm(this);
         activeInstance = this;
         QuranRadio.setListener(this::updateQuranPill);
         updateQuranPill();
@@ -535,7 +537,10 @@ public class MainActivity extends Activity {
         if (matchCenterDialog != null) matchCenterDialog.dispose();
         if (globalNewsDialog != null) globalNewsDialog.dispose();
         if (liveTvDialog != null) liveTvDialog.dispose();
+        if (prayerGlassDialog != null) prayerGlassDialog.dispose();
         QuranRadio.setListener(null);
+        QuranRadio.stop();
+        if(sceneHome!=null)sceneHome.flushDockFocus();
         cancelGridScroll();
         resumed = false;
         if (ambientShowcase && (android.os.SystemClock.uptimeMillis() - ambientEnterTime > 1000L)) {
@@ -552,6 +557,7 @@ public class MainActivity extends Activity {
     @Override
     public void onTrimMemory(int level) {
         super.onTrimMemory(level);
+        if(level>=TRIM_MEMORY_RUNNING_LOW){UiArtwork.trim();Glyphs.trim();if(sceneHome!=null)sceneHome.invalidateAppLogoCache(null);}
         if (level >= TRIM_MEMORY_UI_HIDDEN) {
             if (Scenes.isScenesLook(this)) {
                 if (wallView != null && wallView.getDrawable() instanceof BitmapDrawable) {
@@ -5301,6 +5307,9 @@ public class MainActivity extends Activity {
      */
     boolean keyboardSearch(KeyEvent ev) {
         if (ev.getAction() != KeyEvent.ACTION_DOWN || ev.getRepeatCount() > 0) return false;
+        int remoteKey=ev.getKeyCode();
+        if((remoteKey>=KeyEvent.KEYCODE_DPAD_UP&&remoteKey<=KeyEvent.KEYCODE_DPAD_CENTER)
+                ||remoteKey==KeyEvent.KEYCODE_BACK||remoteKey==KeyEvent.KEYCODE_MENU||remoteKey==KeyEvent.KEYCODE_ENTER)return false;
         android.view.InputDevice dev = ev.getDevice();
         if (dev == null || dev.getKeyboardType() != android.view.InputDevice.KEYBOARD_TYPE_ALPHABETIC) return false;
         int k = ev.getKeyCode();

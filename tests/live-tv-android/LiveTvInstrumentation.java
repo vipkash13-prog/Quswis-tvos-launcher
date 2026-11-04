@@ -5,8 +5,8 @@ import android.app.*;import android.content.*;import android.os.*;import android
 /** Real catalogue + Media3 decoded-frame proof; no example channel is bundled in the app. */
 @androidx.media3.common.util.UnstableApi
 public final class LiveTvInstrumentation extends Instrumentation {
- private MainActivity host;private LiveTvDialog dialog;private boolean offline,persisted,repairs;private Bundle output=new Bundle();
- @Override public void onCreate(Bundle args){super.onCreate(args);repairs=args!=null&&"true".equals(args.getString("repairs"));offline=args!=null&&"true".equals(args.getString("offline"));persisted=args!=null&&"true".equals(args.getString("persisted"));start();}
+ private Bundle profileArgs;private MainActivity host;private LiveTvDialog dialog;private boolean offline,persisted,repairs;private Bundle output=new Bundle();
+ @Override public void onCreate(Bundle args){super.onCreate(args);profileArgs=args;repairs=args!=null&&"true".equals(args.getString("repairs"));offline=args!=null&&"true".equals(args.getString("offline"));persisted=args!=null&&"true".equals(args.getString("persisted"));start();}
  private void check(boolean ok,String why){if(!ok)throw new AssertionError(why);}
  private void progress(String stage){Bundle b=new Bundle();b.putString("stream",stage+"\n");sendStatus(1,b);}
  private void mainCheck(Runnable r){Throwable[] e={null};runOnMainSync(()->{try{r.run();}catch(Throwable error){e[0]=error;}});if(e[0]!=null)throw new AssertionError(e[0]);}
@@ -20,7 +20,7 @@ public final class LiveTvInstrumentation extends Instrumentation {
  private void unclipped(TextView t,String label){check(t.getLayout()!=null,label+" not laid out");check(t.getLayout().getHeight()<=t.getHeight()-t.getCompoundPaddingTop()-t.getCompoundPaddingBottom(),label+" vertically clipped");check(t.getLayout().getEllipsisCount(0)==0,label+" ellipsized");}
  private void waitRendered(long ms){long until=SystemClock.elapsedRealtime()+ms;while(!dialog.engine.rendered&&SystemClock.elapsedRealtime()<until)SystemClock.sleep(250);waitForIdleSync();}
  private void capture(String name)throws Exception{Bitmap image=getUiAutomation().takeScreenshot();check(image!=null,"No screenshot");try(FileOutputStream out=new FileOutputStream(new File(getTargetContext().getExternalFilesDir(null),name+".png"))){image.compress(Bitmap.CompressFormat.PNG,100,out);}Bitmap small=Bitmap.createScaledBitmap(image,960,540,true);ByteArrayOutputStream b=new ByteArrayOutputStream();small.compress(Bitmap.CompressFormat.JPEG,80,b);Bundle preview=new Bundle();preview.putString("preview_"+name,android.util.Base64.encodeToString(b.toByteArray(),android.util.Base64.NO_WRAP));sendStatus(1,preview);small.recycle();image.recycle();}
- @Override public void onStart(){try{
+ @Override public void onStart(){if(profileArgs!=null&&"true".equals(profileArgs.getString("profile"))){new AudioPerfInstrumentation(this).run(profileArgs);return;}try{
   Context app=getTargetContext();epgParser(app);getUiAutomation();app.getSharedPreferences("setup",0).edit().putBoolean("setup_done",true).commit();Profiles.homePrefs(app).edit().putBoolean("asked_default_home",true).commit();LiveStream.setEnabled(app,true);WorldNews.setEnabled(app,true);FootballScores.setEnabled(app,true);PrayerTimes.setEnabled(app,true);
   String football=FootballScores.selectedLeagues(app).toString();String external=LiveStream.packageName(app);LiveTvRepository before=new LiveTvRepository(app);if(persisted){check(before.last()!=null,"Last channel lost across process restart");check(before.favorite(before.last()),"Favorite lost across process restart");}
   host=(MainActivity)startActivitySync(new Intent(app,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK));waitForIdleSync();SystemClock.sleep(1800);key(KeyEvent.KEYCODE_DPAD_RIGHT);runOnMainSync(()->host.liveShortcut.requestFocus());SystemClock.sleep(200);

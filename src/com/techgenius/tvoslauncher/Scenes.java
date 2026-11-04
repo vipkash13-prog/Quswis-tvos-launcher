@@ -17,6 +17,7 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.Shader;
 import android.os.Handler;
+import android.os.Build;
 import android.os.Looper;
 import android.text.TextPaint;
 import android.view.View;
@@ -479,6 +480,22 @@ public final class Scenes {
         private Bitmap cachedFrameBmp;
         private long frameRevision;
         private long cachedFrameRevision = -1;
+        private SceneNode hardwareFrame;
+        private String frameSceneId;
+        @android.annotation.TargetApi(29)
+        private final class SceneNode {
+            final android.graphics.RenderNode node = new android.graphics.RenderNode("Quswis scene cache");
+            long revision=-1;int width,height;
+            void paint(Canvas canvas,LoadedScene scene,int w,int h){
+                if(scene!=null&&(revision!=frameRevision||width!=w||height!=h||!node.hasDisplayList())){
+                    node.setPosition(0,0,w,h);Canvas recording=node.beginRecording(w,h);
+                    try{drawScene(recording,scene,w,h,1f);}finally{node.endRecording();}
+                    width=w;height=h;revision=frameRevision;frameSceneId=scene.spec.id;
+                    evictUnusedScenes();
+                }
+                if(node.hasDisplayList())canvas.drawRenderNode(node);
+            }
+        }
         private int loadEpoch;
         private String pendingRotation;
         private boolean running;
@@ -525,10 +542,8 @@ public final class Scenes {
             }
 
             void recycle() {
-                if (ownsBg && bg != null && !bg.isRecycled()) bg.recycle();
-                if (fg != null && !fg.isRecycled()) fg.recycle();
-                if (glassBaked != null && !glassBaked.isRecycled()) glassBaked.recycle();
-                if (glassWetBaked != null && !glassWetBaked.isRecycled()) glassWetBaked.recycle();
+                // RenderNode and backdrop workers may still reference these pixels.
+                // Drop ownership; Bitmap native reference counting/GC retires them safely.
                 bg = null;
                 fg = null;
                 glassBaked = null;
@@ -613,7 +628,7 @@ public final class Scenes {
             while (it.hasNext()) {
                 Map.Entry<String, LoadedScene> e = it.next();
                 String k = e.getKey();
-                if (!k.equals(currentId) && !k.equals(prevId) && !k.equals(pendingRotation)) {
+                if (!k.equals(currentId) && !k.equals(prevId) && !k.equals(pendingRotation) && !k.equals(frameSceneId)) {
                     LoadedScene ls = e.getValue();
                     if (ls != null) ls.recycle();
                     it.remove();
@@ -624,6 +639,8 @@ public final class Scenes {
         public void releaseCache() {
             stop();
             loadEpoch++; loading.clear(); pendingRotation = null;
+            if(Build.VERSION.SDK_INT>=29&&hardwareFrame!=null)hardwareFrame.node.discardDisplayList();
+            hardwareFrame=null;frameSceneId=null;
             for (LoadedScene ls : cache.values()) {
                 if (ls != null) ls.recycle();
             }
@@ -835,6 +852,12 @@ public final class Scenes {
                 }
             } else {
                 LoadedScene cur = ensureLoaded(currentId);
+                if(Build.VERSION.SDK_INT>=29&&canvas.isHardwareAccelerated()){
+                    if(hardwareFrame==null)hardwareFrame=new SceneNode();
+                    hardwareFrame.paint(canvas,cur,w,h);
+                    cachedFrameBmp=null;cachedFrameRevision=-1;
+                    return;
+                }
                 if (cur != null) {
                     if (cachedFrameRevision != frameRevision || cachedFrameBmp == null
                             || cachedFrameBmp.getWidth() != w || cachedFrameBmp.getHeight() != h) {

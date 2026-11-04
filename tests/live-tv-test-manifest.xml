@@ -1,4 +1,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <application android:label="Live TV native verification" />
-    <instrumentation android:name="com.techgenius.tvoslauncher.AudioPerfInstrumentation" android:targetPackage="com.techgenius.tvoslauncher" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <application android:label="Live TV native verification">
+        <service android:name="com.techgenius.tvoslauncher.FocusProbeService" android:exported="true" android:foregroundServiceType="mediaPlayback" />
+    </application>
 </manifest>

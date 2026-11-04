@@ -4,7 +4,9 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.media.AudioAttributes;
 import android.media.AudioManager;
-import android.media.MediaPlayer;
+import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.DefaultLoadControl;
+import androidx.media3.common.*;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.Toast;
@@ -32,14 +34,26 @@ final class QuranRadio {
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
     static final int IDLE = 0, LOADING = 1, PLAYING = 2;
-    private static MediaPlayer player;
+    private static ExoPlayer player;
+    private static PlaybackAudio audioFocus;
+    private static int session;
+    private static boolean lifecycleRegistered;
+    private static java.lang.ref.WeakReference<android.app.Activity> owner=new java.lang.ref.WeakReference<>(null);
+    static int session(){return session;}
+    static void stopOwned(int value){if(session==value)stop();}
+    private static void observeOwner(Context context){
+        owner=new java.lang.ref.WeakReference<>(context instanceof android.app.Activity?(android.app.Activity)context:null);
+        if(lifecycleRegistered)return;lifecycleRegistered=true;
+        ((android.app.Application)context.getApplicationContext()).registerActivityLifecycleCallbacks(new android.app.Application.ActivityLifecycleCallbacks(){
+            public void onActivityCreated(android.app.Activity a,android.os.Bundle b){}public void onActivityStarted(android.app.Activity a){}public void onActivityResumed(android.app.Activity a){}public void onActivityPaused(android.app.Activity a){}
+            public void onActivityStopped(android.app.Activity a){if(owner.get()==a)stop();}
+            public void onActivitySaveInstanceState(android.app.Activity a,android.os.Bundle b){}
+            public void onActivityDestroyed(android.app.Activity a){if(owner.get()==a)stop();}
+        });
+    }
     private static int state = IDLE;
     private static Runnable listener;
-    private static AudioManager audio;
-    private static final AudioManager.OnAudioFocusChangeListener FOCUS = change -> {
-        if (change == AudioManager.AUDIOFOCUS_LOSS || change == AudioManager.AUDIOFOCUS_LOSS_TRANSIENT) stop();
-    };
-
+    private static final java.util.concurrent.atomic.AtomicBoolean refreshing=new java.util.concurrent.atomic.AtomicBoolean();
     private QuranRadio() {
     }
 
@@ -112,6 +126,7 @@ final class QuranRadio {
     /** Loads the station list in the background; {@code done} runs on the main thread. */
     static void refreshStations(Context ctx, Runnable done) {
         Context c = ctx.getApplicationContext();
+        if(!refreshing.compareAndSet(false,true)){if(done!=null)MAIN.post(done);return;}
         new Thread(() -> {
             try {
                 HttpURLConnection conn = (HttpURLConnection) new URL(API).openConnection();
@@ -131,16 +146,19 @@ final class QuranRadio {
                             keep.put(new JSONObject().put("name", name).put("url", url));
                         }
                     }
-                    if (keep.length() > 0) prefs(c).edit().putString("list", keep.toString()).apply();
+                    if (keep.length() > 0) prefs(c).edit().putString("list", keep.toString()).putLong("list_updated",System.currentTimeMillis()).apply();
                 } finally {
                     conn.disconnect();
                 }
             } catch (Exception ignored) {
                 // keep the saved or built-in list
             }
+            refreshing.set(false);
             if (done != null) MAIN.post(done);
-        }).start();
+        },"quran-stations").start();
     }
+
+    static void refreshStationsIfStale(Context c){if(System.currentTimeMillis()-prefs(c).getLong("list_updated",0)>86400000L)refreshStations(c,null);}
 
     static void toggle(Context ctx) {
         if (state == IDLE) play(ctx);
@@ -148,52 +166,41 @@ final class QuranRadio {
     }
 
     static synchronized void play(Context ctx) {
+        if (Looper.myLooper() != Looper.getMainLooper()) { MAIN.post(() -> play(ctx)); return; }
         final Context c = ctx.getApplicationContext();
-        stop();
+        stop();session++;observeOwner(ctx);
         final String[] station = current(c);
         try {
-            audio = (AudioManager) c.getSystemService(Context.AUDIO_SERVICE);
-            if (audio != null) audio.requestAudioFocus(FOCUS, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN);
-            MediaPlayer mp = new MediaPlayer();
+            DefaultLoadControl buffer = new DefaultLoadControl.Builder().setBufferDurationsMs(1000,8000,500,1000).setTargetBufferBytes(2*1024*1024).build();
+            ExoPlayer mp = new ExoPlayer.Builder(c).setLoadControl(buffer).build();
             player = mp;
-            mp.setAudioAttributes(new AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA).setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build());
-            mp.setDataSource(station[1]);
-            mp.setOnPreparedListener(p -> {
-                if (player != p) return;
-                p.start();
-                notifyState(PLAYING);
+            mp.setAudioAttributes(new androidx.media3.common.AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_SPEECH).build(),false);
+            mp.setHandleAudioBecomingNoisy(true);
+            mp.setVolume(1.0f);
+            audioFocus = new PlaybackAudio(c, AudioAttributes.CONTENT_TYPE_SPEECH,new PlaybackAudio.Client(){
+                public void pauseForFocus(){if(player==mp)mp.pause();}
+                public void resumeAtUnity(){if(player==mp){mp.setVolume(1.0f);mp.play();}}
+                public void replaced(){if(player==mp)stop();}
             });
-            mp.setOnErrorListener((p, what, extra) -> {
-                if (player == p) {
-                    stop();
-                    MAIN.post(() -> Toast.makeText(c, "تعذّر تشغيل الإذاعة. جرّب محطة أخرى من الإعدادات.", Toast.LENGTH_LONG).show());
-                }
-                return true;
-            });
-            mp.setOnCompletionListener(p -> {
-                if (player == p) stop();
+            mp.addListener(new Player.Listener(){
+                @Override public void onPlayWhenReadyChanged(boolean ready,int reason){if(player==mp&&!ready&&reason==Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY&&audioFocus!=null)audioFocus.pauseIntent();}
+                @Override public void onIsPlayingChanged(boolean active){if(player==mp)notifyState(active?PLAYING:LOADING);}
+                @Override public void onPlaybackStateChanged(int value){if(player==mp&&value==Player.STATE_ENDED)stop();}
+                @Override public void onPlayerError(PlaybackException error){if(player!=mp)return;android.util.Log.w("QuswisAudio","Radio source error "+error.errorCode);stop();Toast.makeText(c,"تعذّر تشغيل الإذاعة. جرّب محطة أخرى من الإعدادات.",Toast.LENGTH_LONG).show();}
             });
             notifyState(LOADING);
-            mp.prepareAsync();
-        } catch (Exception e) {
-            stop();
-            Toast.makeText(c, "تعذّر تشغيل الإذاعة.", Toast.LENGTH_LONG).show();
+            mp.setMediaItem(MediaItem.fromUri(station[1]));mp.prepare();
+            if(audioFocus.playIntent())mp.play();
+        } catch (Exception error) {
+            stop();Toast.makeText(c,"تعذّر تشغيل الإذاعة.",Toast.LENGTH_LONG).show();
         }
     }
 
     static synchronized void stop() {
-        MediaPlayer mp = player;
-        player = null;
-        if (mp != null) {
-            try {
-                mp.reset();
-                mp.release();
-            } catch (Exception ignored) {
-                // already released
-            }
-        }
-        if (audio != null) audio.abandonAudioFocus(FOCUS);
+        if (Looper.myLooper() != Looper.getMainLooper()) { MAIN.post(QuranRadio::stop); return; }
+        ExoPlayer old=player;player=null;owner.clear();
+        if(audioFocus!=null){audioFocus.release();audioFocus=null;}
+        if(old!=null)old.release();
         notifyState(IDLE);
     }
 }

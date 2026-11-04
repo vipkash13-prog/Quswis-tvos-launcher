@@ -20,7 +20,7 @@ public final class AdhanPlaybackService extends Service {
  private PowerManager.WakeLock playbackWake;
  private AudioManager audio;
  private AudioFocusRequest focusRequest;
- private boolean hasFocus,finishing,destroyed;
+ private boolean hasFocus,finishing,destroyed,ownsMediaInterruption;
  private final AudioManager.OnAudioFocusChangeListener focusChange=change->{
   // A call, another app or the user took focus: do not restart the film over it.
   if(change<0){for(PausedSession session:paused)session.guard.invalidate();finish(false);}
@@ -57,6 +57,7 @@ public final class AdhanPlaybackService extends Service {
     if(mp!=player||finishing)return;
     try{
      capturePlayingSessions();
+     PlaybackAudio.beginAdhan();ownsMediaInterruption=true;
      if(!requestFocus()){PrayerTimes.prefs(this).edit().putString("last_alarm_status","رفض النظام أولوية الصوت؛ لم يبدأ الأذان").apply();finish(false);return;}
      for(PausedSession session:paused)session.pause();
      mp.start();
@@ -131,17 +132,18 @@ public final class AdhanPlaybackService extends Service {
   }
   void close(){try{controller.unregisterCallback(callback);}catch(Exception ignored){}}
  }
- private void releasePlayerAndFocus(){
+ private void releasePlayerAndFocus(boolean restore){
   if(player!=null){MediaPlayer old=player;player=null;old.release();}
   if(audio!=null&&hasFocus){
    hasFocus=false;
    if(Build.VERSION.SDK_INT>=26&&focusRequest!=null)audio.abandonAudioFocusRequest(focusRequest);
    else audio.abandonAudioFocus(focusChange);
   }
+  if(ownsMediaInterruption){ownsMediaInterruption=false;PlaybackAudio.endAdhan(restore);}
  }
  private void finish(boolean restore){
   if(finishing||destroyed)return;
-  finishing=true;handler.removeCallbacksAndMessages(null);releasePlayerAndFocus();
+  finishing=true;handler.removeCallbacksAndMessages(null);releasePlayerAndFocus(restore);
   // Focus restoration may resume the player itself; recheck state before sending play.
   handler.postDelayed(()->{
    for(PausedSession session:paused){if(restore)session.restore();else session.close();}
@@ -150,7 +152,7 @@ public final class AdhanPlaybackService extends Service {
  }
  private void releaseWake(){if(playbackWake!=null){if(playbackWake.isHeld())playbackWake.release();playbackWake=null;}PrayerScheduler.releaseHandoff();}
  @Override public void onDestroy(){
-  destroyed=true;handler.removeCallbacksAndMessages(null);releasePlayerAndFocus();
+  destroyed=true;handler.removeCallbacksAndMessages(null);releasePlayerAndFocus(false);
   for(PausedSession session:paused)session.close();paused.clear();releaseWake();super.onDestroy();
  }
 }

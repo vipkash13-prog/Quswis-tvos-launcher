@@ -27,14 +27,16 @@ jobs:
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
           mkdir -p /tmp/quswis-baseline dist
           git archive d4e48f239fec17935e8ba2747b275be930d00fea | tar -x -C /tmp/quswis-baseline
-          rm /tmp/quswis-baseline/tests/live-tv-android/*.java
           cp tests/live-tv-android/AudioPerfInstrumentation.java /tmp/quswis-baseline/tests/live-tv-android/
           cp tests/live-tv-test-manifest.xml /tmp/quswis-baseline/tests/live-tv-test-manifest.xml
           python3 - <<'PY'
           from pathlib import Path
           p=Path('/tmp/quswis-baseline/live-tv-build/build.gradle')
-          s=p.read_text().replace("manifest.srcFile '../tests/live-tv-test-manifest.xml'", "manifest.srcFile '../tests/live-tv-test-manifest.xml'\n            assets.srcDirs = ['../tests/live-tv-fixtures']")
+          s=p.read_text().replace("manifest.srcFile '../tests/live-tv-test-manifest.xml'", "manifest.srcFile '../tests/live-tv-test-manifest.xml'\n            assets.srcDirs = ['../tests/live-tv-fixtures','../tests/fixtures']")
           p.write_text(s)
+          runner=Path('/tmp/quswis-baseline/tests/live-tv-android/LiveTvInstrumentation.java')
+          source=runner.read_text().replace('private MainActivity host;', 'private android.os.Bundle profileArgs;private MainActivity host;',1).replace('super.onCreate(args);','super.onCreate(args);profileArgs=args;',1).replace('@Override public void onStart(){try{','@Override public void onStart(){if(profileArgs!=null&&\"true\".equals(profileArgs.getString(\"profile\"))){new AudioPerfInstrumentation(this).run(profileArgs);return;}try{',1)
+          runner.write_text(source)
           PY
           gradle -p /tmp/quswis-baseline/live-tv-build --no-daemon assembleDebug assembleDebugAndroidTest
           cp /tmp/quswis-baseline/live-tv-build/build/outputs/apk/debug/*.apk /tmp/baseline.apk
@@ -46,6 +48,21 @@ jobs:
           python3 tests/verify-live-manifest.py
           if grep -q "versionName '1.0.206'" live-tv-build/build.gradle; then echo "release_ready=true" >> "$GITHUB_ENV"; fi
           sudo chmod 666 /dev/kvm
+      - name: Verify data parsers and original behavior policies
+        run: |
+          curl --fail --silent --show-error --location https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar -o /tmp/quswis-json.jar
+          mkdir -p /tmp/quswis-tests
+          python3 - <<'PYTEST'
+          from pathlib import Path
+          source=Path('src/com/techgenius/tvoslauncher/PrayerTimes.java').read_text()
+          Path('/tmp/quswis-tests/PrayerPanelClock.java').write_text('package com.techgenius.tvoslauncher;\n'+source[source.index('final class PrayerPanelClock {'):])
+          PYTEST
+          CLASSES=live-tv-build/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes
+          javac -encoding UTF-8 -cp /tmp/quswis-json.jar:$CLASSES -d /tmp/quswis-tests src/com/techgenius/tvoslauncher/PrayerPlan.java /tmp/quswis-tests/PrayerPanelClock.java tests/PrayerPlanTest.java tests/PrayerPanelClockTest.java src/com/techgenius/tvoslauncher/PrayerFocusNavigation.java tests/PrayerFocusNavigationTest.java src/com/techgenius/tvoslauncher/FootballData.java tests/FootballDataTest.java src/com/techgenius/tvoslauncher/MatchCenterData.java tests/MatchCenterDataTest.java src/com/techgenius/tvoslauncher/GlobalNewsData.java tests/GlobalNewsDataTest.java src/com/techgenius/tvoslauncher/LiveTvData.java tests/LiveTvDataTest.java src/com/techgenius/tvoslauncher/LiveTvDubbed.java tests/LiveTvDubbedTest.java
+          for TEST_NAME in PrayerPlanTest PrayerPanelClockTest PrayerFocusNavigationTest FootballDataTest MatchCenterDataTest; do java -cp /tmp/quswis-tests:/tmp/quswis-json.jar:$CLASSES com.techgenius.tvoslauncher.$TEST_NAME; done
+          java -cp /tmp/quswis-tests:/tmp/quswis-json.jar:$CLASSES com.techgenius.tvoslauncher.GlobalNewsDataTest tests/global-news-fixtures/*.xml
+          java -cp /tmp/quswis-tests:/tmp/quswis-json.jar:$CLASSES com.techgenius.tvoslauncher.LiveTvDataTest tests/live-tv-fixtures/*.m3u
+          java -cp /tmp/quswis-tests:/tmp/quswis-json.jar:$CLASSES com.techgenius.tvoslauncher.LiveTvDubbedTest assets/live-tv/dubbed-verified.json
       - name: Same-device before/after profiling, actual audio and full remote regression
         timeout-minutes: 50
         uses: reactivecircus/android-emulator-runner@v2
@@ -67,14 +84,15 @@ jobs:
             adb install -r -t /tmp/baseline-test.apk
             adb shell pm clear com.techgenius.tvoslauncher
             adb shell atrace --async_start -b 16384 gfx view input sched am wm
-            timeout 400 adb shell am instrument -w -r -e label baseline com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.AudioPerfInstrumentation | tee dist/profile-baseline-1080.log
+            timeout 400 adb shell am instrument -w -r -e profile true -e label baseline com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/profile-baseline-1080.log
+            adb logcat -d > dist/profile-baseline-logcat.txt
             adb shell atrace --async_stop > dist/trace-baseline-1080.txt
             adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/profile-baseline-1920x1080.json dist/
             grep -q PROFILE_OK dist/profile-baseline-1080.log
             adb shell dumpsys meminfo com.techgenius.tvoslauncher > dist/memory-baseline-1080.txt
             adb shell am force-stop com.techgenius.tvoslauncher
             adb shell wm size 3840x2160
-            timeout 400 adb shell am instrument -w -r -e label baseline com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.AudioPerfInstrumentation | tee dist/profile-baseline-4k.log
+            timeout 400 adb shell am instrument -w -r -e profile true -e label baseline com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/profile-baseline-4k.log
             adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/profile-baseline-3840x2160.json dist/
             grep -q PROFILE_OK dist/profile-baseline-4k.log
             adb shell dumpsys meminfo com.techgenius.tvoslauncher > dist/memory-baseline-4k.txt
@@ -84,14 +102,14 @@ jobs:
             adb shell pm clear com.techgenius.tvoslauncher
             adb shell wm size 1920x1080
             adb shell atrace --async_start -b 16384 gfx view input sched am wm
-            timeout 400 adb shell am instrument -w -r -e label candidate com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.AudioPerfInstrumentation | tee dist/profile-candidate-1080.log
+            timeout 400 adb shell am instrument -w -r -e profile true -e label candidate com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/profile-candidate-1080.log
             adb shell atrace --async_stop > dist/trace-candidate-1080.txt
             adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/profile-candidate-1920x1080.json dist/
             grep -q PROFILE_OK dist/profile-candidate-1080.log
             adb shell dumpsys meminfo com.techgenius.tvoslauncher > dist/memory-candidate-1080.txt
             adb shell am force-stop com.techgenius.tvoslauncher
             adb shell wm size 3840x2160
-            timeout 400 adb shell am instrument -w -r -e label candidate com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.AudioPerfInstrumentation | tee dist/profile-candidate-4k.log
+            timeout 400 adb shell am instrument -w -r -e profile true -e label candidate com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/profile-candidate-4k.log
             adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/profile-candidate-3840x2160.json dist/
             grep -q PROFILE_OK dist/profile-candidate-4k.log
             adb shell dumpsys meminfo com.techgenius.tvoslauncher > dist/memory-candidate-4k.txt
@@ -99,7 +117,7 @@ jobs:
             adb shell svc wifi enable
             adb shell svc data enable
             adb shell wm size 1920x1080
-            if [ "$release_ready" = "true" ]; then timeout 750 adb shell am instrument -w -r -e audio true com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.AudioPerfInstrumentation | tee dist/audio-regression.log; fi
+            if [ "$release_ready" = "true" ]; then timeout 750 adb shell am instrument -w -r -e profile true -e audio true com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/audio-regression.log; fi
             if [ "$release_ready" = "true" ]; then grep -q AUDIO_REGRESSIONS_OK dist/audio-regression.log; fi
             adb logcat -d > dist/audio-performance-logcat.txt
             adb shell dumpsys audio > dist/audio-routing.txt

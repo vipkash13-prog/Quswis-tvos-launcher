@@ -10,7 +10,14 @@ import android.graphics.RectF;
 final class Glyphs {
     private Glyphs() { }
 
+    private static final android.util.LruCache<String,Bitmap> CACHE = new android.util.LruCache<String,Bitmap>(4*1024*1024) {
+        @Override protected int sizeOf(String key,Bitmap value) { return value.getAllocationByteCount(); }
+    };
+    static void trim(){CACHE.evictAll();}
     static Bitmap get(String name, int s, int color) {
+        String key=name+":"+s+":"+color;
+        Bitmap hit=CACHE.get(key);
+        if(hit!=null&&!hit.isRecycled())return hit;
         Bitmap b = Bitmap.createBitmap(s, s, Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(b);
         Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
@@ -553,6 +560,7 @@ final class Glyphs {
             default:
                 break;
         }
+        CACHE.put(key,b);
         return b;
     }
 }

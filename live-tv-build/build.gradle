@@ -24,8 +24,8 @@ android {
         applicationId 'com.techgenius.tvoslauncher'
         minSdk 24
         targetSdk 34
-        versionCode 205
-        versionName '1.0.205'
+        versionCode 206
+        versionName '1.0.206'
         testInstrumentationRunner 'com.techgenius.tvoslauncher.LiveTvInstrumentation'
     }
     sourceSets {
@@ -38,7 +38,7 @@ android {
         androidTest {
             java.srcDirs = ['../tests/live-tv-android']
             manifest.srcFile '../tests/live-tv-test-manifest.xml'
-            assets.srcDirs = ['../tests/live-tv-fixtures']
+            assets.srcDirs = ['../tests/live-tv-fixtures','../tests/fixtures']
         }
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_11; targetCompatibility JavaVersion.VERSION_11 }

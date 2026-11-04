@@ -48,7 +48,7 @@ final class GlobalNewsDialog extends Dialog {
         surface=new FrameLayout(host);MainActivity.LiquidGlass glass=new MainActivity.LiquidGlass(px(22),0xB0081F38,host.glassSource,host.screenW,host.screenH,Ui.unit(host)).adaptive().darker(0x90);glass.lens=px(4);surface.setBackground(glass);round(surface,22);
         body=new FrameLayout(host);body.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);surface.addView(body,new FrameLayout.LayoutParams(-1,-1));
         header=new ImageView(host);header.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        try(java.io.InputStream input=host.getAssets().open("global-news/globe-header.png")){header.setImageBitmap(BitmapFactory.decodeStream(input));}catch(Exception ignored){}
+        UiArtwork.load(host,"global-news/globe-header.png",Math.round(host.screenW*.625f),Math.round(host.screenW*.21f),image->{if(!closing)header.setImageBitmap(image);});
         put(body,header,0,0,2400,300);
         View shade=new View(host);shade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0x20081F38,0x10081F38,0xEE081F38}));put(body,shade,0,0,2400,310);
         windowTitle=text("مركز الأخبار العالمية",22,true);windowTitle.setShadowLayer(px(2),0,px(1),0xFF000000);

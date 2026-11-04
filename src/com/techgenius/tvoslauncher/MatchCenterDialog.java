@@ -43,8 +43,8 @@ final class MatchCenterDialog extends Dialog {
         MainActivity.LiquidGlass glass=new MainActivity.LiquidGlass(px(22),0x9A0C1D31,host.glassSource,host.screenW,host.screenH,Ui.unit(host)).adaptive().darker(0x86);
         glass.lens=px(4);surface.setBackground(glass);round(surface,22);
         body=new FrameLayout(host);body.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);surface.addView(body,new FrameLayout.LayoutParams(-1,-1));
-        try(java.io.InputStream in=host.getAssets().open("match-center/stadium.png")){stadium=BitmapFactory.decodeStream(in);}catch(Exception ignored){}
-        ImageView banner=new ImageView(host);banner.setImageBitmap(stadium);banner.setScaleType(ImageView.ScaleType.CENTER_CROP);banner.setAlpha(.88f);put(body,banner,0,0,2400,300);
+
+        ImageView banner=new ImageView(host);UiArtwork.load(host,"match-center/stadium.png",Math.round(host.screenW*.625f),Math.round(host.screenW*.21f),b->{if(!closing){stadium=b;banner.setImageBitmap(b);}});banner.setScaleType(ImageView.ScaleType.CENTER_CROP);banner.setAlpha(.88f);put(body,banner,0,0,2400,300);
         View fade=new View(host);fade.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,new int[]{0x5506152C,0x3306152C,0xDD0A1A2D}));put(body,fade,0,0,2400,310);
         TextView title=text("⚽  مركز المباريات",24,true);title.setShadowLayer(px(2),0,px(1),0xFF000000);
         // Arabic and emoji fallback metrics exceed the old 100-pixel title line box.
@@ -89,7 +89,7 @@ final class MatchCenterDialog extends Dialog {
         setOnDismissListener(d->{
             generation++;ui.removeCallbacksAndMessages(null);if(request!=null)request.cancel(true);
             host.matchCenterDialog=null;
-            if(stadium!=null){stadium.recycle();stadium=null;}
+            stadium=null;
             if(anchor!=null&&anchor.isAttachedToWindow())anchor.requestFocus();
         });
         snapshot=repository.cached(chosen,tab);render();

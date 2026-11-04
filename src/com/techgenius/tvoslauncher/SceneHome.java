@@ -69,8 +69,14 @@ final class SceneHome {
     final List<View> dockTiles = new ArrayList<>();
     final List<MainActivity.AppEntry> dockEntries = new ArrayList<>();
 
-    private final Map<String, Bitmap> logoCache = new HashMap<>();
+    private final android.util.LruCache<String, Bitmap> logoCache = new android.util.LruCache<String,Bitmap>(8*1024*1024) {
+        @Override protected int sizeOf(String key,Bitmap value){return value.getAllocationByteCount();}
+    };
     private Bitmap demoArt1, demoArt2, demoArt3;
+
+    private final Runnable saveDockFocus = this::persistDockFocus;
+    private void persistDockFocus(){host.prefs.edit().putInt("last_dock_idx",focusedDockIdx).apply();}
+    void flushDockFocus(){host.handler.removeCallbacks(saveDockFocus);persistDockFocus();}
 
     boolean moreExpanded = false;
     boolean backDownInHome = false;
@@ -939,7 +945,8 @@ final class SceneHome {
             v.setPivotY(v.getHeight() > 0 ? v.getHeight() / 2f : size / 2f);
             if (has) {
                 focusedDockIdx = index;
-                host.prefs.edit().putInt("last_dock_idx", index).apply();
+                host.handler.removeCallbacks(saveDockFocus);
+                host.handler.postDelayed(saveDockFocus,160);
                 if (moveDockIdx >= 0) {
                     updateDockTooltip(v, I18n.s(host,
                             "Move " + a.label + "  ·  Left/Right, OK when done",
@@ -1173,7 +1180,7 @@ final class SceneHome {
 
     void invalidateAppLogoCache(MainActivity.AppEntry a) {
         if (a == null) {
-            logoCache.clear();
+            logoCache.evictAll();
             return;
         }
         if (a.key != null) logoCache.remove(a.key);
@@ -1192,7 +1199,7 @@ final class SceneHome {
             }
         }
         String cacheKey = a.key != null ? a.key : a.pkg;
-        if (cacheKey != null && logoCache.containsKey(cacheKey)) {
+        if (cacheKey != null && logoCache.get(cacheKey) != null) {
             return logoCache.get(cacheKey);
         }
         Bitmap bmp = getSquareAppLogo(a.pkg);
@@ -1339,7 +1346,7 @@ final class SceneHome {
 
     Bitmap getSquareAppLogo(String pkg) {
         if (pkg == null || pkg.isEmpty()) return null;
-        if (logoCache.containsKey(pkg)) return logoCache.get(pkg);
+        if (logoCache.get(pkg)!=null) return logoCache.get(pkg);
         String assetName = mapPkgToLogoAsset(pkg);
         Bitmap bmp = null;
         if (assetName != null) {
