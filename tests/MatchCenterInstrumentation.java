@@ -47,10 +47,15 @@ public final class MatchCenterInstrumentation extends Instrumentation {
             MatchCenterRepository repository=new MatchCenterRepository(app);
             if(!offline){Set<String> all=new HashSet<>();for(String[] l:MatchCenterData.LEAGUES)all.add(l[0]);repository.select(all);}
             Set<String> selected=repository.selected();String oldFootball=FootballScores.selectedLeagues(app).toString();
+            getUiAutomation();
             progress("MATCH_UI_LAUNCHING");
             host=(MainActivity)startActivitySync(new Intent(app,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK));waitForIdleSync();SystemClock.sleep(2000);
             View[] original={host.wallView,host.dockRow,host.footballShortcut,host.prayerCard};
-            runOnMainSync(()->{host.showFootballPanel();dialog=host.matchCenterDialog;check(original[0]==host.wallView&&original[1]==host.dockRow&&original[2]==host.footballShortcut&&original[3]==host.prayerCard,"Window opening replaced Home views");});SystemClock.sleep(600);waitForIdleSync();check(dialog!=null&&dialog.isShowing(),"Dialog did not open");
+            key(KeyEvent.KEYCODE_DPAD_RIGHT);
+            boolean[] lensFocused={false};runOnMainSync(()->lensFocused[0]=host.footballShortcut.requestFocus());
+            check(lensFocused[0],"Could not focus the original match lens");
+            key(KeyEvent.KEYCODE_DPAD_CENTER);
+            runOnMainSync(()->{dialog=host.matchCenterDialog;check(original[0]==host.wallView&&original[1]==host.dockRow&&original[2]==host.footballShortcut&&original[3]==host.prayerCard,"Window opening replaced Home views");});SystemClock.sleep(600);waitForIdleSync();check(dialog!=null&&dialog.isShowing(),"Dialog did not open through remote OK");
             progress("MATCH_UI_DISPLAY_"+host.screenW+"x"+host.screenH);
             cycle(KeyEvent.KEYCODE_DPAD_LEFT);cycle(KeyEvent.KEYCODE_DPAD_RIGHT);
             key(KeyEvent.KEYCODE_DPAD_LEFT);key(KeyEvent.KEYCODE_DPAD_CENTER);check(((Integer)field("tab"))==1,"Live tab did not activate");
