@@ -63,5 +63,5 @@ public final class AudioPerfInstrumentation {
         if("true".equals(args.getString("audio"))){Class<?> checks=Class.forName("com.techgenius.tvoslauncher.AudioRegressions");Method run=checks.getDeclaredMethod("run",AudioPerfInstrumentation.class,MainActivity.class);run.setAccessible(true);run.invoke(null,this,home);result.putString("stream","AUDIO_REGRESSIONS_OK\n");}
         else {profile();result.putString("stream","PROFILE_OK\n");}
         instrumentation.finish(Activity.RESULT_OK,result);
-    }catch(Throwable error){sampling=false;if(metricsThread!=null)metricsThread.quitSafely();error.printStackTrace();result.putString("stream","AUDIO_PERF_FAILED "+error+"\n");instrumentation.finish(Activity.RESULT_CANCELED,result);}}
+    }catch(Throwable error){sampling=false;if(metricsThread!=null)metricsThread.quitSafely();while(error instanceof java.lang.reflect.InvocationTargetException&&error.getCause()!=null)error=error.getCause();error.printStackTrace();java.io.StringWriter trace=new java.io.StringWriter();error.printStackTrace(new java.io.PrintWriter(trace));result.putString("stream","AUDIO_PERF_FAILED "+trace+"\n");instrumentation.finish(Activity.RESULT_CANCELED,result);}}
 }

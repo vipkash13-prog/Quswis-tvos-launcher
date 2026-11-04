@@ -186,7 +186,7 @@ final class QuranRadio {
                 @Override public void onPlayWhenReadyChanged(boolean ready,int reason){if(player==mp&&!ready&&reason==Player.PLAY_WHEN_READY_CHANGE_REASON_AUDIO_BECOMING_NOISY&&audioFocus!=null)audioFocus.pauseIntent();}
                 @Override public void onIsPlayingChanged(boolean active){if(player==mp)notifyState(active?PLAYING:LOADING);}
                 @Override public void onPlaybackStateChanged(int value){if(player==mp&&value==Player.STATE_ENDED)stop();}
-                @Override public void onPlayerError(PlaybackException error){if(player!=mp)return;android.util.Log.w("QuswisAudio","Radio source error "+error.errorCode);stop();Toast.makeText(c,"تعذّر تشغيل الإذاعة. جرّب محطة أخرى من الإعدادات.",Toast.LENGTH_LONG).show();}
+                @Override public void onPlayerError(PlaybackException error){if(player!=mp)return;android.util.Log.w("QuswisAudio","Radio source error "+error.errorCode,error);stop();Toast.makeText(c,"تعذّر تشغيل الإذاعة. جرّب محطة أخرى من الإعدادات.",Toast.LENGTH_LONG).show();}
             });
             notifyState(LOADING);
             mp.setMediaItem(MediaItem.fromUri(station[1]));mp.prepare();

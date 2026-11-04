@@ -88,6 +88,16 @@ jobs:
             grep -q SMOKE_OK dist/candidate-smoke.log
             adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/candidate-smoke.png dist/
             adb shell am force-stop com.techgenius.tvoslauncher
+            adb shell svc wifi enable
+            adb shell svc data enable
+            adb shell wm size 1920x1080
+            if [ "$release_ready" = "true" ]; then timeout 750 adb shell am instrument -w -r -e profile true -e audio true com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/audio-regression.log; fi
+            adb logcat -d > dist/audio-performance-logcat.txt
+            adb shell dumpsys audio > dist/audio-routing.txt
+            if [ "$release_ready" = "true" ]; then grep -q AUDIO_REGRESSIONS_OK dist/audio-regression.log; fi
+            adb shell am force-stop com.techgenius.tvoslauncher
+            adb shell svc wifi disable
+            adb shell svc data disable
             adb install -r -d /tmp/baseline.apk
             adb install -r -t /tmp/baseline-test.apk
             adb shell pm clear com.techgenius.tvoslauncher
@@ -126,11 +136,6 @@ jobs:
             adb shell am force-stop com.techgenius.tvoslauncher
             adb shell svc wifi enable
             adb shell svc data enable
-            adb shell wm size 1920x1080
-            if [ "$release_ready" = "true" ]; then timeout 750 adb shell am instrument -w -r -e profile true -e audio true com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/audio-regression.log; fi
-            if [ "$release_ready" = "true" ]; then grep -q AUDIO_REGRESSIONS_OK dist/audio-regression.log; fi
-            adb logcat -d > dist/audio-performance-logcat.txt
-            adb shell dumpsys audio > dist/audio-routing.txt
             if [ "$release_ready" = "true" ]; then adb shell am force-stop com.techgenius.tvoslauncher; timeout 850 adb shell am instrument -w -r -e repairs true com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/full-regression-1080.log; fi
             if [ "$release_ready" = "true" ]; then grep -q LIVE_TV_UI_OK dist/full-regression-1080.log; fi
             if [ "$release_ready" = "true" ]; then adb shell am force-stop com.techgenius.tvoslauncher; adb shell wm size 3840x2160; timeout 850 adb shell am instrument -w -r -e repairs true -e persisted true com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee dist/full-regression-4k.log; fi
