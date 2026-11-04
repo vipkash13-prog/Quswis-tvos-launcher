@@ -62,6 +62,7 @@ jobs:
             adb install -r -t /tmp/quswis-live-tv-test.apk
             timeout 420 adb shell am instrument -w -r com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee /tmp/live-tv-1080.txt
             adb logcat -d -t 500 > dist/live-tv-logcat-1080.txt
+            rg -n -A32 -B3 "FATAL EXCEPTION|Fatal signal" dist/live-tv-logcat-1080.txt || true
             adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/live-tv-window.png dist/live-tv-1080.png
             adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/live-tv-fullscreen.png dist/live-tv-fullscreen-1080.png
             grep -q LIVE_TV_UI_OK /tmp/live-tv-1080.txt
@@ -69,6 +70,7 @@ jobs:
             adb shell wm size 3840x2160
             timeout 360 adb shell am instrument -w -r -e persisted true com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee /tmp/live-tv-4k.txt
             adb logcat -d -t 500 > dist/live-tv-logcat-4k.txt
+            rg -n -A32 -B3 "FATAL EXCEPTION|Fatal signal" dist/live-tv-logcat-4k.txt || true
             adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/live-tv-window.png dist/live-tv-4k.png
             adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/live-tv-fullscreen.png dist/live-tv-fullscreen-4k.png
             grep -q LIVE_TV_UI_OK /tmp/live-tv-4k.txt
