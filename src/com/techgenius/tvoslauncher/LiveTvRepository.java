@@ -19,6 +19,7 @@ final class LiveTvRepository {
    s.updated=s.updated==0?f.lastModified():Math.min(s.updated,f.lastModified());LiveTvData.Playlist p=LiveTvData.parse(readText(f,12*1024*1024));if(!p.epg.isEmpty())s.epg=p.epg;
    for(LiveTvData.Channel c:LiveTvData.enrich(p.channels,metadata,languages,section))if(!unique.containsKey(c.key()))unique.put(c.key(),c);
   }
+  refreshSaved(unique.values());
   for(LiveTvData.Channel c:unique.values())if(section==6){if(c.arabicDeclared()&&c.animation())s.candidates.add(c);if(c.animation()&&arabicConfirmed(c))s.channels.add(c);}else s.channels.add(c);
   if(s.channels.isEmpty())s.message=section==6?"لا توجد قنوات كرتون عربية مؤكدة قابلة للتشغيل حاليًا. لغة الاسم لا تثبت الصوت. يمكنك فحص القنوات المرشحة من إعدادات المركز.":s.failed?"تعذّر تحميل القنوات. تحقق من الاتصال أو حاول التحديث.":"لا توجد قنوات متاحة في هذا القسم حاليًا";
   if(metadata.isEmpty()){s.channels.clear();s.failed=true;}
@@ -39,11 +40,12 @@ final class LiveTvRepository {
    if(!temp.renameTo(file))throw new IOException("Atomic source replace");return true;
   }catch(Exception e){temp.delete();return false;}finally{if(c!=null)c.disconnect();}}
  static String readText(File f,int limit)throws IOException{if(f.length()>limit)throw new IOException("File too large");try(InputStream in=new FileInputStream(f);ByteArrayOutputStream b=new ByteArrayOutputStream()){byte[] a=new byte[8192];int n;while((n=in.read(a))!=-1){b.write(a,0,n);if(b.size()>limit)throw new IOException("Source too large");}return b.toString("UTF-8");}}
+ private void refreshSaved(Collection<LiveTvData.Channel> channels){synchronized(prefs){Set<String> ids=favorites();LiveTvData.Channel previous=last();String lastId=previous==null?"":previous.key();SharedPreferences.Editor editor=prefs.edit();boolean changed=false;for(LiveTvData.Channel c:channels)if(ids.contains(c.key())||c.key().equals(lastId))try{String encoded=c.json().toString();if(ids.contains(c.key())&&!encoded.equals(prefs.getString("favorite_"+c.key(),""))){editor.putString("favorite_"+c.key(),encoded);changed=true;}if(c.key().equals(lastId)&&!encoded.equals(prefs.getString("last_channel",""))){editor.putString("last_channel",encoded);changed=true;}}catch(Exception ignored){}if(changed)editor.apply();}}
  Set<String> favorites(){return new HashSet<>(prefs.getStringSet("favorites",Collections.emptySet()));}
  boolean favorite(LiveTvData.Channel c){return favorites().contains(c.key());}
- void toggle(LiveTvData.Channel c){Set<String> ids=favorites();boolean add=!ids.remove(c.key());SharedPreferences.Editor e=prefs.edit();if(add){ids.add(c.key());try{e.putString("favorite_"+c.key(),c.json().toString());}catch(Exception ignored){}}else e.remove("favorite_"+c.key());e.putStringSet("favorites",ids).apply();}
+ void toggle(LiveTvData.Channel c){synchronized(prefs){Set<String> ids=favorites();boolean add=!ids.remove(c.key());SharedPreferences.Editor e=prefs.edit();if(add){ids.add(c.key());try{e.putString("favorite_"+c.key(),c.json().toString());}catch(Exception ignored){}}else e.remove("favorite_"+c.key());e.putStringSet("favorites",ids).apply();}}
  List<LiveTvData.Channel> savedFavorites(){List<LiveTvData.Channel> out=new ArrayList<>();for(String id:favorites())try{out.add(LiveTvData.Channel.from(new JSONObject(prefs.getString("favorite_"+id,"{}"))));}catch(Exception ignored){}return out;}
- void remember(LiveTvData.Channel c,int section){try{prefs.edit().putString("last_channel",c.json().toString()).putInt("last_section",section).apply();}catch(Exception ignored){}}
+ void remember(LiveTvData.Channel c,int section){synchronized(prefs){try{prefs.edit().putString("last_channel",c.json().toString()).putInt("last_section",section).apply();}catch(Exception ignored){}}}
  LiveTvData.Channel last(){try{String s=prefs.getString("last_channel","");return s.isEmpty()?null:LiveTvData.Channel.from(new JSONObject(s));}catch(Exception e){return null;}}
  void success(LiveTvData.Endpoint e){prefs.edit().putLong("success_"+e.url,System.currentTimeMillis()).remove("failure_"+e.url).apply();}
  void failure(LiveTvData.Endpoint e){prefs.edit().putLong("failure_"+e.url,System.currentTimeMillis()).apply();}
