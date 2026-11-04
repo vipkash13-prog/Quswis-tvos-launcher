@@ -19,6 +19,11 @@ public final class MatchCenterInstrumentation extends Instrumentation {
     private Object field(String name)throws Exception{Field f=MatchCenterDialog.class.getDeclaredField(name);f.setAccessible(true);return f.get(dialog);}
     private int id(){int[] value={-1};runOnMainSync(()->{if(dialog.getCurrentFocus()!=null)value[0]=dialog.getCurrentFocus().getId();});return value[0];}
     private void key(int code){sendKeyDownUpSync(code);waitForIdleSync();}
+    private void mainCheck(Runnable action){
+        Throwable[] failure={null};runOnMainSync(()->{try{action.run();}catch(Throwable error){failure[0]=error;}});
+        if(failure[0]!=null)throw new AssertionError("UI assertion: "+failure[0]);
+    }
+    private int[] geometry(View view){int[] point=new int[2];view.getLocationOnScreen(point);return new int[]{point[0],point[1],view.getWidth(),view.getHeight()};}
     private void cycle(int code){Set<Integer> visited=new HashSet<>();int first=id();for(int i=0;i<4;i++){visited.add(id());key(code);}check(visited.size()==4&&id()==first,"Tab traversal failed, key="+code);}
     private android.widget.TextView title(View v){
         if(v instanceof android.widget.TextView&&((android.widget.TextView)v).getText().toString().contains("مركز المباريات"))return (android.widget.TextView)v;
@@ -50,12 +55,15 @@ public final class MatchCenterInstrumentation extends Instrumentation {
             getUiAutomation();
             progress("MATCH_UI_LAUNCHING");
             host=(MainActivity)startActivitySync(new Intent(app,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_CLEAR_TASK));waitForIdleSync();SystemClock.sleep(2000);
-            View[] original={host.wallView,host.dockRow,host.footballShortcut,host.prayerCard};
+            int[][] originalBounds=new int[4][];
             key(KeyEvent.KEYCODE_DPAD_RIGHT);
             boolean[] lensFocused={false};runOnMainSync(()->lensFocused[0]=host.footballShortcut.requestFocus());
             check(lensFocused[0],"Could not focus the original match lens");
+            SystemClock.sleep(250);waitForIdleSync();
+            runOnMainSync(()->{View[] views={host.wallView,host.dockRow,host.footballShortcut,host.prayerCard};for(int i=0;i<views.length;i++)originalBounds[i]=geometry(views[i]);});
             key(KeyEvent.KEYCODE_DPAD_CENTER);
-            runOnMainSync(()->{dialog=host.matchCenterDialog;check(original[0]==host.wallView&&original[1]==host.dockRow&&original[2]==host.footballShortcut&&original[3]==host.prayerCard,"Window opening replaced Home views");});SystemClock.sleep(600);waitForIdleSync();check(dialog!=null&&dialog.isShowing(),"Dialog did not open through remote OK");
+            runOnMainSync(()->dialog=host.matchCenterDialog);SystemClock.sleep(600);waitForIdleSync();check(dialog!=null&&dialog.isShowing(),"Dialog did not open through remote OK");
+            mainCheck(()->{View[] views={host.wallView,host.dockRow,host.footballShortcut,host.prayerCard};for(int i=0;i<views.length;i++)check(Arrays.equals(originalBounds[i],geometry(views[i])),"Opening changed Home element geometry: "+i);});
             progress("MATCH_UI_DISPLAY_"+host.screenW+"x"+host.screenH);
             cycle(KeyEvent.KEYCODE_DPAD_LEFT);cycle(KeyEvent.KEYCODE_DPAD_RIGHT);
             key(KeyEvent.KEYCODE_DPAD_LEFT);key(KeyEvent.KEYCODE_DPAD_CENTER);check(((Integer)field("tab"))==1,"Live tab did not activate");
@@ -80,7 +88,7 @@ public final class MatchCenterInstrumentation extends Instrumentation {
             double oldBottom=Math.round(host.screenH*.16f)+Math.round(host.screenH*1050f/2160f);
             check(Math.abs(bounds.bottom-oldBottom)<8,"Window bottom moved toward the app dock");
             check(bounds.bottom<host.screenH*.78,"Window covers the bottom app dock area");
-            runOnMainSync(()->{try{unclipped(title(dialog.getWindow().getDecorView()),"Window title");unclipped((android.widget.TextView)field("footer"),"Last-update footer");}catch(Exception error){throw new RuntimeException(error);}});
+            mainCheck(()->{try{unclipped(title(dialog.getWindow().getDecorView()),"Window title");unclipped((android.widget.TextView)field("footer"),"Last-update footer");}catch(Exception error){throw new RuntimeException(error);}});
             allPages();runOnMainSync(()->tabs[0].requestFocus());
             check(oldFootball.equals(FootballScores.selectedLeagues(app).toString()),"Existing football settings changed");
             check(selected.equals(new MatchCenterRepository(app).selected()),"League choices did not persist");
