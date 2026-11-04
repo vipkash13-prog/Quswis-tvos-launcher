@@ -103,7 +103,7 @@ final class LiveTvDialog extends Dialog {
   home.postDelayed(new Runnable(){int attempts;public void run(){
    if(host.isFinishing()||host.isDestroyed()||host.liveTvDialog!=null||host.globalNewsDialog!=null||host.matchCenterDialog!=null||host.prayerGlassDialog!=null)return;
    View target=host.liveShortcut!=null?host.liveShortcut:anchor;
-   if(host.resumed&&host.hasWindowFocus()&&target!=null&&target.isAttachedToWindow()&&host.visibleClassicFocus(target)&&target.requestFocus()&&host.getCurrentFocus()==target){host.resetIdle();return;}
+   if(host.resumed&&host.hasWindowFocus()&&target!=null&&target.isAttachedToWindow()&&host.visibleClassicFocus(target)&&target.requestFocusFromTouch()&&host.getCurrentFocus()==target){host.resetIdle();return;}
    if(++attempts<60)home.postDelayed(this,40);
   }},80);
  }
