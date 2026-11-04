@@ -80,12 +80,12 @@ final class MatchCenterRepository {
         JSONObject slots=group(id);long now=System.currentTimeMillis();String today=MatchCenterData.day(now);
         if(MatchCenterData.NATIONAL.equals(id)){
             loadSlot(slots,id,"schedule",API+"all/teams/655/schedule",tab);
-            if(tab==MatchCenterData.UPCOMING||tab==MatchCenterData.LEAGUES)loadSlot(slots,id,"fixtures",API+"all/teams/655/schedule?fixture=true",tab);
+            if(tab==MatchCenterData.UPCOMING||tab==MatchCenterData.LEAGUE_TAB)loadSlot(slots,id,"fixtures",API+"all/teams/655/schedule?fixture=true",tab);
         }else{
             loadSlot(slots,id,today,API+id+"/scoreboard?dates="+today+"&limit=100",tab);
             Calendar yesterday=Calendar.getInstance(MatchCenterData.RIYADH);yesterday.add(Calendar.DAY_OF_MONTH,-1);String before=MatchCenterData.day(yesterday.getTimeInMillis());
             loadSlot(slots,id,before,API+id+"/scoreboard?dates="+before+"&limit=100",tab);
-            if(tab==MatchCenterData.UPCOMING||tab==MatchCenterData.LEAGUES){
+            if(tab==MatchCenterData.UPCOMING||tab==MatchCenterData.LEAGUE_TAB){
                 JSONObject todaySlot=slots.optJSONObject(today);JSONArray calendar=todaySlot==null?null:todaySlot.optJSONArray("calendar");
                 SortedSet<String> dates=new TreeSet<>();
                 if(calendar!=null)for(int i=0;i<calendar.length();i++){

@@ -97,7 +97,7 @@ final class MatchCenterDialog extends Dialog {
     private void selectTab(int index){
         if(details!=null)closeDetails();tab=index;page=0;ui.removeCallbacks(poll);snapshot=repository.cached(chosen,tab);render();refresh();
         ui.postDelayed(poll,tab==MatchCenterData.LIVE?60000:300000);
-        if(tab==MatchCenterData.LEAGUES)choices[0].requestFocus();
+        if(tab==MatchCenterData.LEAGUE_TAB)choices[0].requestFocus();
     }
     private void toggleLeague(int index){String id=MatchCenterData.LEAGUES[index][0];if(!chosen.remove(id))chosen.add(id);repository.select(chosen);page=0;snapshot=repository.cached(chosen,tab);render();refresh();}
     private void refresh(){
@@ -113,7 +113,7 @@ final class MatchCenterDialog extends Dialog {
         total=all.size();page=Math.min(page,Math.max(0,(total-1)/5));int from=page*5;
         List<JSONObject> matches=all.subList(from,Math.min(total,from+5));
         pageLabel.setText(total>5?(from+1)+"–"+Math.min(total,from+5)+" / "+total+" • ↑ ↓ للمزيد":"");
-        heading.setText(tab==MatchCenterData.LIVE?"مباشر الآن  🔴":tab==MatchCenterData.RESULTS?"نتائج اليوم":tab==MatchCenterData.LEAGUES?"مباريات الدوريات المختارة":"أبرز 5 مباريات قادمة");
+        heading.setText(tab==MatchCenterData.LIVE?"مباشر الآن  🔴":tab==MatchCenterData.RESULTS?"نتائج اليوم":tab==MatchCenterData.LEAGUE_TAB?"مباريات الدوريات المختارة":"أبرز 5 مباريات قادمة");
         empty.setVisibility(matches.isEmpty()?View.VISIBLE:View.GONE);
         View previous=getCurrentFocus();boolean lost=false;
         for(int i=0;i<5;i++){
@@ -152,7 +152,7 @@ final class MatchCenterDialog extends Dialog {
         }
         return super.dispatchKeyEvent(event);
     }
-    private View firstRowOrLeague(){return tab==MatchCenterData.LEAGUES||rows[0].data==null?choices[0]:rows[0].view;}
+    private View firstRowOrLeague(){return tab==MatchCenterData.LEAGUE_TAB||rows[0].data==null?choices[0]:rows[0].view;}
     private View firstRowOrTab(){return rows[0].data==null?tabs[tab]:rows[0].view;}
     private int index(View[] array,View v){for(int i=0;i<array.length;i++)if(array[i]==v)return i;return -1;}
     private int rowIndex(View v){for(int i=0;i<rows.length;i++)if(rows[i].view==v)return i;return -1;}
