@@ -18,6 +18,8 @@ If a feed remains quieter at unity, an opt-in per-player loudness processor with
 
 ## Concrete UI work removed
 
+The shared animated app-focus overlay previously occupied MATCH_PARENT bounds. It now keeps the same root-space spring/geometry/glow but bounds its visual node to the actual frame, reducing whole-window damage during every arrow animation. Settings also skips restyling unchanged sidebar rows. Neither change alters focus order or animation speed.
+
 - `Glyphs.get()` previously rasterized a fresh bitmap on every call, including every sidebar/control focus style update. A bounded 4MiB shared glyph cache now reuses identical pixels; no shared bitmap is recycled while views hold it.
 - Night Scenes' cached software frame occupied another full ARGB image (31.6MiB at 3840×2160) and rendered the clock/scene into it on the main thread. Android 10+ hardware canvases now record the same drawing commands in a RenderNode. Software/older-device fallback remains, and the previous complete scene stays visible while loading. Bitmap ownership is retired safely while GPU/worker references exist.
 - Dialog assets and per-row PNG backgrounds were decoded on the main thread on window creation/list binding. `UiArtwork` samples to actual display needs, decodes on background workers, prewarms common art, shares pixels through a bounded cache, and uses independent drawables. Layouts, artwork files, colors and animation durations are retained.

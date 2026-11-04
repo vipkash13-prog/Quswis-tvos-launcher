@@ -89,6 +89,13 @@ final class AppFocusIndicator extends View {
         boolean settledY=springY.advance(cy,dt,0.2f*unit);
         frame.set((float)springX.position-width/2f,(float)springY.position-height/2f,
                 (float)springX.position+width/2f,(float)springY.position+height/2f);
+        // A MATCH_PARENT animated overlay damages the whole 4K window. Keep
+        // this visual-only node bounded to its actual glow; spring coordinates
+        // stay in root space and drawing translates them back into local space.
+        int pad=Math.round(12f*unit);
+        int left=(int)Math.floor(frame.left)-pad,top=(int)Math.floor(frame.top)-pad;
+        int right=(int)Math.ceil(frame.right)+pad,bottom=(int)Math.ceil(frame.bottom)+pad;
+        if(getLeft()!=left||getTop()!=top||getRight()!=right||getBottom()!=bottom)layout(left,top,right,bottom);
         if(!settledX||!settledY)postInvalidateOnAnimation();
         return true;
     }
@@ -123,9 +130,9 @@ final class AppFocusIndicator extends View {
     private final android.graphics.LinearGradient specShader=new android.graphics.LinearGradient(0,0,0,1,0x66FFFFFF,0x00FFFFFF,android.graphics.Shader.TileMode.CLAMP);
     @Override protected void onDraw(Canvas canvas){
         super.onDraw(canvas);if(opacity<=0||frame.isEmpty())return;
-        int saved=canvas.save();
+        int saved=canvas.save();canvas.translate(-getLeft(),-getTop());
         if(!Scenes.isScenesLook(host)&&host.scroll!=null&&host.scroll.getScrollY()>host.dp(4)&&!host.heroRequested)
-            canvas.clipRect(0,host.dp(80),getWidth(),getHeight());
+            canvas.clipRect(0,host.dp(80),host.screenW,host.screenH);
         float glowSpan=6f*unit;int rings=12;float step=glowSpan/rings;
         // Outer glow: thin rings, each a little fainter, so it fades out smoothly.
         paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(step+0.5f);

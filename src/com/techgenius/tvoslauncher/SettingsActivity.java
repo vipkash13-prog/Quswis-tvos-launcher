@@ -351,7 +351,9 @@ public class SettingsActivity extends Activity {
         }
     }
 
+    private final Map<String,Integer> sidebarPaintStates=new HashMap<>();
     private void buildSidebarRows() {
+        sidebarPaintStates.clear();
         sideList.removeAllViews();
         sideRowViews.clear();
         sideIcons.clear();
@@ -449,6 +451,9 @@ public class SettingsActivity extends Activity {
             if (row == null) continue;
             boolean focused = row.isFocused();
             boolean active = key.equals(currentSection);
+            int state=focused?2:active?1:0;
+            if(java.util.Objects.equals(sidebarPaintStates.get(key),state))continue;
+            sidebarPaintStates.put(key,state);
 
             GradientDrawable pillBg = sidePillBgs.get(key);
             GradientDrawable iconBg = sideIconBgs.get(key);

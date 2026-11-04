@@ -72,6 +72,7 @@ final class SceneHome {
     private final android.util.LruCache<String, Bitmap> logoCache = new android.util.LruCache<String,Bitmap>(8*1024*1024) {
         @Override protected int sizeOf(String key,Bitmap value){return value.getAllocationByteCount();}
     };
+    private final android.util.LruCache<String,Boolean> missingLogos=new android.util.LruCache<>(256);
     private Bitmap demoArt1, demoArt2, demoArt3;
 
     private final Runnable saveDockFocus = this::persistDockFocus;
@@ -1180,11 +1181,11 @@ final class SceneHome {
 
     void invalidateAppLogoCache(MainActivity.AppEntry a) {
         if (a == null) {
-            logoCache.evictAll();
+            logoCache.evictAll();missingLogos.evictAll();
             return;
         }
-        if (a.key != null) logoCache.remove(a.key);
-        if (a.pkg != null) logoCache.remove(a.pkg);
+        if (a.key != null) {logoCache.remove(a.key);missingLogos.remove(a.key);}
+        if (a.pkg != null) {logoCache.remove(a.pkg);missingLogos.remove(a.pkg);}
     }
 
     Bitmap getSquareAppIcon(MainActivity.AppEntry a) {
@@ -1206,7 +1207,7 @@ final class SceneHome {
         if (bmp == null) {
             bmp = buildFullSquareIcon(a);
         }
-        if (cacheKey != null) {
+        if (cacheKey != null && bmp != null) {
             logoCache.put(cacheKey, bmp);
         }
         return bmp;
@@ -1347,6 +1348,7 @@ final class SceneHome {
     Bitmap getSquareAppLogo(String pkg) {
         if (pkg == null || pkg.isEmpty()) return null;
         if (logoCache.get(pkg)!=null) return logoCache.get(pkg);
+        if(missingLogos.get(pkg)!=null)return null;
         String assetName = mapPkgToLogoAsset(pkg);
         Bitmap bmp = null;
         if (assetName != null) {
@@ -1372,7 +1374,7 @@ final class SceneHome {
                 bmp = out;
             }
         }
-        logoCache.put(pkg, bmp);
+        if(bmp!=null)logoCache.put(pkg,bmp);else missingLogos.put(pkg,Boolean.TRUE);
         return bmp;
     }
 
