@@ -526,6 +526,7 @@ public class MainActivity extends Activity {
     protected void onPause() {
         super.onPause();
         if (matchCenterDialog != null) matchCenterDialog.dispose();
+        if (globalNewsDialog != null) globalNewsDialog.dispose();
         QuranRadio.setListener(null);
         cancelGridScroll();
         resumed = false;
@@ -562,6 +563,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         if (matchCenterDialog != null) matchCenterDialog.dispose();
+        if (globalNewsDialog != null) globalNewsDialog.dispose();
         if (prayerGlassDialog != null) prayerGlassDialog.dispose();
         super.onDestroy();
         if (pkgReceiver != null) unregisterReceiver(pkgReceiver);
@@ -4587,7 +4589,7 @@ public class MainActivity extends Activity {
      */
     void enterIdle() {
         if (idle || !resumed || !heroShown || heroItems.isEmpty() || continueMode() || folderMode
-                || launchOverlay != null || pickerLayer != null || prayerGlassDialog != null || matchCenterDialog != null || menuLayer != null || moveIndex >= 0) {
+                || launchOverlay != null || pickerLayer != null || prayerGlassDialog != null || matchCenterDialog != null || globalNewsDialog != null || menuLayer != null || moveIndex >= 0) {
             resetIdle();
             return;
         }
@@ -4863,6 +4865,7 @@ public class MainActivity extends Activity {
     }
 
     MatchCenterDialog matchCenterDialog;
+    GlobalNewsDialog globalNewsDialog;
 
     void showFootballPanel() {
         stopSway(null);
@@ -4978,6 +4981,11 @@ public class MainActivity extends Activity {
 
     /** World headlines in Arabic, in a glass panel opening from the news pill. */
     void showNewsPanel() {
+        stopSway(null);
+        GlobalNewsDialog.open(this, newsShortcut);
+    }
+
+    void showLegacyNewsPanel() {
         dropPicker();
         stopSway(null);
         popoverReturn = newsShortcut;
