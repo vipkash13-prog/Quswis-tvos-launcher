@@ -5,8 +5,8 @@ import java.io.*;import java.net.*;import java.text.*;import java.util.*;import 
 
 /** Catalogue facts, never promises that a URL is playable or that a programme is on air. */
 final class LiveTvData {
- static final String[] SECTIONS={"🇸🇦 القنوات السعودية","🌙 القنوات العربية","🌍 قنوات العالم","📰 قنوات الأخبار","⚽ القنوات الرياضية","🎌 قنوات الأنمي","🧸 قنوات الكرتون المدبلج بالعربية"};
- static final String[] LISTS={"countries/sa","regions/arab","index","categories/news","categories/sports","categories/animation","categories/kids"};
+ static final String[] SECTIONS={"🇸🇦 القنوات السعودية","🌙 القنوات العربية","🌍 قنوات العالم","📰 قنوات الأخبار","⚽ القنوات الرياضية","🎌 قنوات الأنمي","🧸 قنوات الكرتون المدبلج بالعربية","🎬 الأفلام والمسلسلات الآسيوية المدبلجة"};
+ static final String[] LISTS={"countries/sa","regions/arab","index","categories/news","categories/sports","categories/animation","categories/kids","categories/movies","categories/series","countries/ae"};
  static final long DAY=86400000L;
  static final class Meta {String id="",name="",arabic="",country="",website="",categories="",network="";boolean blocked;}
  static final class Endpoint {
@@ -48,6 +48,6 @@ final class LiveTvData {
    for(Endpoint e:c.streams){String lang=languages.get(e.feed);if(lang==null)lang=languages.get(c.id);if(lang!=null)e.languages=lang;}
    if(section==5&&!c.arabicDeclared()&&!c.country.equals("JP")&&!normalize(c.sourceName).matches(".*(?:anime|naruto|one piece|onepiece|conan|hunter|dragon ball|gundam|pokemon).*"))continue;out.add(c);}
   if(section==5)out.sort((a,b)->Boolean.compare(b.arabicDeclared(),a.arabicDeclared()));return out;}
- static List<Channel> search(List<Channel> all,String query){String q=normalize(query);List<Channel> out=new ArrayList<>();for(Channel c:all)if(q.isEmpty()||normalize(c.name+" "+c.sourceName+" "+c.id).contains(q))out.add(c);return out;}
+ static List<Channel> search(List<Channel> all,String query){String q=normalize(query);List<Channel> out=new ArrayList<>();for(Channel c:all)if(q.isEmpty()||(normalize(c.name+" "+c.sourceName+" "+c.id).contains(q)||normalize(c.name+" "+c.sourceName+" "+c.id).replace(" ","").contains(q.replace(" ",""))))out.add(c);return out;}
  static String time(long value){SimpleDateFormat f=new SimpleDateFormat("d/MM/yyyy h:mm a",new Locale("ar"));f.setTimeZone(TimeZone.getTimeZone("Asia/Riyadh"));return f.format(new Date(value));}
 }

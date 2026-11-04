@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "channel": {
+        "id": "MBC3USA.us",
+        "name": "MBC 3 USA",
+        "source": "MBC 3 USA",
+        "logo": "https://i.imgur.com/PVt8OPN.png",
+        "groups": "Kids",
+        "country": "US",
+        "website": "https://mbc3.mbc.net/",
+        "streams": [
+          {
+            "url": "https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-3-usa/5d58265a862a476dc7f97694addb5ded/index.m3u8",
+            "feed": "MBC3USA.us@SD",
+            "ref": "",
+            "ua": "",
+            "lang": "ara",
+            "geo": true
+          }
+        ]
+      },
+      "kind": "cartoon",
+      "checked_at": 1793783212552,
+      "video_decoded": true,
+      "audio_evidence": "decoded_stream_language:ar",
+      "documentation": "https://www.mms.net/",
+      "catalogue": "https://iptv-org.github.io/iptv/categories/kids.m3u",
+      "note": "نسخة USA من MBC3؛ ليست قناة MBC3.ae"
+    },
+    {
+      "channel": {
+        "id": "MBCBollywood.ae",
+        "name": "MBC Bollywood",
+        "source": "MBC Bollywood",
+        "logo": "https://i.imgur.com/TTAGFHG.png",
+        "groups": "Movies",
+        "country": "AE",
+        "website": "http://mbc.net/bollywood",
+        "streams": [
+          {
+            "url": "https://shd-gcp-live.edgenextcdn.net/live/bitmovin-mbc-bollywood/546eb40d7dcf9a209255dd2496903764/index.m3u8",
+            "feed": "MBCBollywood.ae@SD",
+            "ref": "",
+            "ua": "",
+            "lang": "ara",
+            "geo": true
+          }
+        ]
+      },
+      "kind": "asian",
+      "checked_at": 1793783212554,
+      "video_decoded": true,
+      "audio_evidence": "decoded_stream_language:ar",
+      "documentation": "https://www.mms.net/",
+      "catalogue": "https://iptv-org.github.io/iptv/categories/movies.m3u",
+      "note": "قد يحتوي على برامج مدبلجة وأخرى مترجمة؛ تم رصد مسار صوت عربي في البث المختبَر"
+    },
+    {
+      "channel": {
+        "id": "Sat7Kids.cy",
+        "name": "Sat 7 Kids",
+        "source": "Sat 7 Kids",
+        "logo": "https://i.imgur.com/M0ik0i2.png",
+        "groups": "Kids;Religious",
+        "country": "CY",
+        "website": "http://sat7kids.com/",
+        "streams": [
+          {
+            "url": "https://svs.itworkscdn.net/sat7kidslive/sat7kids.smil/playlist_dvr.m3u8",
+            "feed": "Sat7Kids.cy@SD",
+            "ref": "",
+            "ua": "",
+            "lang": "ara",
+            "geo": false
+          }
+        ]
+      },
+      "kind": "cartoon",
+      "checked_at": 1793783212556,
+      "video_decoded": true,
+      "audio_evidence": "official_arabic_channel",
+      "documentation": "https://sat7.org/our-channels/channel-overview/sat-7-kids/",
+      "catalogue": "https://iptv-org.github.io/iptv/categories/kids.m3u",
+      "note": "برامج أطفال مسيحية بالعربية، تتضمن رسومًا؛ ليست قناة أنمي خالصة"
+    }
+  ]
+}
