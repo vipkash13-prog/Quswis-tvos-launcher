@@ -67,29 +67,29 @@ final class LiveTvDialog extends Dialog {
   addAction(column,"تأكيد سماع صوت عربي للقناة الحالية",()->{if(!engine.rendered||playing==null||!LiveTvDubbed.eligible(playing)){toast("شغّل قناة رسوم أو قناة آسيوية موثّقة أولًا، ثم استمع إلى صوتها");return;}LinearLayout confirm=openPanel("تأكيد الصوت الفعلي");TextView explanation=text("هل تسمع صوتًا عربيًا فعليًا في البث الحالي؟ لا تؤكد اعتمادًا على اسم القناة أو شعارها. يُحفظ هذا التحقق محليًا، ولا يثبت جدول مسلسل معين.",11,false);explanation.setSingleLine(false);explanation.setMaxLines(5);confirm.addView(explanation,new LinearLayout.LayoutParams(-1,px(85)));addAction(confirm,"نعم، استمعت إلى صوت عربي فعلي",()->{repository.confirmArabic(playing,engine.endpoint,"viewer_heard_arabic");closePanel();if(section>=6)load(false);toast("حُفظ تأكيد الصوت العربي لهذا المصدر بعد نجاح تشغيله");});});
   addAction(column,"فحص القنوات المدبلجة المرشحة من بيانات المصدر",this::showCandidates);addAction(column,"إعداد مصدر XMLTV لدليل البرامج",this::editEpg);addAction(column,"فتح تطبيق البث المختار في إعدادات اللانشر",()->{closePanel();dismiss();host.openLegacyLiveBroadcast();});
  }
+ private EditText accountField(String hint,String value,int type,int ime){EditText f=new EditText(host);f.setId(View.generateViewId());f.setSingleLine(true);f.setTextColor(Color.WHITE);f.setHintTextColor(0xFFB5D7EB);f.setHint(hint);f.setText(value);f.setInputType(type);f.setImeOptions(ime);f.setTextSize(android.util.TypedValue.COMPLEX_UNIT_PX,px(12));f.setBackground(skin(false,9));f.setPadding(px(10),0,px(10),0);f.setLayoutDirection(View.LAYOUT_DIRECTION_LTR);f.setGravity(Gravity.CENTER_VERTICAL|Gravity.LEFT);f.setFocusable(true);f.setFocusableInTouchMode(true);f.setShowSoftInputOnFocus(false);f.setOnFocusChangeListener((v,focused)->paint(v));f.setOnClickListener(v->showKeyboard(f));return f;}
  private void editXtreamAccount(){
-  LinearLayout column=openPanel("حساب اشتراك البث المباشر — قنوات Live فقط");
-  TextView note=text("تُجلب القنوات المباشرة من حسابك فقط. لا يتم طلب مكتبة الأفلام أو المسلسلات.",10,false);
-  note.setSingleLine(false);note.setMaxLines(3);column.addView(note,new LinearLayout.LayoutParams(-1,px(54)));
-  EditText serverField=new EditText(host);serverField.setSingleLine(true);serverField.setTextColor(Color.WHITE);serverField.setHintTextColor(0xFFB5D7EB);serverField.setHint("رابط السيرفر");serverField.setTextSize(14);serverField.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_URI);
-  EditText userField=new EditText(host);userField.setSingleLine(true);userField.setTextColor(Color.WHITE);userField.setHintTextColor(0xFFB5D7EB);userField.setHint("اسم المستخدم");userField.setTextSize(14);
-  EditText passField=new EditText(host);passField.setSingleLine(true);passField.setTextColor(Color.WHITE);passField.setHintTextColor(0xFFB5D7EB);passField.setHint("كلمة المرور");passField.setTextSize(14);passField.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD);
+  LinearLayout shell=openPanel("حساب اشتراك البث المباشر — قنوات Live فقط");
+  ScrollView scroll=new ScrollView(host);scroll.setFillViewport(false);LinearLayout column=new LinearLayout(host);column.setOrientation(LinearLayout.VERTICAL);scroll.addView(column,new ScrollView.LayoutParams(-1,-2));shell.addView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+  TextView note=text("تُجلب القنوات المباشرة من حسابك فقط (بدون أفلام أو مسلسلات). اضغط OK على أي حقل لإظهار لوحة المفاتيح، واستخدم أسهم الريموت للتنقل بين الحقول.",8,false);
+  note.setSingleLine(false);note.setMaxLines(3);column.addView(note,new LinearLayout.LayoutParams(-1,px(44)));
+  final EditText serverField=accountField("رابط السيرفر (Host)","",android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_URI,EditorInfo.IME_ACTION_NEXT);
+  final EditText userField=accountField("اسم المستخدم (Username)","",android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS,EditorInfo.IME_ACTION_NEXT);
+  final EditText passField=accountField("كلمة المرور (Password)","",android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD,EditorInfo.IME_ACTION_DONE);
   String serverValue=XtreamAccount.DEFAULT_SERVER,userValue="",passValue="";
   try{XtreamAccount.Credentials saved=XtreamAccount.load(host);if(saved!=null){serverValue=saved.server;userValue=saved.username;passValue=saved.password;}}
   catch(Exception ignored){toast("تعذرت قراءة الحساب المحفوظ؛ أدخل بياناته من جديد");}
   serverField.setText(serverValue);userField.setText(userValue);passField.setText(passValue);
-  column.addView(serverField,new LinearLayout.LayoutParams(-1,px(42)));
-  column.addView(userField,new LinearLayout.LayoutParams(-1,px(42)));
-  column.addView(passField,new LinearLayout.LayoutParams(-1,px(42)));
-  addAction(column,"حفظ الحساب وجلب قنوات Live",()->{
-   try{
-    XtreamAccount.save(host,serverField.getText().toString(),userField.getText().toString(),passField.getText().toString());
-    snapshots.remove(7);hideKeyboard(passField);closePanel();
-    if(section==7)load(true);else toast("تم حفظ الحساب. افتح قسم الأفلام والمسلسلات الآسيوية المدبلجة لجلب قنوات Live.");
-   }catch(Exception e){toast(e instanceof IllegalArgumentException?e.getMessage():"تعذر حفظ الحساب بشكل آمن");}
-  });
+  EditText[] fields={serverField,userField,passField};
+  for(EditText f:fields){LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-1,px(40));lp.topMargin=px(4);column.addView(f,lp);}
+  final Runnable save=()->{try{XtreamAccount.save(host,serverField.getText().toString(),userField.getText().toString(),passField.getText().toString());snapshots.remove(7);hideKeyboard(passField);closePanel();if(section==7)load(true);else toast("تم حفظ الحساب. افتح قسم الأفلام والمسلسلات الآسيوية المدبلجة لجلب قنوات Live.");}catch(Exception e){toast(e instanceof IllegalArgumentException?e.getMessage():"تعذر حفظ الحساب بشكل آمن");}};
+  addAction(column,"حفظ الحساب وجلب قنوات Live",save);
   addAction(column,"حذف حساب البث المحفوظ",()->{XtreamAccount.clear(host);snapshots.remove(7);hideKeyboard(passField);closePanel();if(section==7)load(true);toast("تم حذف بيانات حساب البث من الجهاز");});
-  serverField.requestFocus();showKeyboard(serverField);
+  // Explicit D-pad chain: Host -> Username -> Password -> Save -> Delete, and back up again.
+  final View[] order=new View[fields.length+2];for(int i=0;i<fields.length;i++)order[i]=fields[i];order[3]=column.getChildAt(column.getChildCount()-2);order[4]=column.getChildAt(column.getChildCount()-1);
+  for(int i=0;i<order.length;i++){final int at=i;order[i].setOnKeyListener((v,key,event)->{if(event.getAction()!=KeyEvent.ACTION_DOWN)return false;if(key!=KeyEvent.KEYCODE_DPAD_DOWN&&key!=KeyEvent.KEYCODE_DPAD_UP)return false;int next=at+(key==KeyEvent.KEYCODE_DPAD_DOWN?1:-1);if(next<0||next>=order.length)return true;hideKeyboard(v);order[next].requestFocus();return true;});}
+  for(EditText f:fields)f.setOnEditorActionListener((v,action,event)->{int at=index(order,v);if(action==EditorInfo.IME_ACTION_DONE){hideKeyboard(v);save.run();return true;}if(at>=0&&at+1<order.length)order[at+1].requestFocus();return true;});
+  serverField.requestFocus();
  }
  private void showCandidates(){final int target=section==7?7:6;LinearLayout column=openPanel("مرشحات للفحص — ليست قنوات عربية مؤكدة");TextView note=text("تطابق بيانات المصدر لغة عربية، لكن يجب نجاح التشغيل والتحقق من مسار الصوت أو الاستماع إليه قبل إضافتها إلى قسمها المدبلج.",10,false);note.setSingleLine(false);note.setMaxLines(4);column.addView(note,new LinearLayout.LayoutParams(-1,px(70)));ListView candidates=new ListView(host);ChannelAdapter ca=new ChannelAdapter();candidates.setAdapter(ca);candidates.setSelector(selector());candidates.setDrawSelectorOnTop(true);candidates.setFocusable(true);column.addView(candidates,new LinearLayout.LayoutParams(-1,0,1));LiveTvRepository.WORK.execute(()->{LiveTvRepository.Snapshot result=repository.read(target,false);ui.post(()->{if(panel==null||closing)return;ca.items.addAll(result.candidates);ca.notifyDataSetChanged();if(ca.items.isEmpty())note.setText("لا توجد قنوات عربية مرشحة قابلة للتحقق في المصادر حاليًا");else candidates.requestFocus();});});candidates.setOnItemClickListener((a,v,p,id)->{LiveTvData.Channel c=ca.getItem(p);closePanel();play(c,0);});}
  private void editEpg(){LinearLayout column=openPanel("رابط دليل البرامج XMLTV");EditText field=new EditText(host);field.setTextColor(Color.WHITE);field.setTextSize(14);field.setSingleLine(true);field.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_URI);field.setText(repository.prefs.getString("epg_url",""));column.addView(field,new LinearLayout.LayoutParams(-1,px(42)));addAction(column,"حفظ مصدر الدليل",()->{String url=LiveTvData.web(field.getText().toString());if(!field.getText().toString().trim().isEmpty()&&url.isEmpty()){toast("أدخل رابط HTTP أو HTTPS صالحًا");return;}repository.prefs.edit().putString("epg_url",url).apply();hideKeyboard(field);closePanel();loadGuide();});addAction(column,"حذف المصدر المخصص",()->{repository.prefs.edit().remove("epg_url").apply();hideKeyboard(field);closePanel();loadGuide();});field.requestFocus();showKeyboard(field);}

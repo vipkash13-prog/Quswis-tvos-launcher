@@ -30,7 +30,7 @@ rm -rf build && mkdir -p build/gen build/classes build/dex
 DEPS="$PWD/build/deps"
 mkdir -p "$DEPS"
 MEDIA3_VERSION="1.4.1"
-for artifact in media3-common media3-container media3-database media3-decoder media3-datasource media3-extractor media3-exoplayer; do
+for artifact in media3-common media3-container media3-database media3-decoder media3-datasource media3-extractor media3-exoplayer media3-exoplayer-hls media3-exoplayer-dash; do
     aar="$DEPS/$artifact.aar"
     curl --fail --silent --show-error --location \
         "https://dl.google.com/dl/android/maven2/androidx/media3/$artifact/$MEDIA3_VERSION/$artifact-$MEDIA3_VERSION.aar" \

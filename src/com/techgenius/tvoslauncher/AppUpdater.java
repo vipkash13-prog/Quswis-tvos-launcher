@@ -32,7 +32,7 @@ import java.nio.charset.StandardCharsets;
 
 /**
  * Checks GitHub Releases (https://api.github.com/repos/vipkash13-prog/Quswis-tvos-launcher/releases/latest)
- * and downloads/installs the latest APK either automatically or manually from Settings -> Updates.
+ * and, only after the user approves, downloads/installs the latest APK.
  */
 public final class AppUpdater {
     public static final String GITHUB_API_LATEST =
@@ -40,17 +40,15 @@ public final class AppUpdater {
     public static final String GITHUB_FALLBACK_APK =
             "https://github.com/vipkash13-prog/Quswis-tvos-launcher/releases/latest/download/Quswis-tvOS-Launcher.apk";
 
-    /**
-     * 1.0.205 is the approved release: while this is true the launcher never checks for, offers or installs
-     * updates. Set it to false only when new modifications are approved.
-     */
-    public static final boolean UPDATES_FROZEN = true;
-
     private static final String PREF_NAME = "updates";
     private static final String KEY_AUTO_UPDATE = "auto_update";
     private static final String KEY_LATEST_VER = "latest_version";
     private static final String KEY_LATEST_URL = "latest_apk_url";
     private static final String KEY_LAST_CHECK = "last_check_ms";
+    private static final String KEY_SNOOZE_VER = "snooze_version";
+    private static final String KEY_SNOOZE_UNTIL = "snooze_until_ms";
+    private static final long SNOOZE_MS = 24L * 60 * 60 * 1000;
+    private static final long AUTO_CHECK_GAP_MS = 6L * 60 * 60 * 1000;
 
     private static final Handler MAIN = new Handler(Looper.getMainLooper());
     private static volatile boolean checking = false;
@@ -67,7 +65,6 @@ public final class AppUpdater {
     }
 
     public static boolean isAutoUpdateEnabled(Context c) {
-        if (UPDATES_FROZEN) return false;
         return prefs(c).getBoolean(KEY_AUTO_UPDATE, true);
     }
 
@@ -216,71 +213,68 @@ public final class AppUpdater {
     }
 
     /**
-     * Called on MainActivity startup / network online: if Automatic Updates is ON, checks GitHub
-     * in the background and automatically pulls & installs if a newer release is found.
+     * Called on MainActivity startup: if the startup check is ON, looks at GitHub Releases at most once every
+     * few hours and, when a newer release exists, only ASKS the user. Nothing is downloaded or installed
+     * without the user pressing "تحديث الآن".
      */
     public static void checkAutoUpdateIfNeeded(Activity activity) {
-        if (UPDATES_FROZEN || activity == null || activity.isFinishing()) return;
+        if (activity == null || activity.isFinishing()) return;
         if (!isAutoUpdateEnabled(activity)) return;
         if (checking || downloading) return;
         long last = prefs(activity).getLong(KEY_LAST_CHECK, 0L);
         long now = System.currentTimeMillis();
-        // Throttle automatic background checks to once every 15 minutes
-        if (now - last < 15 * 60 * 1000L) return;
-
+        if (now - last < AUTO_CHECK_GAP_MS) return;
         checkForUpdates(activity, (success, latestVersion, downloadUrl, updateAvailable, errorMsg) -> {
-            if (success && updateAvailable && !activity.isFinishing()) {
-                Toast.makeText(activity,
-                        I18n.s(activity,
-                                "Updating Quswis tvOS Launcher to v" + latestVersion + "…",
-                                "tvOS Launcher v" + latestVersion + " sürümüne güncelleniyor…"),
-                        Toast.LENGTH_SHORT).show();
-                downloadAndInstall(activity, downloadUrl, latestVersion, true, null);
-            }
+            if (!success || !updateAvailable || activity.isFinishing()) return;
+            SharedPreferences p = prefs(activity);
+            if (latestVersion.equals(p.getString(KEY_SNOOZE_VER, ""))
+                    && System.currentTimeMillis() < p.getLong(KEY_SNOOZE_UNTIL, 0L)) return;
+            showUpdateDialog(activity, latestVersion, downloadUrl, null);
         });
     }
 
-    /**
-     * Shows interactive update check / prompt from Settings -> Updates.
-     */
+    /** Settings -> "التحقق من وجود تحديثات": always answers, with a dialog or a short message. */
     public static void manualCheckAndPrompt(Activity activity, Runnable onUiRefresh) {
         if (activity == null || activity.isFinishing()) return;
-        if (UPDATES_FROZEN) {
-            Toast.makeText(activity, "هذا هو الإصدار المعتمد (v" + getCurrentVersion(activity) + "). التحديثات متوقفة.",
-                    Toast.LENGTH_LONG).show();
+        if (checking || downloading) {
+            Toast.makeText(activity, "جارٍ التحقق من التحديثات…", Toast.LENGTH_SHORT).show();
             return;
         }
-        if (checking || downloading) return;
+        Toast.makeText(activity, "جارٍ التحقق من وجود تحديثات…", Toast.LENGTH_SHORT).show();
         if (onUiRefresh != null) onUiRefresh.run();
         checkForUpdates(activity, (success, latestVersion, downloadUrl, updateAvailable, errorMsg) -> {
             if (onUiRefresh != null) onUiRefresh.run();
             if (activity.isFinishing()) return;
-            if (!success) {
-                Toast.makeText(activity,
-                        I18n.s(activity, "Could not check for updates.", "Güncellemeler kontrol edilemedi."),
-                        Toast.LENGTH_SHORT).show();
-                return;
-            }
             String cur = getCurrentVersion(activity);
-            if (updateAvailable) {
-                new AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                        .setTitle(I18n.s(activity, "Update Available", "Güncelleme Mevcut") + " (v" + latestVersion + ")")
-                        .setMessage(I18n.s(activity,
-                                "A new version of Quswis tvOS Launcher (v" + latestVersion + ") is available on GitHub.\nCurrent version: v" + cur,
-                                "GitHub'da yeni bir tvOS Launcher sürümü (v" + latestVersion + ") mevcut.\nMevcut sürüm: v" + cur))
-                        .setPositiveButton(I18n.s(activity, "Update Now", "Şimdi Güncelle"), (d, w) -> {
-                            downloadAndInstall(activity, downloadUrl, latestVersion, false, onUiRefresh);
-                        })
-                        .setNegativeButton(I18n.s(activity, "Cancel", "İptal"), null)
-                        .show();
+            if (!success) {
+                Toast.makeText(activity, "تعذّر التحقق من التحديثات (" + (errorMsg == null ? "خطأ في الشبكة" : errorMsg)
+                        + "). تأكد من الاتصال بالإنترنت وحاول مرة أخرى.", Toast.LENGTH_LONG).show();
+            } else if (updateAvailable) {
+                showUpdateDialog(activity, latestVersion, downloadUrl, onUiRefresh);
             } else {
-                Toast.makeText(activity,
-                        I18n.s(activity,
-                                "You are up to date (v" + cur + ")",
-                                "Sürümünüz güncel (v" + cur + ")"),
-                        Toast.LENGTH_SHORT).show();
+                Toast.makeText(activity, "أنت تستخدم أحدث إصدار (v" + cur + ")", Toast.LENGTH_LONG).show();
             }
         });
+    }
+
+    private static void showUpdateDialog(Activity activity, String latestVersion, String downloadUrl, Runnable onUiRefresh) {
+        String cur = getCurrentVersion(activity);
+        AlertDialog dialog = new AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                .setTitle("يتوفر تحديث جديد")
+                .setMessage("الإصدار الجديد: v" + latestVersion + "\nإصدارك الحالي: v" + cur
+                        + "\n\nلن يبدأ التنزيل إلا بعد موافقتك، وتبقى إعداداتك وبياناتك كما هي.")
+                .setPositiveButton("تحديث الآن", (d, w) -> downloadAndInstall(activity, downloadUrl, latestVersion, false, onUiRefresh))
+                .setNegativeButton("لاحقاً", (d, w) -> snooze(activity, latestVersion))
+                .setOnCancelListener(d -> snooze(activity, latestVersion))
+                .create();
+        dialog.show();
+        android.widget.Button yes = dialog.getButton(AlertDialog.BUTTON_POSITIVE);
+        if (yes != null) yes.requestFocus();
+    }
+
+    private static void snooze(Context c, String version) {
+        prefs(c).edit().putString(KEY_SNOOZE_VER, version)
+                .putLong(KEY_SNOOZE_UNTIL, System.currentTimeMillis() + SNOOZE_MS).apply();
     }
 
     public static void downloadAndInstall(
@@ -294,11 +288,7 @@ public final class AppUpdater {
         if (onUiRefresh != null) MAIN.post(onUiRefresh);
         final Context appCtx = activity.getApplicationContext();
 
-        if (!autoSilent) {
-            Toast.makeText(activity,
-                    I18n.s(activity, "Downloading update v" + version + "…", "Güncelleme indiriliyor v" + version + "…"),
-                    Toast.LENGTH_SHORT).show();
-        }
+        Toast.makeText(activity, "جارٍ تنزيل التحديث v" + version + "…", Toast.LENGTH_LONG).show();
 
         new Thread(() -> {
             HttpURLConnection conn = null;
@@ -340,6 +330,14 @@ public final class AppUpdater {
                 if (!apkFile.exists() || apkFile.length() < 10_000) {
                     throw new Exception("Downloaded APK invalid");
                 }
+                String problem = verifyApk(appCtx, apkFile);
+                if (problem != null) {
+                    apkFile.delete();
+                    downloading = false;
+                    if (onUiRefresh != null) MAIN.post(onUiRefresh);
+                    MAIN.post(() -> Toast.makeText(appCtx, problem, Toast.LENGTH_LONG).show());
+                    return;
+                }
                 // Make readable for shell/system installer if needed
                 try {
                     appCtx.getCacheDir().setExecutable(true, false);
@@ -380,12 +378,45 @@ public final class AppUpdater {
                 downloading = false;
                 if (onUiRefresh != null) MAIN.post(onUiRefresh);
                 MAIN.post(() -> Toast.makeText(appCtx,
-                        I18n.s(appCtx, "Update download failed.", "Güncelleme indirilemedi."),
-                        Toast.LENGTH_SHORT).show());
+                        "فشل تنزيل التحديث. تحقق من الإنترنت ثم أعد المحاولة من الإعدادات > التحديثات.",
+                        Toast.LENGTH_LONG).show());
             } finally {
                 if (conn != null) conn.disconnect();
             }
         }, "github-apk-download").start();
+    }
+
+    /** Refuses an APK that is not this app, not newer, or signed by a different key (Android would reject it). */
+    private static String verifyApk(Context c, File apk) {
+        try {
+            android.content.pm.PackageManager pm = c.getPackageManager();
+            int flags = Build.VERSION.SDK_INT >= 28
+                    ? android.content.pm.PackageManager.GET_SIGNING_CERTIFICATES
+                    : android.content.pm.PackageManager.GET_SIGNATURES;
+            PackageInfo fresh = pm.getPackageArchiveInfo(apk.getAbsolutePath(), flags);
+            if (fresh == null) return "الملف الذي نُزّل ليس تحديثًا صالحًا.";
+            if (!c.getPackageName().equals(fresh.packageName)) return "الملف الذي نُزّل لا يخص هذا التطبيق.";
+            PackageInfo cur = pm.getPackageInfo(c.getPackageName(), flags);
+            long newCode = Build.VERSION.SDK_INT >= 28 ? fresh.getLongVersionCode() : fresh.versionCode;
+            long curCode = Build.VERSION.SDK_INT >= 28 ? cur.getLongVersionCode() : cur.versionCode;
+            if (newCode <= curCode) return "الإصدار المنشور على GitHub ليس أحدث من المثبّت لديك؛ لم يُثبَّت شيء.";
+            android.content.pm.Signature[] a = signers(fresh), b = signers(cur);
+            if (a != null && b != null && a.length > 0 && b.length > 0) {
+                java.util.Set<android.content.pm.Signature> sa = new java.util.HashSet<>(java.util.Arrays.asList(a));
+                java.util.Set<android.content.pm.Signature> sb = new java.util.HashSet<>(java.util.Arrays.asList(b));
+                if (!sa.equals(sb)) return "توقيع التحديث يختلف عن توقيع النسخة المثبّتة، لذلك لا يستطيع Android تحديثها مع الاحتفاظ بالبيانات. لم يُثبَّت شيء.";
+            }
+        } catch (Throwable ignored) {
+        }
+        return null;
+    }
+
+    private static android.content.pm.Signature[] signers(PackageInfo p) {
+        if (Build.VERSION.SDK_INT >= 28 && p.signingInfo != null) {
+            return p.signingInfo.hasMultipleSigners() ? p.signingInfo.getApkContentsSigners()
+                    : p.signingInfo.getSigningCertificateHistory();
+        }
+        return p.signatures;
     }
 
     private static void copyFile(File src, File dst) throws Exception {

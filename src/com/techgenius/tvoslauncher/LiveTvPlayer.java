@@ -28,7 +28,8 @@ final class LiveTvPlayer {
    @Override public void onPlayerError(PlaybackException error){if(released||endpoint==null)return;audioFocus.pauseIntent();rendered=false;repository.failure(endpoint);listener.status(message(error));}
   });
  }
- void play(LiveTvData.Channel selected,int index){if(released||selected==null||selected.streams.isEmpty())return;ticket++;channel=selected;source=Math.floorMod(index,selected.streams.size());endpoint=selected.streams.get(source);rendered=false;audioLanguage="";listener.status("جارٍ الاتصال بالمصدر…");
+ void play(LiveTvData.Channel selected,int index){try{play1(selected,index);}catch(Throwable t){android.util.Log.e("Quswis-Live","Player failed to start",t);rendered=false;listener.status("تعذّر تشغيل المشغل الداخلي ("+t.getClass().getSimpleName()+"). أعد المحاولة أو اختر قناة أخرى.");}}
+ private void play1(LiveTvData.Channel selected,int index){if(released||selected==null||selected.streams.isEmpty())return;ticket++;channel=selected;source=Math.floorMod(index,selected.streams.size());endpoint=selected.streams.get(source);rendered=false;audioLanguage="";listener.status("جارٍ الاتصال بالمصدر…");
   DefaultHttpDataSource.Factory http=new DefaultHttpDataSource.Factory().setUserAgent(endpoint.agent.isEmpty()?"Mozilla/5.0 QuswisLiveTV":endpoint.agent).setConnectTimeoutMs(7000).setReadTimeoutMs(9000).setAllowCrossProtocolRedirects(false);
   if(!endpoint.referrer.isEmpty())http.setDefaultRequestProperties(java.util.Collections.singletonMap("Referer",endpoint.referrer));
   player.stop();player.setMediaSource(new DefaultMediaSourceFactory(http).createMediaSource(new MediaItem.Builder().setUri(endpoint.url).setMediaId(channel.key()).build()));player.prepare();resume();

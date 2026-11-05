@@ -1,0 +1,107 @@
+name: Live player, account form and updates 1.0.207
+on:
+  push:
+    branches: ["fix/live-player-form-updates"]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK platform and build-tools
+        run: |
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0"
+      - name: Build APK
+        run: |
+          chmod +x build.sh
+          VERSION_NAME="1.0.207" VERSION_CODE="207" ./build.sh
+          mkdir -p dist
+          cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
+          "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/34.0.0/apksigner" verify --verbose dist/Quswis-tvOS-Launcher.apk
+      - name: Upload APK immediately
+        uses: actions/upload-artifact@v4
+        with:
+          name: Quswis-tvOS-Launcher-1.0.207
+          path: dist/Quswis-tvOS-Launcher.apk
+      - name: Build test APK
+        run: |
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          JAR="$SDK/platforms/android-34/android.jar"
+          BT="$SDK/build-tools/34.0.0"
+          mkdir -p /tmp/t/classes /tmp/t/dex
+          "$BT/aapt2" link -o /tmp/t/unsigned.apk -I "$JAR" --manifest tests/live-fix-test-manifest.xml --min-sdk-version 24 --target-sdk-version 34
+          CP="$JAR:build/classes"; for j in build/deps/*.jar; do CP="$CP:$j"; done
+          javac -encoding UTF-8 --release 11 -cp "$CP" -d /tmp/t/classes tests/LiveFixInstrumentation.java
+          jar cf /tmp/t/app-classes.jar -C build/classes .
+          "$BT/d8" --min-api 24 --lib "$JAR" --classpath /tmp/t/app-classes.jar --output /tmp/t/dex /tmp/t/classes/com/techgenius/tvoslauncher/LiveFixInstrumentation.class
+          (cd /tmp/t/dex && zip -q ../unsigned.apk classes.dex)
+          "$BT/zipalign" -f 4 /tmp/t/unsigned.apk /tmp/t/aligned.apk
+          "$BT/apksigner" sign --ks debug.keystore --ks-pass pass:android --key-pass pass:android --out /tmp/t/test.apk /tmp/t/aligned.apk
+          sudo chmod 666 /dev/kvm
+      - name: Generate test streams and start the mock Xtream server
+        run: |
+          sudo apt-get install -y -qq ffmpeg > /dev/null
+          mkdir -p /tmp/streams/hls
+          ffmpeg -loglevel error -f lavfi -i testsrc=size=640x360:rate=25 -f lavfi -i sine=frequency=440 -t 20 -c:v libx264 -pix_fmt yuv420p -c:a aac -f hls -hls_time 4 -hls_list_size 0 -hls_segment_filename /tmp/streams/hls/seg%d.ts /tmp/streams/hls/out.m3u8
+          ffmpeg -loglevel error -f lavfi -i testsrc=size=640x360:rate=25 -f lavfi -i sine=frequency=440 -t 20 -c:v libx264 -pix_fmt yuv420p -c:a aac -f mpegts /tmp/streams/test.ts
+          : > /tmp/mock-requests.log
+          nohup python3 tests/ci-xtream-mock.py /tmp/streams /tmp/mock-requests.log > /tmp/mock.out 2>&1 &
+          sleep 2; curl -fs "http://127.0.0.1:8099/player_api.php?username=test&password=secret&action=get_live_categories"
+      - name: Real account, remote and playback test on Android 14
+        timeout-minutes: 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: tv_1080p
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+          script: |
+            adb reverse tcp:8099 tcp:8099
+            adb install -r dist/Quswis-tvOS-Launcher.apk
+            adb install -r -t /tmp/t/test.apk
+            adb logcat -c
+            timeout 300 adb shell am instrument -w -r com.techgenius.tvoslauncher.livefixtest/com.techgenius.tvoslauncher.LiveFixInstrumentation | tee /tmp/livefix.txt
+            adb logcat -d > /tmp/livefix-logcat.txt
+            adb shell screencap -p /sdcard/livefix.png && adb pull /sdcard/livefix.png /tmp/livefix.png || true
+            grep -q "LIVEFIX_PLAYBACK_OK" /tmp/livefix.txt
+      - name: Show evidence and check no VOD or series request was made
+        if: always()
+        run: |
+          grep -E "LIVEFIX|FATAL" /tmp/livefix.txt /tmp/livefix-logcat.txt | head -40 || true
+          grep -A25 "FATAL EXCEPTION" /tmp/livefix-logcat.txt | head -60 || true
+          echo "--- requests the app made to the server:"; cat /tmp/mock-requests.log
+          ! grep -E "get_vod|get_series" /tmp/mock-requests.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: livefix-evidence
+          path: |
+            /tmp/livefix.txt
+            /tmp/livefix-logcat.txt
+            /tmp/mock-requests.log
+            /tmp/livefix.png
+      - name: Publish test APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: live-fix-v1.0.207-${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
+          name: Quswis 1.0.207 live player, account form and updates (run ${{ github.run_number }})
+          prerelease: true
+          make_latest: false
+          body: |
+            1.0.207 تجريبية: إصلاح إغلاق التطبيق عند تشغيل القنوات، حقل اسم المستخدم والتنقل بالريموت، إعادة تفعيل التحديث بموافقة المستخدم.
+            توقيع تطوير.
+          files: dist/Quswis-tvOS-Launcher.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

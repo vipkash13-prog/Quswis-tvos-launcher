@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.techgenius.tvoslauncher.livefixtest">
+    <application android:label="Live account and player test" />
+    <instrumentation android:name="com.techgenius.tvoslauncher.LiveFixInstrumentation"
+        android:targetPackage="com.techgenius.tvoslauncher" />
+</manifest>

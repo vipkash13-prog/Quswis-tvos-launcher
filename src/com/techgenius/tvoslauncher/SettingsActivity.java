@@ -1973,23 +1973,19 @@ public class SettingsActivity extends Activity {
     private boolean checkingLatestRelease = false;
 
     void pageUpdates() {
-        section(tr("UPDATES", "GÜNCELLEMELER"));
-        row(tr("Automatic updates", "Otomatik güncellemeler"),
-                () -> AppUpdater.isAutoUpdateEnabled(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
+        section("التحديثات");
+        row("التحقق من وجود تحديثات",
+                () -> AppUpdater.isChecking() ? "جارٍ التحقق…" : "تحقق الآن ›",
+                () -> AppUpdater.manualCheckAndPrompt(this, this::refreshAll));
+        row("التحقق التلقائي عند التشغيل",
+                () -> AppUpdater.isAutoUpdateEnabled(this) ? "يعمل" : "متوقف",
                 () -> {
                     boolean next = !AppUpdater.isAutoUpdateEnabled(this);
                     AppUpdater.setAutoUpdateEnabled(this, next);
                     refreshAll();
-                    showStatusMsg(next
-                            ? tr("Automatic updates enabled.", "Otomatik güncellemeler etkinleştirildi.")
-                            : tr("Automatic updates disabled.", "Otomatik güncellemeler devre dışı bırakıldı."));
-                    if (next) {
-                        AppUpdater.checkAutoUpdateIfNeeded(this);
-                    }
+                    showStatusMsg(next ? "سيتم التحقق عند التشغيل، ولن يُنزَّل شيء دون موافقتك."
+                            : "أُوقف التحقق التلقائي. يمكنك التحقق يدويًا في أي وقت.");
                 });
-        row(tr("Check for updates", "Güncellemeleri kontrol et"),
-                () -> tr("Check now ›", "Şimdi kontrol et ›"),
-                () -> AppUpdater.manualCheckAndPrompt(this, this::refreshAll));
 
         section(tr("VERSION INFO", "SÜRÜM BİLGİSİ"));
         infoRow(tr("Current version", "Mevcut sürüm"), "v" + AppUpdater.getCurrentVersion(this), null);
@@ -2005,8 +2001,7 @@ public class SettingsActivity extends Activity {
                 },
                 null);
 
-        infoNote(tr("Checks GitHub Releases (techgenius1/tvOS-Launcher) for the latest APK and installs updates directly on your TV.",
-                "En güncel APK için GitHub Sürümlerini (techgenius1/tvOS-Launcher) kontrol eder ve güncellemeleri doğrudan TV'nize kurar."));
+        infoNote("يتحقق من إصدارات GitHub لهذا المشروع (vipkash13-prog/Quswis-tvos-launcher). عند وجود إصدار أحدث تظهر نافذة بالرقم الجديد، ولا يبدأ التنزيل أو التثبيت إلا بعد ضغطك «تحديث الآن»، وتبقى إعداداتك وبياناتك.");
 
         if (!checkingLatestRelease) {
             checkingLatestRelease = true;
