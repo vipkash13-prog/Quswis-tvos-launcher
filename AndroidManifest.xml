@@ -60,8 +60,7 @@
         android:banner="@drawable/banner"
         android:theme="@style/HomeTheme"
         android:requestLegacyExternalStorage="true"
-        android:allowBackup="false"
-        android:networkSecurityConfig="@xml/xtream_network_security">
+        android:allowBackup="false">
 
         <activity
             android:name=".MainActivity"
