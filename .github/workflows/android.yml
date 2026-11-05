@@ -36,7 +36,7 @@ jobs:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
       run: |
         chmod +x build.sh
-        VERSION_NAME="1.0.206" VERSION_CODE="206" ./build.sh
+        VERSION_NAME="1.0.212" VERSION_CODE="212" ./build.sh
         mkdir -p dist
         cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
         ls -lh dist/Quswis-tvOS-Launcher.apk
@@ -44,7 +44,7 @@ jobs:
     - name: Upload APK artifact immediately
       uses: actions/upload-artifact@v4
       with:
-        name: Quswis-tvOS-Launcher-1.0.206
+        name: Quswis-tvOS-Launcher-1.0.212
         path: dist/Quswis-tvOS-Launcher.apk
         if-no-files-found: error
 
