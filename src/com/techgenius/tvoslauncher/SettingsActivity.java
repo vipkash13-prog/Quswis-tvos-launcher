@@ -991,6 +991,8 @@ public class SettingsActivity extends Activity {
     }
 
     void pageApps() {
+        section("قنوات اشتراكي IPTV");
+        row("فتح القنوات المباشرة", () -> "›", () -> startActivity(new Intent(this, XtreamLiveActivity.class)));
         if (showingHiddenApps) {
             pageHiddenApps();
             return;
