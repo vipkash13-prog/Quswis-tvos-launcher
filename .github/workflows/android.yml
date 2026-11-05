@@ -2,7 +2,7 @@ name: Android CI
 
 on:
   push:
-    branches: [ "main", "test-scene-glass-lens" ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 permissions:
@@ -35,7 +35,8 @@ jobs:
       run: |
         chmod +x build.sh
         test -n "$RELEASE_KEYSTORE_BASE64" && test -n "$RELEASE_KEYSTORE_PASSWORD" || { echo "Missing release signing secrets; refusing debug-signed release"; exit 1; }
-        echo "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/ouswis-release.jks"
+        printf "%s" "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/ouswis-release.jks"
+        export ANDROID_HOME="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
         RELEASE_KEYSTORE="$RUNNER_TEMP/ouswis-release.jks" RELEASE_KEYSTORE_PASS="$RELEASE_KEYSTORE_PASSWORD" VERSION_NAME="1.0.211" VERSION_CODE="211" ./build.sh
         mkdir -p dist
         cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
