@@ -1,4 +1,4 @@
-name: Android CI
+Name: Android CI
 
 on:
   push:
@@ -33,7 +33,7 @@ jobs:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
       run: |
         chmod +x build.sh
-        VERSION_NAME="1.0.209" VERSION_CODE="209" ./build.sh
+        VERSION_NAME="1.0.210" VERSION_CODE="210" ./build.sh
         mkdir -p dist
         cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
         ls -lh dist/Quswis-tvOS-Launcher.apk
@@ -49,12 +49,13 @@ jobs:
       uses: softprops/action-gh-release@v2
       if: success() && github.ref == 'refs/heads/main'
       with:
-        tag_name: v1.0.209
-        name: Release v1.0.209
+        tag_name: v1.0.210
+        name: Release v1.0.210
         body: |
-          تحديث جديد لتطبيق Quswis tvOS Launcher:
-          - الحفاظ على كافة التعديلات والخلفيات والعدسات المضافة حديثاً
-          - تحديث الإصدار لدعم التثبيت الفوقي والتحديث التلقائي
+          تحديث جديد لتطبيق Ouswis tvOS Launcher:
+          - تحديث الاسم والأيقونة الجديدة بالكامل
+          - الحفاظ على كافة التعديلات والخلفيات والبيانات الحالية
+          - دعم التثبيت الفوقي والتحديث التلقائي بسلاسة
         files: |
           dist/Quswis-tvOS-Launcher.apk
       env:
