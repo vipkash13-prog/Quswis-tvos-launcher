@@ -44,6 +44,9 @@ jobs:
           name: Quswis-tvOS-Launcher-1.0.208
           path: dist/Quswis-tvOS-Launcher.apk
       - name: Build test APK
+        env:
+          KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
+          RELEASE_KEYSTORE_PASS: ${{ secrets.RELEASE_KEYSTORE_PASS }}
         run: |
           SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
           JAR="$SDK/platforms/android-34/android.jar"
@@ -56,8 +59,14 @@ jobs:
           "$BT/d8" --min-api 24 --lib "$JAR" --classpath /tmp/t/app-classes.jar --output /tmp/t/dex /tmp/t/classes/com/techgenius/tvoslauncher/LiveFixInstrumentation.class
           (cd /tmp/t/dex && zip -q ../unsigned.apk classes.dex)
           "$BT/zipalign" -f 4 /tmp/t/unsigned.apk /tmp/t/aligned.apk
-          [ -f debug.keystore ] || keytool -genkeypair -keystore debug.keystore -storepass android -keypass android -alias debug -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=test" >/dev/null
-          "$BT/apksigner" sign --ks debug.keystore --ks-pass pass:android --key-pass pass:android --out /tmp/t/test.apk /tmp/t/aligned.apk
+          # The instrumentation must carry the same signature as the app under test.
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$RELEASE_KEYSTORE_PASS" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            "$BT/apksigner" sign --ks "$RUNNER_TEMP/release.jks" --ks-key-alias tvos-release --ks-pass env:RELEASE_KEYSTORE_PASS --key-pass env:RELEASE_KEYSTORE_PASS --out /tmp/t/test.apk /tmp/t/aligned.apk
+          else
+            [ -f debug.keystore ] || keytool -genkeypair -keystore debug.keystore -storepass android -keypass android -alias debug -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=test" >/dev/null
+            "$BT/apksigner" sign --ks debug.keystore --ks-pass pass:android --key-pass pass:android --out /tmp/t/test.apk /tmp/t/aligned.apk
+          fi
           sudo chmod 666 /dev/kvm
       - name: Generate test streams and start the mock Xtream server
         run: |
