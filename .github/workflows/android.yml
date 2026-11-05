@@ -2,7 +2,7 @@ name: Android CI
 
 on:
   push:
-    branches: [ "main", "test-scene-glass-lens", "feature-classic-prayer-adhan", "feature/prayer-glass-window" ]
+    branches: [ "main", "test-scene-glass-lens", "feature-classic-prayer-adhan", "feature/prayer-glass-window", "work/xtream-live-integration" ]
   workflow_dispatch:
 
 permissions:
@@ -34,7 +34,7 @@ jobs:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
       run: |
         chmod +x build.sh
-        VERSION_NAME="1.0.205" VERSION_CODE="205" ./build.sh
+        VERSION_NAME="1.0.206" VERSION_CODE="206" ./build.sh
         mkdir -p dist
         cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
         ls -lh dist/Quswis-tvOS-Launcher.apk
