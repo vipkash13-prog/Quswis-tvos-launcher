@@ -19,9 +19,9 @@ final class MatchCenterDialog extends Dialog {
     private final MatchCenterRepository repository;
     private MatchCenterRepository.Snapshot snapshot;
     private Set<String> chosen;
-    private final View[] tabs=new View[4],choices=new View[8];
-    private final TextView[] checks=new TextView[8];
-    private final ImageView[] leagueLogos=new ImageView[8];
+    private final View[] tabs=new View[4],choices=new View[MatchCenterData.LEAGUES.length];
+    private final TextView[] checks=new TextView[MatchCenterData.LEAGUES.length];
+    private final ImageView[] leagueLogos=new ImageView[MatchCenterData.LEAGUES.length];
     private final MatchRow[] rows=new MatchRow[5];
     private final TextView heading,footer,empty,pageLabel;
     private final TextView close;
@@ -60,12 +60,12 @@ final class MatchCenterDialog extends Dialog {
         }
         FrameLayout leaguePanel=new FrameLayout(host);leaguePanel.setBackground(skin(false,false,18));put(body,leaguePanel,40,310,620,690);
         TextView leagueTitle=text("إدارة الدوريات",14,true);put(leaguePanel,leagueTitle,15,8,590,65);
-        for(int i=0;i<8;i++){
+        for(int i=0;i<MatchCenterData.LEAGUES.length;i++){
             final int index=i;FrameLayout choice=new FrameLayout(host);choice.setContentDescription(MatchCenterData.LEAGUES[i][1]);
             checks[i]=text("",11,true);checks[i].setTextColor(0xFF8FD7FF);put(choice,checks[i],518,9,45,45);
             leagueLogos[i]=image();put(choice,leagueLogos[i],447,6,52,52);
             TextView label=text(MatchCenterData.LEAGUES[i][1],10,true);if(Build.VERSION.SDK_INT>=26)label.setAutoSizeTextTypeUniformWithConfiguration(Math.max(1,px(8.5f)),px(10),Math.max(1,px(.5f)),android.util.TypedValue.COMPLEX_UNIT_PX);label.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);put(choice,label,12,0,420,65);
-            focus(choice,()->toggleLeague(index));choices[i]=choice;put(leaguePanel,choice,20,80+i*73,580,65);
+            focus(choice,()->toggleLeague(index));choices[i]=choice;put(leaguePanel,choice,20,80+i*65,580,62);
         }
         FrameLayout games=new FrameLayout(host);games.setBackground(skin(false,false,18));put(body,games,700,310,1640,690);
         heading=text("المباريات القادمة • اليوم",14,true);heading.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);put(games,heading,475,4,1135,68);
