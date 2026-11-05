@@ -130,15 +130,15 @@ jobs:
 
     - name: Create Release and Upload APK
       uses: softprops/action-gh-release@v2
-      if: false # Hold official release pending verification
+      if: success() && github.ref == 'refs/heads/main'
       with:
-        tag_name: ${{ github.ref == 'refs/heads/main' && format('v1.0.{0}', github.run_number) || format('approved-v1.0.{0}', github.run_number) }}
-        name: ${{ github.ref == 'refs/heads/main' && format('Release v1.0.{0}', github.run_number) || format('Approved v1.0.205 (run {0})', github.run_number) }}
+        tag_name: v1.0.212
+        name: OUSWIS 1.0.212
         body: |
           تحديث جديد لتطبيق Quswis tvOS Launcher من مستودعك:
           - إضافة مواقيت الصلاة
           - إضافة مباريات دوري أبطال آسيا للنخبة (AFC Champions League Elite)
-        prerelease: ${{ github.ref != 'refs/heads/main' }}
+        prerelease: false
         files: |
           dist/Quswis-tvOS-Launcher.apk
       env:
