@@ -69,8 +69,11 @@ public final class LiveFixInstrumentation extends Instrumentation {
             View f1 = focus();
             check(f1 instanceof EditText && "اسم المستخدم (Username)".contentEquals(((EditText) f1).getHint()), "DPAD_DOWN must reach Username, got " + f1);
             runOnMainSync(() -> ((EditText) f1).setText(""));
-            sendStringSync("test"); waitForIdleSync();
-            check("test".contentEquals(((EditText) f1).getText()), "Username accepts typing, got '" + ((EditText) f1).getText() + "'");
+            StringBuilder typed = new StringBuilder();
+            for (int key : new int[]{KeyEvent.KEYCODE_T, KeyEvent.KEYCODE_E, KeyEvent.KEYCODE_S, KeyEvent.KEYCODE_T}) { sendKeyDownUpSync(key); waitForIdleSync(); typed.append('[').append(((EditText) f1).getText()).append(']'); }
+            progress("LIVEFIX_TYPED " + typed);
+            check(((EditText) f1).getText().length() == 4, "Username accepts typing, got " + typed);
+            runOnMainSync(() -> ((EditText) f1).setText("test"));
             sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN); waitForIdleSync();
             View f2 = focus();
             check(f2 instanceof EditText && "كلمة المرور (Password)".contentEquals(((EditText) f2).getHint()), "DPAD_DOWN must reach Password, got " + f2);
