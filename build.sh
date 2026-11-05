@@ -41,6 +41,10 @@ done
 echo "Downloading AndroidX annotation JVM"; curl --fail --silent --show-error --location \
     "https://maven.google.com/androidx/annotation/annotation-jvm/1.9.1/annotation-jvm-1.9.1.jar" \
     -o "$DEPS/annotation.jar"
+# HLS playlist parsing uses androidx.collection (pure Java 1.2.0, no Kotlin runtime needed).
+echo "Downloading AndroidX collection"; curl --fail --silent --show-error --location \
+    "https://maven.google.com/androidx/collection/collection/1.2.0/collection-1.2.0.jar" \
+    -o "$DEPS/collection.jar"
 # Guava's Android-compatible artifact supplies ImmutableList in Media3 public APIs.
 echo "Downloading Guava Android"; curl --fail --silent --show-error --location \
     "https://repo.maven.apache.org/maven2/com/google/guava/guava/33.3.1-android/guava-33.3.1-android.jar" \
