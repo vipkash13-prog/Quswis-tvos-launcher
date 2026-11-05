@@ -2,7 +2,7 @@ name: Android CI
 
 on:
   push:
-    branches: [ "main", "test-scene-glass-lens", "feature-classic-prayer-adhan", "feature/prayer-glass-window", "fix/audio-focus-performance-206" ]
+    branches: [ "main", "test-scene-glass-lens", "feature-classic-prayer-adhan", "feature/prayer-glass-window" ]
   workflow_dispatch:
 
 permissions:
