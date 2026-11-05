@@ -1752,32 +1752,8 @@ public class SettingsActivity extends Activity {
                 () -> AppUpdater.manualCheckAndPrompt(this, this::refreshAll));
 
         section(tr("VERSION INFO", "SÜRÜM BİLGİSİ"));
-        infoRow(tr("Current version", "Mevcut sürüm"), "v" + AppUpdater.getCurrentVersion(this), null);
-        infoRowDynamic(tr("GitHub release latest version", "GitHub son sürüm"),
-                () -> {
-                    String latest = AppUpdater.getCachedLatestVersion(this);
-                    if (latest != null && !latest.isEmpty()) {
-                        return "v" + latest;
-                    }
-                    return checkingLatestRelease
-                            ? tr("Checking…", "Kontrol ediliyor…")
-                            : tr("Tap Check for updates", "Güncellemeleri kontrol et'e basın");
-                },
-                null);
+        infoRow(tr("Version", "Sürüm"), AppUpdater.getCurrentVersion(this), null);
 
-        infoNote(tr("Checks GitHub Releases (vipkash13-prog/Quswis-tvos-launcher) and asks before downloading or installing an APK.",
-                "En güncel APK için GitHub Sürümlerini (techgenius1/tvOS-Launcher) kontrol eder ve güncellemeleri doğrudan TV'nize kurar."));
-
-        if (!checkingLatestRelease) {
-            checkingLatestRelease = true;
-            refreshAll();
-            AppUpdater.checkForUpdates(this, (success, latestVersion, downloadUrl, updateAvailable, errorMsg) -> {
-                checkingLatestRelease = false;
-                if (!isFinishing()) {
-                    refreshAll();
-                }
-            });
-        }
     }
 
     void pageAbout() {
