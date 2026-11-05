@@ -26,14 +26,14 @@ final class OuswisSmartOverlay {
     OuswisSmartOverlay(Activity activity, FrameLayout root) {
         this.activity = activity;
         this.root = root;
+        island = makePill(0xB91B2938, 15);
+        strip = makePill(0x9A25384A, 13);
         hide = () -> {
             if (Profiles.homePrefs(this.activity).getBoolean("ouswis_smart_autohide", true)) {
                 island.setVisibility(View.GONE);
                 strip.setVisibility(View.GONE);
             }
         };
-        island = makePill(0xB91B2938, 15);
-        strip = makePill(0x9A25384A, 13);
         FrameLayout.LayoutParams top = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, dp(38), Gravity.TOP | Gravity.CENTER_HORIZONTAL);
         top.topMargin = dp(12);
