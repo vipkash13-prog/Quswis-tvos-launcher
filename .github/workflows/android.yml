@@ -35,7 +35,6 @@ jobs:
       run: |
         mkdir -p res/drawable
         curl --fail --location --retry 3 --silent --show-error "https://raw.githubusercontent.com/vipkash13-prog/Quswis-tvos-launcher/fc5e990fb6c9ef48e1513fe31355a102c69029bb/assets/app-logos/ouswis-app-icon.png" -o /tmp/ouswis-original.png
-        echo "998e2267fd49b6439c567f0920c74cf44fc7fe38  /tmp/ouswis-original.png" | git hash-object --stdin >/dev/null
         cp /tmp/ouswis-original.png res/drawable/ouswis_app_icon.png
         python3 -m pip install --quiet Pillow
         python3 - <<'PY'
@@ -56,7 +55,7 @@ jobs:
         export RELEASE_KEYSTORE=/tmp/quswis-release.keystore
         test -s "$RELEASE_KEYSTORE"
         chmod +x build.sh
-        VERSION_NAME="1.0.212" VERSION_CODE="212" ./build.sh
+        VERSION_NAME="1.0.213" VERSION_CODE="213" ./build.sh
         mkdir -p dist
         cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
         ls -lh dist/Quswis-tvOS-Launcher.apk
@@ -64,7 +63,7 @@ jobs:
     - name: Upload APK artifact immediately
       uses: actions/upload-artifact@v4
       with:
-        name: Quswis-tvOS-Launcher-1.0.212
+        name: Quswis-tvOS-Launcher-1.0.213
         path: dist/Quswis-tvOS-Launcher.apk
         if-no-files-found: error
 
@@ -148,8 +147,8 @@ jobs:
       uses: softprops/action-gh-release@v2
       if: success() && github.ref == 'refs/heads/main'
       with:
-        tag_name: v1.0.212
-        name: OUSWIS 1.0.212
+        tag_name: v1.0.213
+        name: OUSWIS 1.0.213
         body: |
           تحديث جديد لتطبيق Quswis tvOS Launcher من مستودعك:
           - إضافة مواقيت الصلاة
