@@ -24,8 +24,8 @@ android {
         applicationId 'com.techgenius.tvoslauncher'
         minSdk 24
         targetSdk 34
-        versionCode 206
-        versionName '1.0.206'
+        versionCode 207
+        versionName '1.0.207'
         testInstrumentationRunner 'com.techgenius.tvoslauncher.LiveTvInstrumentation'
     }
     sourceSets {
