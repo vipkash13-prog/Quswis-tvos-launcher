@@ -44,6 +44,39 @@ jobs:
         test "$(stat -c%s dist/Quswis-tvOS-Launcher.apk)" -le 31457280 || { echo "APK exceeds 30 MiB target"; exit 1; }
         "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose dist/Quswis-tvOS-Launcher.apk
 
+    - name: Verify update compatibility against stable 1.0.208 APK
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        set -euo pipefail
+        python3 - <<'PY'
+        import json, os, urllib.request
+        repo = os.environ["GITHUB_REPOSITORY"]
+        tag = "macos-icons-stable-2088"
+        req = urllib.request.Request(
+            f"https://api.github.com/repos/{repo}/releases/tags/{tag}",
+            headers={"Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                     "Accept": "application/vnd.github+json", "User-Agent": "ouswis-signature-check"})
+        with urllib.request.urlopen(req) as response:
+            release = json.load(response)
+        apks = [a for a in release.get("assets", []) if a["name"].lower().endswith(".apk")]
+        if not apks:
+            raise SystemExit("No reference APK in stable 1.0.208 release; cannot prove signing compatibility")
+        asset = apks[0]
+        req = urllib.request.Request(asset["url"], headers={
+            "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+            "Accept": "application/octet-stream", "User-Agent": "ouswis-signature-check"})
+        with urllib.request.urlopen(req) as response, open("build/reference-208.apk", "wb") as out:
+            import shutil
+            shutil.copyfileobj(response, out)
+        PY
+        APKSIGNER="$ANDROID_HOME/build-tools/34.0.0/apksigner"
+        OLD_CERT="$("$APKSIGNER" verify --print-certs build/reference-208.apk | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1)"
+        NEW_CERT="$("$APKSIGNER" verify --print-certs dist/Quswis-tvOS-Launcher.apk | sed -n 's/^Signer #1 certificate SHA-256 digest: //p' | head -1)"
+        test -n "$OLD_CERT" && test -n "$NEW_CERT" || { echo "Could not read signing certificate fingerprints"; exit 1; }
+        test "$OLD_CERT" = "$NEW_CERT" || { echo "Signing certificate mismatch: update over 1.0.208 would fail"; exit 1; }
+        echo "PASS: 1.0.211 and stable 1.0.208 APK use the same signing certificate"
+
     - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
