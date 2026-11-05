@@ -1,6 +1,6 @@
 name: Android CI
 # CI includes the isolated Xtream LIVE-only 1.0.206 validation branch.
-# Build script fetches Media3 AAR class jars, AndroidX annotations, and Guava for the standalone javac/D8 pipeline; use Maven's published ListenableFuture artifact.
+# Build script fetches Media3 AAR class jars, AndroidX annotations, and Guava for the standalone javac/D8 pipeline; D8 receives each classpath jar separately.
 
 on:
   push:
