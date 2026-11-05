@@ -223,12 +223,13 @@ public final class AppUpdater {
 
         checkForUpdates(activity, (success, latestVersion, downloadUrl, updateAvailable, errorMsg) -> {
             if (success && updateAvailable && !activity.isFinishing()) {
-                Toast.makeText(activity,
-                        I18n.s(activity,
-                                "Updating Quswis tvOS Launcher to v" + latestVersion + "…",
-                                "tvOS Launcher v" + latestVersion + " sürümüne güncelleniyor…"),
-                        Toast.LENGTH_SHORT).show();
-                downloadAndInstall(activity, downloadUrl, latestVersion, true, null);
+                new AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
+                        .setTitle("تحديث متاح / Update available: v" + latestVersion)
+                        .setMessage("هل تريد تنزيل وتثبيت التحديث؟ / Download and install this update?")
+                        .setPositiveButton("تحديث / Update", (dialog, which) ->
+                                downloadAndInstall(activity, downloadUrl, latestVersion, false, null))
+                        .setNegativeButton("لاحقًا / Later", null)
+                        .show();
             }
         });
     }
