@@ -43,9 +43,16 @@ jobs:
         app_icon=im.resize((790,790),Image.Resampling.LANCZOS)
         app.alpha_composite(app_icon,(117,117))
         app.save('res/drawable/ouswis_app_icon.png')
-        canvas=Image.new('RGBA',(320,180),(20,23,34,255))
-        icon=im.resize((166,166),Image.Resampling.LANCZOS)
-        canvas.alpha_composite(icon,(77,7))
+        # Android TV uses a landscape banner, not a square phone icon.
+        from PIL import ImageDraw, ImageFont
+        canvas=Image.new('RGBA',(320,180),(15,22,36,255))
+        icon=im.resize((146,146),Image.Resampling.LANCZOS)
+        canvas.alpha_composite(icon,(12,17))
+        draw=ImageDraw.Draw(canvas)
+        font_path='/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
+        font=ImageFont.truetype(font_path,31)
+        draw.text((161,65),'OUSWIS',font=font,fill=(255,255,255,255),stroke_width=0)
+        draw.rounded_rectangle((161,107,302,110),radius=1,fill=(226,171,71,255))
         canvas.convert('RGB').save('res/drawable/ouswis_tv_banner.png')
         PY
 
@@ -58,7 +65,7 @@ jobs:
         export RELEASE_KEYSTORE=/tmp/quswis-release.keystore
         test -s "$RELEASE_KEYSTORE"
         chmod +x build.sh
-        VERSION_NAME="1.0.218" VERSION_CODE="218" ./build.sh
+        VERSION_NAME="1.0.219" VERSION_CODE="219" ./build.sh
         mkdir -p dist
         cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
         ls -lh dist/Quswis-tvOS-Launcher.apk
@@ -66,7 +73,7 @@ jobs:
     - name: Upload APK artifact immediately
       uses: actions/upload-artifact@v4
       with:
-        name: Quswis-tvOS-Launcher-1.0.218
+        name: Quswis-tvOS-Launcher-1.0.219
         path: dist/Quswis-tvOS-Launcher.apk
         if-no-files-found: error
 
@@ -150,8 +157,8 @@ jobs:
       uses: softprops/action-gh-release@v2
       if: success() && github.ref == 'refs/heads/main'
       with:
-        tag_name: v1.0.218
-        name: OUSWIS 1.0.218
+        tag_name: v1.0.219
+        name: OUSWIS 1.0.219
         body: |
           تحديث جديد لتطبيق Quswis tvOS Launcher من مستودعك:
           - إضافة مواقيت الصلاة
