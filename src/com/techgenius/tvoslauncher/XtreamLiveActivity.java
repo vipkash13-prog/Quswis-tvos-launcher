@@ -87,12 +87,9 @@ public final class XtreamLiveActivity extends Activity {
     private void play(XtreamLiveClient.Channel channel){
         try {
             String url=XtreamLiveClient.playbackUrl(user,pass,channel.id,true);
-            Intent intent=new Intent(Intent.ACTION_VIEW);
-            intent.setDataAndType(android.net.Uri.parse(url),"application/vnd.apple.mpegurl");
-            if(intent.resolveActivity(getPackageManager())==null){
-                new AlertDialog.Builder(this).setMessage("لا يوجد مشغل متوافق مثبت لتشغيل HLS")
-                    .setPositiveButton("حسنًا",null).show();return;
-            }
+            Intent intent=new Intent(this,XtreamPlayerActivity.class);
+            intent.putExtra("stream_url",url);
+            intent.putExtra("channel_name",channel.name);
             startActivity(intent);
         }catch(Exception ex){status.setText("تعذر فتح القناة");}
     }
