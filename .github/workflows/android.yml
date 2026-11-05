@@ -30,8 +30,8 @@ jobs:
     - name: Build APK
       env:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
-        RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-        RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+        RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
+        RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASS }}
       run: |
         chmod +x build.sh
         test -n "$RELEASE_KEYSTORE_BASE64" && test -n "$RELEASE_KEYSTORE_PASSWORD" || { echo "Missing release signing secrets; refusing debug-signed release"; exit 1; }
