@@ -41,6 +41,13 @@ jobs:
         cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
         ls -lh dist/Quswis-tvOS-Launcher.apk
 
+    - name: Upload APK artifact immediately
+      uses: actions/upload-artifact@v4
+      with:
+        name: Quswis-tvOS-Launcher-1.0.206
+        path: dist/Quswis-tvOS-Launcher.apk
+        if-no-files-found: error
+
     - name: Verify prayer regressions and APK signature
       run: |
         curl --fail --silent --show-error --location https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar -o /tmp/quswis-json.jar
