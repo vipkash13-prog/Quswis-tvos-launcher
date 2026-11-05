@@ -21,16 +21,17 @@ final class OuswisSmartOverlay {
     private final TextView island;
     private final TextView strip;
     private final Handler handler = new Handler(Looper.getMainLooper());
-    private final Runnable hide = () -> {
-        if (Profiles.homePrefs(activity).getBoolean("ouswis_smart_autohide", true)) {
-            island.setVisibility(View.GONE);
-            strip.setVisibility(View.GONE);
-        }
-    };
+    private final Runnable hide;
 
     OuswisSmartOverlay(Activity activity, FrameLayout root) {
         this.activity = activity;
         this.root = root;
+        hide = () -> {
+            if (Profiles.homePrefs(this.activity).getBoolean("ouswis_smart_autohide", true)) {
+                island.setVisibility(View.GONE);
+                strip.setVisibility(View.GONE);
+            }
+        };
         island = makePill(0xB91B2938, 15);
         strip = makePill(0x9A25384A, 13);
         FrameLayout.LayoutParams top = new FrameLayout.LayoutParams(
