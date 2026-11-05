@@ -884,7 +884,8 @@ final class SceneHome {
         tile.setLongClickable(true);
         tile.setPivotX(size / 2f);
         tile.setPivotY(size / 2f);
-        float rad = dp(13);
+        // macOS-style rounded app squircle; keep existing glass focus and remote navigation unchanged.
+        float rad = dp(17);
 
         boolean isGear = GEAR_KEY.equals(a.key);
         boolean isMore = MORE_KEY.equals(a.key);
@@ -899,6 +900,7 @@ final class SceneHome {
             Bitmap logo = getSquareAppLogo(a.pkg);
             bg.setColor((hasCustom || logo != null) ? 0xFF141519 : (a.color != 0 ? a.color : 0xFF1A1C22));
         }
+        if (!isGear && !isMore) bg.setStroke(Math.max(1, dp(0.7f)), 0x55FFFFFF);
         tile.setBackground(bg);
         tile.setOutlineProvider(host.roundedOutline(new float[]{rad}));
         tile.setClipToOutline(true);
@@ -922,15 +924,15 @@ final class SceneHome {
                 iv.setImageBitmap(sq);
                 // Custom icons from App Icon Editor already match the exact preview bounds (1.0f);
                 // built-in app icons zoom slightly (+5%) for edge-to-edge infill
-                float z = hasCustom ? 1.0f : 1.05f;
+                float z = 1.0f;
                 iv.setScaleX(z);
                 iv.setScaleY(z);
                 tile.addView(iv, host.match());
             } else if (a.icon != null) {
                 iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
                 iv.setImageDrawable(a.icon);
-                iv.setScaleX(1.05f);
-                iv.setScaleY(1.05f);
+                iv.setScaleX(1.0f);
+                iv.setScaleY(1.0f);
                 tile.addView(iv, host.match());
             }
         }
