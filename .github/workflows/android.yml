@@ -86,7 +86,7 @@ jobs:
 
     - name: Create Release and Upload APK
       uses: softprops/action-gh-release@v2
-      if: false # Hold public release until installed 1.0.208 signing certificate is verified
+      if: success() && github.ref == 'refs/heads/main'
       with:
         tag_name: v1.0.211
         name: Release v1.0.211
