@@ -34,9 +34,14 @@ final class LiveTvRepository {
   for(LiveTvData.Channel c:unique.values())LiveTvDubbed.localize(c);
   refreshSaved(unique.values());
   for(LiveTvData.Channel c:unique.values())if(section==6){if(c.arabicDeclared()&&c.animation())s.candidates.add(c);if(c.animation()&&arabicConfirmed(c))s.channels.add(c);}else if(section==7){if(LiveTvDubbed.asian(c)){s.candidates.add(c);if(arabicConfirmed(c))s.channels.add(c);}}else s.channels.add(c);
-  if(s.channels.isEmpty())s.message=section==6?"لا توجد قنوات كرتون عربية مؤكدة قابلة للتشغيل حاليًا. لغة الاسم لا تثبت الصوت. يمكنك فحص القنوات المرشحة من إعدادات المركز.":section==7?"لا توجد قنوات آسيوية مدبلجة ذات بث عربي موثّق ومختبَر حاليًا. راجع نتائج الفحص أو جرّب التحقق من القنوات المرشحة من إعدادات المركز.":s.failed?"تعذّر تحميل القنوات. تحقق من الاتصال أو حاول التحديث.":"لا توجد قنوات متاحة في هذا القسم حاليًا";
   if(metadata.isEmpty()){s.channels.clear();s.failed=true;}
-  if(metadata.isEmpty())s.message="تعذّر التحقق من بيانات القنوات؛ أُخفيت القنوات إلى حين توفر البيانات.";
+  if(metadata.isEmpty())s.message="تعذّر التحقق من بيانات القنوات العامة؛ ستظل قنوات حساب الاشتراك منفصلة عن هذه البيانات.";
+  // Extend only the Asian-dubbed section with the saved subscription account. This client requests LIVE streams only.
+  if(section==7&&XtreamAccount.has(app)){
+   try{s.channels.addAll(XtreamLiveSource.channels(app));}
+   catch(Exception accountError){s.failed=true;android.util.Log.w("Quswis-Live","Xtream live account",accountError);if(s.channels.isEmpty())s.message="تعذّر الاتصال بحساب البث المباشر. تحقق من السيرفر وبيانات الاشتراك والشبكة.";}
+  }
+  if(s.channels.isEmpty())s.message=section==6?"لا توجد قنوات كرتون عربية مؤكدة قابلة للتشغيل حاليًا. لغة الاسم لا تثبت الصوت. يمكنك فحص القنوات المرشحة من إعدادات المركز.":section==7?"لا توجد قنوات آسيوية مدبلجة مؤكدة من المصادر العامة أو قنوات Live في حساب الاشتراك. أضف بيانات الحساب من إعدادات المركز.":s.failed?"تعذّر تحميل القنوات. تحقق من الاتصال أو حاول التحديث.":"لا توجد قنوات متاحة في هذا القسم حاليًا";
  }catch(Exception e){s.failed=true;s.cached=true;s.message="تعذّر تحديث القنوات. آخر قائمة ناجحة تبقى محفوظة.";android.util.Log.w("Quswis-Live","Catalogue",e);}return s;}
  private void ensureMetadata(boolean force)throws Exception{synchronized(META_LOCK){File channels=new File(directory,"channels.json"),feeds=new File(directory,"feeds.json");boolean changed=fetch("https://iptv-org.github.io/api/channels.json",channels,16*1024*1024,force);changed|=fetch("https://iptv-org.github.io/api/feeds.json",feeds,24*1024*1024,force);
    if(metadata!=null&&languages!=null&&(!force||!changed))return;Map<String,LiveTvData.Meta> m=new HashMap<>();Map<String,String> l=new HashMap<>();
