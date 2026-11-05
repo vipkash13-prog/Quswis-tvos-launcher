@@ -213,6 +213,7 @@ public class MainActivity extends Activity {
 
     View footballShortcut, newsShortcut, liveShortcut, quranShortcut;
     FrameLayout root;
+    OuswisSmartOverlay ouswisSmartOverlay;
     ImageView wallView;
     /** Top shelf carousel: two crossfading backdrops + info panel. */
     ImageView heroBack, heroFront;
@@ -447,6 +448,7 @@ public class MainActivity extends Activity {
             return;
         }
         resumed = true;
+        if (ouswisSmartOverlay != null) ouswisSmartOverlay.refresh();
         UiArtwork.prewarm(this,screenW,screenH);
         LiveTvRepository.prewarm(this);
         activeInstance = this;
@@ -576,6 +578,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (ouswisSmartOverlay != null) ouswisSmartOverlay.dispose();
         if (matchCenterDialog != null) matchCenterDialog.dispose();
         if (globalNewsDialog != null) globalNewsDialog.dispose();
         if (liveTvDialog != null) liveTvDialog.dispose();
@@ -978,6 +981,7 @@ public class MainActivity extends Activity {
 
         root.addView(new AppFocusIndicator(this), match());
         setContentView(root);
+        ouswisSmartOverlay = new OuswisSmartOverlay(this, root);
     }
 
     void applyLookMode() {
