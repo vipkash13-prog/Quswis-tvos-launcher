@@ -38,17 +38,17 @@ for artifact in media3-common media3-container media3-database media3-decoder me
     unzip -p "$aar" classes.jar > "$DEPS/$artifact.jar"
 done
 # Media3 exposes AndroidX annotation types in its public signatures.
-curl --fail --silent --show-error --location \
+echo "Downloading AndroidX annotation JVM"; curl --fail --silent --show-error --location \
     "https://maven.google.com/androidx/annotation/annotation-jvm/1.9.1/annotation-jvm-1.9.1.jar" \
     -o "$DEPS/annotation.jar"
 # Guava's Android-compatible artifact supplies ImmutableList in Media3 public APIs.
-curl --fail --silent --show-error --location \
+echo "Downloading Guava Android"; curl --fail --silent --show-error --location \
     "https://repo.maven.apache.org/maven2/com/google/guava/guava/33.3.1-android/guava-33.3.1-android.jar" \
     -o "$DEPS/guava.jar"
-curl --fail --silent --show-error --location \
+echo "Downloading Guava failureaccess"; curl --fail --silent --show-error --location \
     "https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.2/failureaccess-1.0.2.jar" \
     -o "$DEPS/failureaccess.jar"
-curl --fail --silent --show-error --location \
+echo "Downloading Guava listenablefuture"; curl --fail --silent --show-error --location \
     "https://repo.maven.apache.org/maven2/com/google/guava/listenablefuture/9999.0-empty-to-avoid-conflict/listenablefuture-9999.0-empty-to-avoid-conflict.jar" \
     -o "$DEPS/listenablefuture.jar"
 CLASSPATH="$JAR"
