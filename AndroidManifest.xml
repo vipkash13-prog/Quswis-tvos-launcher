@@ -55,9 +55,9 @@
     </queries>
 
     <application
-        android:label="tvOS Launcher"
-        android:icon="@drawable/ic_launcher"
-        android:banner="@drawable/banner"
+        android:label="OUSWIS"
+        android:icon="@drawable/ouswis_app_icon"
+        android:banner="@drawable/ouswis_tv_banner"
         android:theme="@style/HomeTheme"
         android:requestLegacyExternalStorage="true"
         android:allowBackup="false"
