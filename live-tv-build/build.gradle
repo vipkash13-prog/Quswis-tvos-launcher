@@ -24,9 +24,17 @@ android {
         applicationId 'com.techgenius.tvoslauncher'
         minSdk 24
         targetSdk 34
-        versionCode 206
-        versionName '1.0.206'
+        versionCode = Integer.parseInt(project.findProperty('quswisVersionCode') ?: '207')
+        versionName = (project.findProperty('quswisVersionName') ?: '2.0.6').toString()
         testInstrumentationRunner 'com.techgenius.tvoslauncher.LiveTvInstrumentation'
+    }
+    if (project.hasProperty('detachedSigning')) {
+        buildTypes.debug.signingConfig = null
+    } else if (System.getenv('QUSWIS_SIGNING_STORE')) {
+        signingConfigs.debug.storeFile = file(System.getenv('QUSWIS_SIGNING_STORE'))
+        signingConfigs.debug.storePassword = System.getenv('QUSWIS_SIGNING_PASSWORD')
+        signingConfigs.debug.keyAlias = 'quswis'
+        signingConfigs.debug.keyPassword = System.getenv('QUSWIS_SIGNING_PASSWORD')
     }
     sourceSets {
         main {

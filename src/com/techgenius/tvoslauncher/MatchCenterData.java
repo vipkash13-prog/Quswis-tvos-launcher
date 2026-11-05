@@ -16,6 +16,7 @@ final class MatchCenterData {
         {"esp.1","الدوري الإسباني"},{"ita.1","الدوري الإيطالي"},
         {"fra.1","الدوري الفرنسي"},{NATIONAL,"مباريات المنتخب السعودي"}};
     static String label(String id){for(String[] l:LEAGUES)if(l[0].equals(id))return l[1];return id;}
+    static String month(long at){return day(at).substring(0,6);}
     static String day(long at){return FootballData.day(at,RIYADH);}
     static String format(long at,String pattern){SimpleDateFormat f=new SimpleDateFormat(pattern,new Locale("ar"));f.setTimeZone(RIYADH);return f.format(new Date(at));}
     static String clock(long at){SimpleDateFormat f=new SimpleDateFormat("h:mm",Locale.US);f.setTimeZone(RIYADH);Calendar c=Calendar.getInstance(RIYADH);c.setTimeInMillis(at);return f.format(new Date(at))+(c.get(Calendar.HOUR_OF_DAY)<12?" ص":" م");}
@@ -39,13 +40,16 @@ final class MatchCenterData {
             JSONObject f=m.optJSONObject("fixture");if(f==null||!chosen.contains(f.optString("leagueId")))continue;
             Date when=FootballData.parseDate(f.optString("date"));if(when==null)continue;
             String state=f.optString("state"),code=f.optString("statusCode");
-            boolean include=tab==LIVE?"in".equals(state):tab==RESULTS?
+            boolean include=tab==LIVE?"in".equals(state)&&when.getTime()<=now+3600000L&&when.getTime()>now-36L*3600000L&&!code.contains("POSTPON")&&!code.contains("CANCEL"):tab==RESULTS?
                     "post".equals(state)&&f.optBoolean("completed")&&!code.contains("CANCEL")&&!code.contains("POSTPON")&&today.equals(day(when.getTime())):
-                    "pre".equals(state)&&when.getTime()>=now&&!code.contains("CANCEL")&&(tab!=UPCOMING||today.equals(day(when.getTime())));
+                    "pre".equals(state)&&when.getTime()>=now&&!code.contains("CANCEL")&&!code.contains("POSTPON");
             if(!include)continue;
             String id=f.optString("id");String key=id.isEmpty()?f.optString("leagueId")+"|"+when.getTime()+"|"+m.optJSONObject("teams"):id;
             if(seen.add(key))result.add(m);
         }
+        // Preserve all of today's upcoming matches; when none remain, show the nearest future schedule.
+        if(tab==UPCOMING){boolean hasToday=false;for(JSONObject m:result)if(today.equals(day(FootballData.parseDate(m.optJSONObject("fixture").optString("date")).getTime())))hasToday=true;
+            if(hasToday)result.removeIf(m->!today.equals(day(FootballData.parseDate(m.optJSONObject("fixture").optString("date")).getTime())));}
         result.sort((a,b)->{long x=FootballData.parseDate(a.optJSONObject("fixture").optString("date")).getTime(),y=FootballData.parseDate(b.optJSONObject("fixture").optString("date")).getTime();return tab==RESULTS?Long.compare(y,x):Long.compare(x,y);});
         if(result.size()>limit)return new ArrayList<>(result.subList(0,limit));return result;
     }

@@ -7,9 +7,10 @@ import androidx.media3.common.*;import androidx.media3.datasource.DefaultHttpDat
 @androidx.media3.common.util.UnstableApi
 final class LiveTvPlayer {
  interface Listener {void status(String text);void video(int width,int height);void played(LiveTvData.Channel channel,LiveTvData.Endpoint endpoint);}
+ private final Context app;
  final ExoPlayer player;final PlaybackAudio audioFocus;private final LiveTvRepository repository;private final Listener listener;private final Handler ui=new Handler(Looper.getMainLooper());
  LiveTvData.Channel channel;LiveTvData.Endpoint endpoint;int source;boolean rendered,released;private String audioLanguage="";private int ticket;private Runnable deadline;
- LiveTvPlayer(Context context,TextureView video,LiveTvRepository data,Listener callback){repository=data;listener=callback;
+ LiveTvPlayer(Context context,TextureView video,LiveTvRepository data,Listener callback){app=context.getApplicationContext();repository=data;listener=callback;
   DefaultLoadControl buffers=new DefaultLoadControl.Builder().setBufferDurationsMs(5000,15000,1000,1500).setTargetBufferBytes(16*1024*1024).setPrioritizeTimeOverSizeThresholds(false).build();
   player=new ExoPlayer.Builder(context).setLoadControl(buffers).build();player.setVideoTextureView(video);player.setAudioAttributes(new AudioAttributes.Builder().setUsage(C.USAGE_MEDIA).setContentType(C.AUDIO_CONTENT_TYPE_MOVIE).build(),false);player.setHandleAudioBecomingNoisy(true);player.setTrackSelectionParameters(player.getTrackSelectionParameters().buildUpon().setPreferredAudioLanguage("ar").build());
   player.setVolume(1.0f);
@@ -25,17 +26,19 @@ final class LiveTvPlayer {
    @Override public void onVideoSizeChanged(VideoSize size){listener.video(Math.round(size.width*size.pixelWidthHeightRatio),size.height);}
    @Override public void onRenderedFirstFrame(){if(released||channel==null)return;rendered=true;cancelDeadline();repository.success(channel,endpoint);if(LiveTvData.hasArabic(audioLanguage))repository.confirmArabic(channel,endpoint,"selected_audio_track:"+audioLanguage);listener.status("● مباشر • تم التحقق من التشغيل");listener.played(channel,endpoint);}
    @Override public void onTracksChanged(Tracks tracks){audioLanguage="";for(Tracks.Group group:tracks.getGroups())if(group.getType()==C.TRACK_TYPE_AUDIO)for(int i=0;i<group.length;i++)if(group.isTrackSelected(i)){String lang=group.getTrackFormat(i).language;if(lang!=null)audioLanguage=lang;}if(rendered&&LiveTvData.hasArabic(audioLanguage))repository.confirmArabic(channel,endpoint,"selected_audio_track:"+audioLanguage);}
-   @Override public void onPlayerError(PlaybackException error){if(released||endpoint==null)return;audioFocus.pauseIntent();rendered=false;repository.failure(endpoint);listener.status(message(error));}
+   @Override public void onPlayerError(PlaybackException error){if(released||endpoint==null)return;audioFocus.pauseIntent();rendered=false;repository.failure(endpoint);if(XtreamData.subscription(channel)&&source+1<channel.streams.size()){play(channel,source+1);return;}listener.status(message(error));}
   });
  }
  void play(LiveTvData.Channel selected,int index){if(released||selected==null||selected.streams.isEmpty())return;ticket++;channel=selected;source=Math.floorMod(index,selected.streams.size());endpoint=selected.streams.get(source);rendered=false;audioLanguage="";listener.status("جارٍ الاتصال بالمصدر…");
-  DefaultHttpDataSource.Factory http=new DefaultHttpDataSource.Factory().setUserAgent(endpoint.agent.isEmpty()?"Mozilla/5.0 QuswisLiveTV":endpoint.agent).setConnectTimeoutMs(7000).setReadTimeoutMs(9000).setAllowCrossProtocolRedirects(false);
+  DefaultHttpDataSource.Factory http=new DefaultHttpDataSource.Factory().setUserAgent(endpoint.agent.isEmpty()?"Mozilla/5.0 QuswisLiveTV":endpoint.agent).setConnectTimeoutMs(7000).setReadTimeoutMs(9000).setAllowCrossProtocolRedirects(XtreamData.subscription(channel));
   if(!endpoint.referrer.isEmpty())http.setDefaultRequestProperties(java.util.Collections.singletonMap("Referer",endpoint.referrer));
-  player.stop();player.setMediaSource(new DefaultMediaSourceFactory(http).createMediaSource(new MediaItem.Builder().setUri(endpoint.url).setMediaId(channel.key()).build()));player.prepare();resume();
+  try{String url=XtreamRepository.playback(app,endpoint.url);androidx.media3.datasource.DataSource.Factory factory=XtreamData.subscription(channel)?new PrivateStreamDataSource.Factory(http):http;
+  player.stop();player.setMediaSource(new DefaultMediaSourceFactory(factory).createMediaSource(new MediaItem.Builder().setUri(url).setMediaId(channel.key()).build()));player.prepare();resume();
+  }catch(Exception ignored){audioFocus.pauseIntent();listener.status("تعذّر فتح قناة الاشتراك. افتح تبويب الاشتراك وحدّث بيانات الدخول ثم أعد المحاولة.");}
 
  }
  private void cancelDeadline(){if(deadline!=null)ui.removeCallbacks(deadline);deadline=null;}
- private void watchdog(){cancelDeadline();if(rendered)return;final int request=ticket;deadline=()->{if(!released&&ticket==request&&!rendered&&audioFocus.focused()&&audioFocus.wantsPlay()){audioFocus.pauseIntent();player.stop();repository.failure(endpoint);listener.status("لم يبدأ البث. قد يكون الرابط معطّلًا أو محجوبًا جغرافيًا. جرّب مصدرًا آخر من الإعدادات.");}};ui.postDelayed(deadline,25000);}
+ private void watchdog(){cancelDeadline();if(rendered)return;final int request=ticket;deadline=()->{if(!released&&ticket==request&&!rendered&&audioFocus.focused()&&audioFocus.wantsPlay()){if(XtreamData.subscription(channel)&&source+1<channel.streams.size()){play(channel,source+1);return;}audioFocus.pauseIntent();player.stop();repository.failure(endpoint);listener.status("لم يبدأ البث. قد يكون الرابط معطّلًا أو محجوبًا جغرافيًا. جرّب مصدرًا آخر من الإعدادات.");}};ui.postDelayed(deadline,25000);}
  String audio(){return audioLanguage.isEmpty()?"لغة مسار الصوت غير موثقة من المصدر":LiveTvData.hasArabic(audioLanguage)?"مسار الصوت المحدد عربي":"لغة مسار الصوت المحدد: "+audioLanguage;}
  void pause(){cancelDeadline();audioFocus.pauseIntent();player.pause();}
  void resume(){if(released)return;if(player.getPlaybackState()==Player.STATE_IDLE&&channel!=null){play(channel,source);return;}player.setVolume(1.0f);if(audioFocus.playIntent()){player.play();watchdog();}else{player.pause();listener.status(PlaybackAudio.adhanRunning()?"متوقف مؤقتًا أثناء الأذان":"بانتظار أولوية الصوت؛ يمكنك إعادة المحاولة");}}

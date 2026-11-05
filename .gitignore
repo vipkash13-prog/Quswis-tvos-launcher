@@ -11,3 +11,11 @@ techolay.md
 xda.md
 reddit.md
 
+
+.gradle/
+local.properties
+*.apk
+*.keystore
+private/
+
+__pycache__/

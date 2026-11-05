@@ -1,0 +1,57 @@
+name: Build unsigned 2.0.6 for private signing
+on:
+  push:
+    branches: ["fix/matches-xtream-consent-updates"]
+    paths: ["src/**", "tests/live-tv-android/**", "tests/FeatureDataTest.java", "tests/MatchCenterDataTest.java", "tests/apk_detached_signatures.py", "tests/ci-xtream-fixture.py", "live-tv-build/**", ".github/workflows/features-unsigned.yml", ".github/workflows/features-native.yml"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Build unsigned launcher, tests and higher-version installation fixture
+        run: |
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-35" "build-tools;35.0.0"
+          sha256sum --quiet -c tests/features-207-protected.sha256
+          gradle -p live-tv-build --no-daemon -PdetachedSigning=true assembleDebug assembleDebugAndroidTest
+          mkdir -p unsigned
+          python3 - <<'PY'
+          import json,shutil
+          from pathlib import Path
+          for folder,name in [('debug','launcher.apk'),('androidTest/debug','instrumentation.apk')]:
+              p=Path('live-tv-build/build/outputs/apk')/folder
+              output=json.loads((p/'output-metadata.json').read_text())['elements'][0]['outputFile']
+              shutil.copy(p/output,Path('unsigned')/name)
+          PY
+          python3 tests/verify-live-manifest.py
+          gradle -p live-tv-build --no-daemon -PdetachedSigning=true -PquswisVersionCode=208 -PquswisVersionName=2.0.7 assembleDebug
+          python3 - <<'PY'
+          import json,shutil,os
+          from pathlib import Path
+          p=Path('live-tv-build/build/outputs/apk/debug')
+          output=json.loads((p/'output-metadata.json').read_text())['elements'][0]['outputFile']
+          shutil.copy(p/output,'unsigned/update-fixture.apk')
+          Path('unsigned/build-info.json').write_text(json.dumps({'source_sha':os.environ['GITHUB_SHA'],'run_id':os.environ['GITHUB_RUN_ID'],'version':'2.0.6','version_code':207},indent=2)+'\n')
+          PY
+      - name: Verify match selection and live-only API/update policy
+        run: |
+          curl -fsSL https://repo.maven.apache.org/maven2/org/json/json/20240303/json-20240303.jar -o /tmp/json.jar
+          mkdir -p /tmp/features-tests
+          CLASSES=live-tv-build/build/intermediates/javac/debug/compileDebugJavaWithJavac/classes
+          javac -encoding UTF-8 -cp /tmp/json.jar:$CLASSES -d /tmp/features-tests src/com/techgenius/tvoslauncher/MatchCenterData.java src/com/techgenius/tvoslauncher/XtreamData.java src/com/techgenius/tvoslauncher/AppUpdateData.java tests/MatchCenterDataTest.java tests/FeatureDataTest.java
+          java -cp /tmp/features-tests:/tmp/json.jar:$CLASSES com.techgenius.tvoslauncher.MatchCenterDataTest
+          java -cp /tmp/features-tests:/tmp/json.jar:$CLASSES com.techgenius.tvoslauncher.FeatureDataTest
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Unsigned-2.0.6
+          path: unsigned/*

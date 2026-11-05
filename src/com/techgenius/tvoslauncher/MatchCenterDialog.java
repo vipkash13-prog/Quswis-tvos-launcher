@@ -28,7 +28,7 @@ final class MatchCenterDialog extends Dialog {
     private int tab,generation,page,total;
     private boolean closing;
     private Bitmap stadium;
-    private Future<?> request;
+    private Future<?> request,cacheRequest;
     private FrameLayout details;
     private final Runnable poll=new Runnable(){@Override public void run(){if(isShowing()&&!closing){refresh();ui.postDelayed(this,tab==MatchCenterData.LIVE?60000:300000);}}};
     private static final String[] LABELS={"المباريات القادمة","مباشر الآن  🔴","نتائج اليوم","الدوريات"};
@@ -68,7 +68,7 @@ final class MatchCenterDialog extends Dialog {
             focus(choice,()->toggleLeague(index));choices[i]=choice;put(leaguePanel,choice,20,80+i*73,580,65);
         }
         FrameLayout games=new FrameLayout(host);games.setBackground(skin(false,false,18));put(body,games,700,310,1640,690);
-        heading=text("المباريات القادمة • اليوم",14,true);heading.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);put(games,heading,475,4,1135,68);
+        heading=text("المباريات القادمة",14,true);heading.setGravity(Gravity.RIGHT|Gravity.CENTER_VERTICAL);put(games,heading,475,4,1135,68);
         pageLabel=text("",7.5f,false);put(games,pageLabel,30,12,430,48);
         for(int i=0;i<5;i++){
             MatchRow row=new MatchRow();rows[i]=row;row.view=new FrameLayout(host);
@@ -87,12 +87,12 @@ final class MatchCenterDialog extends Dialog {
         put(body,footer,65,1008,2270,80);
         setContentView(surface);host.matchCenterDialog=this;
         setOnDismissListener(d->{
-            generation++;ui.removeCallbacksAndMessages(null);if(request!=null)request.cancel(true);
+            generation++;ui.removeCallbacksAndMessages(null);if(request!=null)request.cancel(true);if(cacheRequest!=null)cacheRequest.cancel(true);
             host.matchCenterDialog=null;
             stadium=null;
             if(anchor!=null&&anchor.isAttachedToWindow())anchor.requestFocus();
         });
-        snapshot=repository.cached(chosen,tab);render();
+        snapshot=new MatchCenterRepository.Snapshot();snapshot.loading=!chosen.isEmpty();render();
     }
     @Override protected void onStart(){
         super.onStart();Window w=getWindow();if(w!=null){w.setBackgroundDrawableResource(android.R.color.transparent);w.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
@@ -104,26 +104,29 @@ final class MatchCenterDialog extends Dialog {
         surface.post(()->tabs[0].requestFocus());refresh();ui.postDelayed(poll,300000);
     }
     private void selectTab(int index){
-        if(details!=null)closeDetails();tab=index;page=0;ui.removeCallbacks(poll);snapshot=repository.cached(chosen,tab);render();refresh();
+        if(details!=null)closeDetails();tab=index;page=0;ui.removeCallbacks(poll);snapshot=new MatchCenterRepository.Snapshot();snapshot.loading=!chosen.isEmpty();render();refresh();
         ui.postDelayed(poll,tab==MatchCenterData.LIVE?60000:300000);
         if(tab==MatchCenterData.LEAGUE_TAB)choices[0].requestFocus();
     }
-    private void toggleLeague(int index){String id=MatchCenterData.LEAGUES[index][0];if(!chosen.remove(id))chosen.add(id);repository.select(chosen);page=0;snapshot=repository.cached(chosen,tab);render();refresh();}
+    private void toggleLeague(int index){String id=MatchCenterData.LEAGUES[index][0];if(!chosen.remove(id))chosen.add(id);repository.select(chosen);page=0;snapshot=new MatchCenterRepository.Snapshot();snapshot.loading=!chosen.isEmpty();render();refresh();}
     private void refresh(){
-        if(closing)return;generation++;final int ticket=generation;if(request!=null)request.cancel(true);
-        if(chosen.isEmpty()){snapshot=repository.cached(chosen,tab);render();return;}
+        if(closing)return;generation++;final int ticket=generation;if(request!=null)request.cancel(true);if(cacheRequest!=null)cacheRequest.cancel(true);
+        if(chosen.isEmpty()){snapshot=new MatchCenterRepository.Snapshot();snapshot.loading=!chosen.isEmpty();render();return;}
         footer.setText(snapshot.hasCache?"ESPN • بيانات محفوظة • "+MatchCenterData.format(snapshot.updatedAt,"d/MM HH:mm:ss")+" • جارٍ التحقق • توقيت السعودية":"ESPN • جارٍ تحديث البيانات • توقيت السعودية");
+        snapshot.loading=true;
+        cacheRequest=repository.cachedAsync(chosen,tab,result->{if(!closing&&isShowing()&&ticket==generation&&result.hasCache){snapshot=result;render();}});
         request=repository.refresh(chosen,tab,result->{if(!closing&&isShowing()&&ticket==generation){snapshot=result;render();}});
     }
     private void render(){
         for(int i=0;i<4;i++){tabs[i].setSelected(i==tab);paintFocus(tabs[i]);}
         for(int i=0;i<8;i++){checks[i].setText(chosen.contains(MatchCenterData.LEAGUES[i][0])?"☑":"☐");MatchCenterImages.load(host,leagueLogos[i],snapshot.logos.get(MatchCenterData.LEAGUES[i][0]));}
-        List<JSONObject> all=MatchCenterData.select(snapshot.matches,chosen,tab,System.currentTimeMillis(),tab==MatchCenterData.LEAGUE_TAB?5:Integer.MAX_VALUE);
+        List<JSONObject> all=snapshot.filtered!=null?snapshot.filtered:MatchCenterData.select(snapshot.matches,chosen,tab,System.currentTimeMillis(),tab==MatchCenterData.LEAGUE_TAB?5:Integer.MAX_VALUE);
         total=all.size();page=Math.min(page,Math.max(0,(total-1)/5));int from=page*5;
         List<JSONObject> matches=all.subList(from,Math.min(total,from+5));
         pageLabel.setText(total>5?(from+1)+"–"+Math.min(total,from+5)+" / "+total+" • ↑ ↓ للمزيد":"");
-        heading.setText(tab==MatchCenterData.LIVE?"مباشر الآن  🔴":tab==MatchCenterData.RESULTS?"نتائج اليوم":tab==MatchCenterData.LEAGUE_TAB?"مباريات الدوريات المختارة":"المباريات القادمة • اليوم");
+        heading.setText(tab==MatchCenterData.LIVE?"مباشر الآن  🔴":tab==MatchCenterData.RESULTS?"نتائج اليوم":tab==MatchCenterData.LEAGUE_TAB?"مباريات الدوريات المختارة":"المباريات القادمة");
         empty.setVisibility(matches.isEmpty()?View.VISIBLE:View.GONE);
+        empty.setText(chosen.isEmpty()?"اختر دوريًا من قائمة إدارة الدوريات":snapshot.loading?"جارٍ تحميل مباريات الدوريات المختارة…":snapshot.failed?"تعذّر تحديث بعض الدوريات. حاول مجددًا؛ لا توجد بيانات محفوظة مطابقة لهذا القسم.":tab==MatchCenterData.LIVE?"لا توجد مباريات جارية الآن في الدوريات المختارة":tab==MatchCenterData.RESULTS?"لا توجد نتائج لمباريات اليوم بتوقيت السعودية في الدوريات المختارة":"لا توجد مباريات قادمة متاحة في الدوريات المختارة حاليًا");
         View previous=getCurrentFocus();boolean lost=false;
         for(int i=0;i<5;i++){
             MatchRow row=rows[i];row.data=i<matches.size()?matches.get(i):null;row.view.setVisibility(row.data==null?View.INVISIBLE:View.VISIBLE);
@@ -142,7 +145,7 @@ final class MatchCenterDialog extends Dialog {
             row.view.setContentDescription(row.home.getText()+"، "+row.away.getText()+"، "+row.score.getText()+"، "+row.league.getText()+"، "+row.state.getText());
         }
         if(lost)tabs[tab].requestFocus();
-        String state=snapshot.failed?"تعذر تحديث بعض البيانات • بيانات محفوظة":snapshot.stale?"بيانات محفوظة":snapshot.hasCache?"آخر تحديث":"لم تصل بيانات بعد";
+        String state=snapshot.loading?"جارٍ التحقق من التحديث":snapshot.failed?"تعذر تحديث بعض البيانات • بيانات محفوظة":snapshot.stale?"بيانات محفوظة":snapshot.hasCache?"آخر تحديث":"لم تصل بيانات بعد";
         footer.setText("ESPN • "+state+(snapshot.updatedAt>0?" "+MatchCenterData.format(snapshot.updatedAt,"d/MM HH:mm:ss"):"")+" • توقيت السعودية"+(chosen.isEmpty()?" • اختر دوريًا من القائمة":""));
     }
     @Override public boolean dispatchKeyEvent(KeyEvent event){
@@ -178,7 +181,7 @@ final class MatchCenterDialog extends Dialog {
         surface.addView(details,new FrameLayout.LayoutParams(-1,-1));scroll.requestFocus();
     }
     private void closeDetails(){if(details!=null){surface.removeView(details);details=null;}body.setVisibility(View.VISIBLE);firstRowOrTab().requestFocus();}
-    @Override public void dismiss(){if(closing)return;closing=true;generation++;ui.removeCallbacksAndMessages(null);if(request!=null)request.cancel(true);surface.animate().cancel();surface.animate().alpha(0).scaleX(.9f).scaleY(.9f).setDuration(220).withEndAction(()->super.dismiss()).start();}
+    @Override public void dismiss(){if(closing)return;closing=true;generation++;ui.removeCallbacksAndMessages(null);if(request!=null)request.cancel(true);if(cacheRequest!=null)cacheRequest.cancel(true);surface.animate().cancel();surface.animate().alpha(0).scaleX(.9f).scaleY(.9f).setDuration(220).withEndAction(()->super.dismiss()).start();}
     void dispose(){closing=true;surface.animate().cancel();super.dismiss();}
     private int px(float n){return Ui.px(host,n);}
     private int x(float n){return Math.round(n*host.screenW/3840f);}

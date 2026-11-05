@@ -27,7 +27,7 @@ final class LiveTvImages {
     private static final Map<String,List<WeakReference<ImageView>>> PENDING=new HashMap<>();
     private static final Map<String,Runnable> TASKS=new HashMap<>();
     static void load(Context context,ImageView view,String raw,int side){
-        String url=LiveTvData.web(raw);String key=url+"|"+side;
+        String url=raw!=null&&raw.startsWith("xtream-logo://")?raw:LiveTvData.web(raw);String key=url+"|"+side;
         if(key.equals(view.getTag())&&MEMORY.get(key)!=null&&view.getDrawable()!=null)return;
         view.setTag(key);
         Bitmap thumbnail=side>320?MEMORY.get(url+"|320"):null;
@@ -51,7 +51,7 @@ final class LiveTvImages {
                 File cached=new File(directory,hash(key)+".png");
                 if(cached.isFile())image=BitmapFactory.decodeFile(cached.getAbsolutePath());
                 if(image==null||System.currentTimeMillis()-cached.lastModified()>MAX_AGE){
-                    Bitmap received=download(url,side);
+                    Bitmap received=download(url.startsWith("xtream-logo://")?XtreamRepository.logo(app,url):url,side);
                     if(received!=null){image=received;File tmp=new File(directory,cached.getName()+".tmp");
                         try(FileOutputStream out=new FileOutputStream(tmp)){image.compress(Bitmap.CompressFormat.PNG,100,out);}
                         if(!tmp.renameTo(cached))tmp.delete();trim(directory);

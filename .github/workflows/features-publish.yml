@@ -1,0 +1,49 @@
+name: Publish verified private-signed 2.0.6 preview
+on:
+  push:
+    branches: ["fix/matches-xtream-consent-updates"]
+    paths: ["tests/private-verification/2.0.6.json"]
+permissions:
+  contents: write
+  actions: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify actual-account evidence and completed native run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import json,subprocess,os,hashlib
+          from pathlib import Path
+          proof=json.loads(Path('tests/private-verification/2.0.6.json').read_text())
+          assert proof['actual_account_native_playback'] is True
+          assert proof['decoded_formats'] and set(proof['decoded_formats'])<= {'m3u8','ts'}
+          run=json.loads(subprocess.check_output(['gh','api','repos/'+os.environ['GITHUB_REPOSITORY']+'/actions/runs/'+str(proof['native_run'])],text=True))
+          assert run['conclusion']=='success' and run['head_branch']=='fix/matches-xtream-consent-updates'
+          subprocess.run(['gh','run','download',str(proof['native_run']),'--repo',os.environ['GITHUB_REPOSITORY'],'--name','Signed-2.0.6-evidence','--dir','release'],check=True)
+          assert hashlib.sha256(Path('release/Quswis-tvOS-Launcher.apk').read_bytes()).hexdigest()==proof['apk_sha256']
+          build=json.loads(Path('release/build-info.json').read_text());assert build['source_sha']==proof['source_sha']
+          body='Quswis 2.0.6 / build 207 preview.\n\nActual authorized subscription playback was independently verified locally, without uploading account credentials. CI verified real public HLS/TS playback through a test-only live API, remote interaction at 1080p/4K, live-only actions, update consent, incompatible signatures, and same-key Android update preserving preferences and Keystore data. See FEATURES_2_0_6.md for scope and limits.\n\nThe old 1.0.206 signing key is unavailable; this APK uses a new persistent private signer. It cannot be installed over a differently signed APK. No uninstall/data-clear fallback is performed. No main merge.\n'
+          Path('release/RELEASE_NOTES.md').write_text(body)
+          with open(os.environ['GITHUB_ENV'],'a') as f:f.write('RELEASE_SOURCE='+proof['source_sha']+'\n')
+          PY
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v2.0.6-preview-${{ github.run_number }}
+          target_commitish: ${{ env.RELEASE_SOURCE }}
+          name: Quswis 2.0.6 match, live subscription and consent updates preview
+          prerelease: true
+          make_latest: false
+          fail_on_unmatched_files: true
+          body_path: release/RELEASE_NOTES.md
+          files: |
+            release/Quswis-tvOS-Launcher.apk
+            release/signing-certificate.txt
+            release/build-info.json
+            FEATURES_2_0_6.md
+            tests/private-verification/2.0.6.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

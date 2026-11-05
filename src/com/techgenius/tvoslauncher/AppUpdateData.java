@@ -1,0 +1,11 @@
+package com.techgenius.tvoslauncher;
+import org.json.*;import java.net.URI;
+/** GitHub-only release metadata and semantic version comparison, independent of Android. */
+final class AppUpdateData {
+ static final class Release{String version,url,digest;}
+ static String cleanVersion(String raw){return raw==null?"":raw.trim().replaceFirst("^[vV]+","");}
+ static boolean isNewer(String current,String remote){String a=cleanVersion(current),b=cleanVersion(remote);if(!a.matches("[0-9]+(?:\\.[0-9]+){1,3}")||!b.matches("[0-9]+(?:\\.[0-9]+){1,3}"))return false;String[] x=a.split("\\."),y=b.split("\\.");try{for(int i=0;i<Math.max(x.length,y.length);i++){long l=i<x.length?Long.parseLong(x[i]):0,r=i<y.length?Long.parseLong(y[i]):0;if(l!=r)return r>l;}}catch(NumberFormatException ignored){}return false;}
+ static boolean apkUrl(String url){try{URI u=new URI(url);return "https".equals(u.getScheme())&&"github.com".equalsIgnoreCase(u.getHost())&&u.getUserInfo()==null&&u.getRawQuery()==null&&u.getPath().startsWith("/vipkash13-prog/Quswis-tvos-launcher/releases/download/")&&u.getPath().endsWith(".apk");}catch(Exception e){return false;}}
+ static boolean downloadHost(String url){try{URI u=new URI(url);String h=u.getHost();return "https".equals(u.getScheme())&&u.getUserInfo()==null&&h!=null&&(h.equals("github.com")||h.endsWith(".githubusercontent.com"));}catch(Exception e){return false;}}
+ static Release release(JSONObject root)throws Exception{if(root.optBoolean("draft")||root.optBoolean("prerelease"))throw new Exception("Not a stable release");Release r=new Release();r.version=cleanVersion(root.optString("tag_name"));if(!r.version.matches("[0-9]+(?:\\.[0-9]+){1,3}"))throw new Exception("Invalid version");JSONArray assets=root.optJSONArray("assets");if(assets!=null)for(int i=0;i<assets.length();i++){JSONObject a=assets.optJSONObject(i);if(a==null)continue;String url=a.optString("browser_download_url");if(apkUrl(url)){r.url=url;String digest=a.optString("digest");r.digest=digest.matches("sha256:[0-9a-fA-F]{64}")?digest.substring(7).toLowerCase(java.util.Locale.ROOT):"";if(a.optString("name").equals("Quswis-tvOS-Launcher.apk"))break;}}if(r.url==null)throw new Exception("Release has no project APK");return r;}
+}

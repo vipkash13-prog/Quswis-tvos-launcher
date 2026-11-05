@@ -1970,25 +1970,24 @@ public class SettingsActivity extends Activity {
         LocalAdb.probePortAsync(this, () -> runOnUiThread(this::refreshAll));
     }
 
-    private boolean checkingLatestRelease = false;
 
     void pageUpdates() {
         section(tr("UPDATES", "GÜNCELLEMELER"));
-        row(tr("Automatic updates", "Otomatik güncellemeler"),
+        row("البحث التلقائي عن التحديثات",
                 () -> AppUpdater.isAutoUpdateEnabled(this) ? tr("On", "Açık") : tr("Off", "Kapalı"),
                 () -> {
                     boolean next = !AppUpdater.isAutoUpdateEnabled(this);
                     AppUpdater.setAutoUpdateEnabled(this, next);
                     refreshAll();
                     showStatusMsg(next
-                            ? tr("Automatic updates enabled.", "Otomatik güncellemeler etkinleştirildi.")
-                            : tr("Automatic updates disabled.", "Otomatik güncellemeler devre dışı bırakıldı."));
+                            ? "تم تشغيل البحث التلقائي. لا يبدأ التنزيل إلا بعد موافقتك."
+                            : "توقف البحث التلقائي؛ التحقق اليدوي متاح.");
                     if (next) {
                         AppUpdater.checkAutoUpdateIfNeeded(this);
                     }
                 });
-        row(tr("Check for updates", "Güncellemeleri kontrol et"),
-                () -> tr("Check now ›", "Şimdi kontrol et ›"),
+        row("التحقق من وجود تحديثات",
+                () -> AppUpdater.isDownloading()?"جارٍ تنزيل الملف الموافق عليه…":AppUpdater.isChecking()?"جارٍ التحقق…":"تحقق الآن ›",
                 () -> AppUpdater.manualCheckAndPrompt(this, this::refreshAll));
 
         section(tr("VERSION INFO", "SÜRÜM BİLGİSİ"));
@@ -1999,25 +1998,14 @@ public class SettingsActivity extends Activity {
                     if (latest != null && !latest.isEmpty()) {
                         return "v" + latest;
                     }
-                    return checkingLatestRelease
+                    return AppUpdater.isChecking()
                             ? tr("Checking…", "Kontrol ediliyor…")
                             : tr("Tap Check for updates", "Güncellemeleri kontrol et'e basın");
                 },
                 null);
 
-        infoNote(tr("Checks GitHub Releases (techgenius1/tvOS-Launcher) for the latest APK and installs updates directly on your TV.",
-                "En güncel APK için GitHub Sürümlerini (techgenius1/tvOS-Launcher) kontrol eder ve güncellemeleri doğrudan TV'nize kurar."));
-
-        if (!checkingLatestRelease) {
-            checkingLatestRelease = true;
-            refreshAll();
-            AppUpdater.checkForUpdates(this, (success, latestVersion, downloadUrl, updateAvailable, errorMsg) -> {
-                checkingLatestRelease = false;
-                if (!isFinishing()) {
-                    refreshAll();
-                }
-            });
-        }
+        infoNote("المصدر: GitHub Releases • vipkash13-prog/Quswis-tvos-launcher\nيُعرض الإصدار قبل موافقتك على التنزيل، ويُفحص توقيع APK ورقم بنائه قبل تثبيته. التوقيع المختلف يُرفض دون حذف بياناتك.");
+        if(AppUpdater.hasDownloadedUpdate(this))row("تثبيت التحديث المحمّل",()->"يتطلب موافقتك في مثبّت Android",()->AppUpdater.installDownloaded(this));
     }
 
     void pageAbout() {

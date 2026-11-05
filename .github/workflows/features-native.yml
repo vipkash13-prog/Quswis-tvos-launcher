@@ -1,0 +1,100 @@
+name: Verify privately signed 2.0.6 APK
+on:
+  push:
+    branches: ["fix/matches-xtream-consent-updates"]
+    paths: ["tests/signatures/2.0.6.json"]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  native:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Reconstruct reviewed APK signatures without private keys
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          SOURCE=$(python3 -c 'import json;print(json.load(open("tests/signatures/2.0.6.json"))["build"]["source_sha"])')
+          BUILD_RUN=$(python3 -c 'import json;print(json.load(open("tests/signatures/2.0.6.json"))["build"]["run_id"])')
+          git diff --exit-code "$SOURCE" HEAD -- src assets res AndroidManifest.xml live-tv-build/build.gradle tests/live-tv-android
+          gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" --name Unsigned-2.0.6 --dir unsigned
+          python3 tests/apk_detached_signatures.py apply unsigned tests/signatures/2.0.6.json signed
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;35.0.0"
+          for APK in signed/*.apk; do "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs "$APK"; done
+          mkdir -p evidence
+          cp signed/launcher.apk evidence/Quswis-tvOS-Launcher.apk
+          cp signed/instrumentation.apk evidence/Quswis-instrumentation-test.apk
+          cp unsigned/build-info.json evidence/build-info.json
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --print-certs signed/launcher.apk > evidence/signing-certificate.txt
+          keytool -genkeypair -keystore /tmp/foreign.jks -alias foreign -storepass android -keypass android -keyalg RSA -validity 1 -dname 'CN=Test only foreign signer'
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign --ks /tmp/foreign.jks --ks-key-alias foreign --ks-pass pass:android --key-pass pass:android --out /tmp/foreign-fixture.apk signed/update-fixture.apk
+          if ! command -v ffmpeg; then sudo apt-get update -qq; sudo apt-get install -y ffmpeg; fi
+          mkdir -p /tmp/xtream-fixture
+          timeout 60 ffmpeg -nostdin -hide_banner -loglevel error -i https://masterpl.hls.nhkworld.jp/hls/w/live/smarttv.m3u8 -t 8 -map 0:v:0 -map 0:a:0 -c copy -f mpegts /tmp/xtream-fixture/live.ts
+          curl -fsSL https://jiotvimages.cdn.jio.com/dare_images/images/NHK_World_Japan.png -o /tmp/xtream-fixture/logo.png
+          python3 tests/ci-xtream-fixture.py /tmp/xtream-fixture > /tmp/xtream-server.log 2>&1 &
+          sudo chmod 666 /dev/kvm
+      - name: Native live-only API, real HLS/TS decode, remote and update consent
+        timeout-minutes: 40
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          profile: tv_1080p
+          disable-animations: false
+          emulator-options: -no-window -gpu swiftshader_indirect -no-boot-anim -camera-back none -camera-front none
+          script: |
+            adb install -r signed/launcher.apk
+            adb install -r -t signed/instrumentation.apk
+            adb shell wm size 1920x1080
+            timeout 100 adb shell am instrument -w -r -e profile true -e smoke true com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee evidence/smoke.log
+            grep -q SMOKE_OK evidence/smoke.log
+            adb shell am force-stop com.techgenius.tvoslauncher
+            adb shell mkdir -p /sdcard/Android/data/com.techgenius.tvoslauncher/files
+            adb push signed/update-fixture.apk /sdcard/Android/data/com.techgenius.tvoslauncher/files/update-fixture.apk
+            adb push /tmp/foreign-fixture.apk /sdcard/Android/data/com.techgenius.tvoslauncher/files/foreign-fixture.apk
+            adb logcat -b all -c
+            timeout 700 adb shell am instrument -w -r -e profile true -e features true -e expected_size 1920x1080 com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee evidence/features-native.log
+            adb logcat -d > evidence/features-logcat.txt
+            grep -q FEATURES_NATIVE_OK evidence/features-native.log
+            adb shell am force-stop com.techgenius.tvoslauncher
+            timeout 550 adb shell am instrument -w -r -e profile true -e features true -e persisted true -e expected_size 1920x1080 com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee evidence/features-persisted.log
+            grep -q FEATURES_NATIVE_OK evidence/features-persisted.log
+            adb shell am force-stop com.techgenius.tvoslauncher
+            timeout 850 adb shell am instrument -w -r -e repairs true -e expected_size 1920x1080 com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee evidence/full-1080.log
+            grep -q 'LIVE_TV_UI_OK: 1920x1080' evidence/full-1080.log
+            adb shell am force-stop com.techgenius.tvoslauncher
+            adb shell wm size 3840x2160
+            timeout 850 adb shell am instrument -w -r -e repairs true -e persisted true -e expected_size 3840x2160 com.techgenius.tvoslauncher.test/com.techgenius.tvoslauncher.LiveTvInstrumentation | tee evidence/full-4k.log
+            grep -q 'LIVE_TV_UI_OK: 3840x2160' evidence/full-4k.log
+            python3 tests/verify-update-install.py
+            adb logcat -b crash -d > evidence/crashes.txt
+            adb logcat -d > evidence/final-logcat.txt
+      - name: Verify no VOD/series requests and no crashes
+        run: |
+          cp /tmp/xtream-fixture/api-audit.json evidence/api-audit.json
+          python3 - <<'PY'
+          import json,re
+          from pathlib import Path
+          audit=json.loads(Path('evidence/api-audit.json').read_text())
+          assert set(audit)<= {'authenticate','get_live_categories','get_live_streams'},audit
+          assert all(audit.get(k,0)>0 for k in ['authenticate','get_live_categories','get_live_streams'])
+          logs='\n'.join(p.read_text() for p in Path('evidence').glob('*logcat.txt'))+'\n'+Path('evidence/crashes.txt').read_text()
+          assert not re.search(r'FATAL EXCEPTION[^\n]*\n[^\n]*Process: com\.techgenius\.tvoslauncher|ANR in com\.techgenius\.tvoslauncher',logs)
+          print('Live-only API and no launcher/test crash checks passed.')
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Signed-2.0.6-evidence
+          path: evidence/*

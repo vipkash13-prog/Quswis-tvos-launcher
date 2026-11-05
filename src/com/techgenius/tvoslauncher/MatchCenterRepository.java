@@ -19,13 +19,14 @@ final class MatchCenterRepository {
     private static final ExecutorService NETWORK=Executors.newFixedThreadPool(3);
     private static final Handler MAIN=new Handler(Looper.getMainLooper());
     private static volatile long retryAfter;
+    private static final ConcurrentHashMap<String,Object> GROUP_LOCKS=new ConcurrentHashMap<>();
     private final Context app;
     private final SharedPreferences prefs;
     interface Callback{void loaded(Snapshot snapshot);}
     static final class Snapshot {
         final List<JSONObject> matches=new ArrayList<>();
         final Map<String,String> logos=new HashMap<>();
-        long updatedAt;boolean failed,hasCache,stale;
+        long updatedAt;boolean failed,hasCache,stale,loading;List<JSONObject> filtered;
     }
     MatchCenterRepository(Context c){app=c.getApplicationContext();prefs=app.getSharedPreferences("match_center",Context.MODE_PRIVATE);}
     Set<String> selected(){
@@ -39,11 +40,11 @@ final class MatchCenterRepository {
     void select(Set<String> ids){prefs.edit().putStringSet("selected",new HashSet<>(ids)).apply();}
     private JSONObject group(String id){try{return new JSONObject(prefs.getString("feed_"+id,"{}"));}catch(Exception e){return new JSONObject();}}
     Snapshot cached(Set<String> ids,int tab){
-        Snapshot snapshot=new Snapshot();long now=System.currentTimeMillis(),ttl=tab==MatchCenterData.LIVE?LIVE_TTL:OTHER_TTL;
+        Snapshot snapshot=new Snapshot();Map<String,JSONObject> latest=new LinkedHashMap<>();Map<String,Integer> priorities=new HashMap<>();long now=System.currentTimeMillis(),ttl=tab==MatchCenterData.LIVE?LIVE_TTL:OTHER_TTL;
         for(String id:ids){
             JSONObject slots=group(id);if(slots.length()==0)snapshot.failed=true;Iterator<String> keys=slots.keys();
             while(keys.hasNext()){
-                JSONObject slot=slots.optJSONObject(keys.next());if(slot==null)continue;
+                String slotKey=keys.next();if((tab==MatchCenterData.LIVE||tab==MatchCenterData.RESULTS)&&slotKey.startsWith("month:"))continue;JSONObject slot=slots.optJSONObject(slotKey);if(slot==null)continue;
                 long at=slot.optLong("at");if(slot.optBoolean("failed"))snapshot.failed=true;
                 if(at==0)continue;
                 snapshot.hasCache=true;snapshot.updatedAt=snapshot.updatedAt==0?at:Math.min(snapshot.updatedAt,at);
@@ -52,12 +53,13 @@ final class MatchCenterRepository {
                 String logo=slot.optString("logo");if(!logo.isEmpty())snapshot.logos.put(id,logo);
                 JSONArray rows=slot.optJSONArray("matches");if(rows==null)continue;
                 for(int i=0;i<rows.length();i++){
-                    try{JSONObject row=new JSONObject(rows.getJSONObject(i).toString());row.getJSONObject("fixture").put("stale",stale);snapshot.matches.add(row);}catch(Exception ignored){}
+                    try{JSONObject row=new JSONObject(rows.getJSONObject(i).toString());row.getJSONObject("fixture").put("stale",stale);String eventKey=id+"|"+row.getJSONObject("fixture").optString("id",row.toString());JSONObject previous=latest.get(eventKey);int priority=!slotKey.startsWith("month:")&&!stale?1:0;if(previous==null||priority>priorities.get(eventKey)||priority==priorities.get(eventKey)&&at>previous.getJSONObject("fixture").optLong("updatedAt")){row.getJSONObject("fixture").put("updatedAt",at);latest.put(eventKey,row);priorities.put(eventKey,priority);}}catch(Exception ignored){}
                 }
             }
         }
-        return snapshot;
+        snapshot.matches.addAll(latest.values());snapshot.filtered=MatchCenterData.select(snapshot.matches,ids,tab,now,tab==MatchCenterData.LEAGUE_TAB?5:Integer.MAX_VALUE);return snapshot;
     }
+    Future<?> cachedAsync(Set<String> selection,int tab,Callback callback){Set<String> ids=new HashSet<>(selection);return COORDINATOR.submit(()->{Snapshot saved=cached(ids,tab);saved.loading=true;if(!Thread.currentThread().isInterrupted())MAIN.post(()->callback.loaded(saved));});}
     Future<?> refresh(Set<String> selection,int tab,Callback callback){
         Set<String> ids=new HashSet<>(selection);
         return COORDINATOR.submit(()->{
@@ -77,42 +79,27 @@ final class MatchCenterRepository {
         });
     }
     private void fetchGroup(String id,int tab){
-        JSONObject slots=group(id);long now=System.currentTimeMillis();String today=MatchCenterData.day(now);
-        if(MatchCenterData.NATIONAL.equals(id)){
-            loadSlot(slots,id,"schedule",API+"all/teams/655/schedule",tab);
-            if(tab==MatchCenterData.UPCOMING||tab==MatchCenterData.LEAGUE_TAB)loadSlot(slots,id,"fixtures",API+"all/teams/655/schedule?fixture=true",tab);
-        }else{
-            loadSlot(slots,id,today,API+id+"/scoreboard?dates="+today+"&limit=100",tab);
-            Calendar yesterday=Calendar.getInstance(MatchCenterData.RIYADH);yesterday.add(Calendar.DAY_OF_MONTH,-1);String before=MatchCenterData.day(yesterday.getTimeInMillis());
-            loadSlot(slots,id,before,API+id+"/scoreboard?dates="+before+"&limit=100",tab);
-            if(tab==MatchCenterData.UPCOMING||tab==MatchCenterData.LEAGUE_TAB){
-                JSONObject todaySlot=slots.optJSONObject(today);JSONArray calendar=todaySlot==null?null:todaySlot.optJSONArray("calendar");
-                SortedSet<String> dates=new TreeSet<>();
-                if(calendar!=null)for(int i=0;i<calendar.length();i++){
-                    Date d=FootballData.parseDate(calendar.optString(i));if(d==null)continue;String key=MatchCenterData.day(d.getTime());
-                    if(key.compareTo(today)>0)dates.add(key);
+        synchronized(GROUP_LOCKS.computeIfAbsent(id,k->new Object())){
+            if(Thread.currentThread().isInterrupted())return;
+            JSONObject slots=group(id);long now=System.currentTimeMillis();String today=MatchCenterData.day(now);
+            if(MatchCenterData.NATIONAL.equals(id)){
+                loadSlot(slots,id,"schedule",API+"all/teams/655/schedule",tab);
+                if(tab==MatchCenterData.UPCOMING||tab==MatchCenterData.LEAGUE_TAB)loadSlot(slots,id,"fixtures",API+"all/teams/655/schedule?fixture=true",tab);
+            }else{
+                Calendar beforeDay=Calendar.getInstance(MatchCenterData.RIYADH);beforeDay.add(Calendar.DAY_OF_MONTH,-1);String before=MatchCenterData.day(beforeDay.getTimeInMillis());
+                loadSlot(slots,id,today,API+id+"/scoreboard?dates="+today+"&limit=1000",tab);
+                loadSlot(slots,id,before,API+id+"/scoreboard?dates="+before+"&limit=1000",tab);
+                // ESPN supports YYYYMM for soccer. Some leagues return calendar objects,
+                // not date strings; month queries handle both calendar schemas without guesses.
+                String month=MatchCenterData.month(now);Calendar next=Calendar.getInstance(MatchCenterData.RIYADH);next.set(Calendar.DAY_OF_MONTH,1);next.add(Calendar.MONTH,1);String nextMonth=MatchCenterData.month(next.getTimeInMillis());
+                if(tab==MatchCenterData.UPCOMING||tab==MatchCenterData.LEAGUE_TAB){
+                    loadSlot(slots,id,"month:"+month,API+id+"/scoreboard?dates="+month+"&limit=1000",MatchCenterData.UPCOMING);
+                    loadSlot(slots,id,"month:"+nextMonth,API+id+"/scoreboard?dates="+nextMonth+"&limit=1000",MatchCenterData.UPCOMING);
                 }
-                // Use the provider's actual match calendar, avoiding a request for every empty day.
-                int fetched=0;
-                for(String date:dates){
-                    if(Thread.currentThread().isInterrupted())break;
-                    loadSlot(slots,id,date,API+id+"/scoreboard?dates="+date+"&limit=100",tab);
-                    int upcoming=0;Iterator<String> slotKeys=slots.keys();while(slotKeys.hasNext()){
-                        JSONObject value=slots.optJSONObject(slotKeys.next());JSONArray entries=value==null?null:value.optJSONArray("matches");
-                        if(entries!=null)for(int i=0;i<entries.length();i++){
-                            JSONObject entry=entries.optJSONObject(i),fixture=entry==null?null:entry.optJSONObject("fixture");
-                            Date when=fixture==null?null:FootballData.parseDate(fixture.optString("date"));
-                            if(when!=null&&when.getTime()>=now&&"pre".equals(fixture.optString("state")))upcoming++;
-                        }
-                    }
-                    if(++fetched>=5||upcoming>=5)break;
-                }
+                List<String> remove=new ArrayList<>();Iterator<String> keys=slots.keys();while(keys.hasNext()){String key=keys.next();if(!key.equals(today)&&!key.equals(before)&&!key.equals("month:"+month)&&!key.equals("month:"+nextMonth))remove.add(key);}for(String key:remove)slots.remove(key);
             }
-            // Retain today/yesterday and the nearest future cache slots, not an ever-growing history.
-            List<String> remove=new ArrayList<>();Iterator<String> keys=slots.keys();while(keys.hasNext()){String key=keys.next();if(key.compareTo(before)<0)remove.add(key);}
-            for(String key:remove)slots.remove(key);
+            if(!Thread.currentThread().isInterrupted())prefs.edit().putString("feed_"+id,slots.toString()).apply();
         }
-        if(!Thread.currentThread().isInterrupted())prefs.edit().putString("feed_"+id,slots.toString()).apply();
     }
     private void loadSlot(JSONObject slots,String id,String key,String endpoint,int tab){
         if(Thread.currentThread().isInterrupted())return;
@@ -126,7 +113,7 @@ final class MatchCenterRepository {
             JSONArray leagues=root.optJSONArray("leagues");JSONObject league=leagues==null?null:leagues.optJSONObject(0);
             if(league!=null){slot.put("calendar",league.optJSONArray("calendar"));JSONArray logos=league.optJSONArray("logos");if(logos!=null&&logos.optJSONObject(0)!=null)slot.put("logo",logos.optJSONObject(0).optString("href"));}
             if(MatchCenterData.NATIONAL.equals(id))slot.put("logo",root.optJSONObject("team").optString("logo"));
-            slots.put(key,slot);
+            slots.put(key,slot);if(!Thread.currentThread().isInterrupted())prefs.edit().putString("feed_"+id,slots.toString()).apply();
         }catch(Exception error){
             try{if(old==null)old=new JSONObject();old.put("failed",true).put("attempt",now);slots.put(key,old);}catch(Exception ignored){}
             android.util.Log.w("Quswis-Matches","ESPN refresh failed for "+id+"/"+key,error);

@@ -1,474 +1,114 @@
 package com.techgenius.tvoslauncher;
 
-import android.app.Activity;
-import android.app.AlertDialog;
-import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
-import android.content.Context;
-import android.content.Intent;
-import android.content.SharedPreferences;
-import android.content.pm.PackageInfo;
-import android.content.pm.PackageInstaller;
-import android.net.Uri;
-import android.os.Build;
-import android.os.Handler;
-import android.os.Looper;
-import android.provider.Settings;
-import android.widget.Toast;
+import android.app.*;import android.content.*;import android.content.pm.*;import android.net.Uri;import android.os.*;import android.provider.Settings;import android.widget.Toast;
+import org.json.*;import java.io.*;import java.net.*;import java.security.MessageDigest;import java.util.*;import java.util.concurrent.atomic.AtomicBoolean;
 
-import org.json.JSONArray;
-import org.json.JSONObject;
-
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
-
-/**
- * Checks GitHub Releases (https://api.github.com/repos/vipkash13-prog/Quswis-tvos-launcher/releases/latest)
- * and downloads/installs the latest APK either automatically or manually from Settings -> Updates.
- */
+/** GitHub release checks are automatic; download and installer always need user consent. */
 public final class AppUpdater {
-    public static final String GITHUB_API_LATEST =
-            "https://api.github.com/repos/vipkash13-prog/Quswis-tvos-launcher/releases/latest";
-    public static final String GITHUB_FALLBACK_APK =
-            "https://github.com/vipkash13-prog/Quswis-tvos-launcher/releases/latest/download/Quswis-tvOS-Launcher.apk";
-
-    /**
-     * 1.0.205 is the approved release: while this is true the launcher never checks for, offers or installs
-     * updates. Set it to false only when new modifications are approved.
-     */
-    public static final boolean UPDATES_FROZEN = true;
-
-    private static final String PREF_NAME = "updates";
-    private static final String KEY_AUTO_UPDATE = "auto_update";
-    private static final String KEY_LATEST_VER = "latest_version";
-    private static final String KEY_LATEST_URL = "latest_apk_url";
-    private static final String KEY_LAST_CHECK = "last_check_ms";
-
-    private static final Handler MAIN = new Handler(Looper.getMainLooper());
-    private static volatile boolean checking = false;
-    private static volatile boolean downloading = false;
-
-    public interface CheckCallback {
-        void onResult(boolean success, String latestVersion, String downloadUrl, boolean updateAvailable, String errorMsg);
-    }
-
-    private AppUpdater() { }
-
-    private static SharedPreferences prefs(Context c) {
-        return c.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE);
-    }
-
-    public static boolean isAutoUpdateEnabled(Context c) {
-        if (UPDATES_FROZEN) return false;
-        return prefs(c).getBoolean(KEY_AUTO_UPDATE, true);
-    }
-
-    public static void setAutoUpdateEnabled(Context c, boolean enabled) {
-        prefs(c).edit().putBoolean(KEY_AUTO_UPDATE, enabled).apply();
-    }
-
-    public static String getCurrentVersion(Context c) {
-        if (c == null) return "1.0.0";
-        try {
-            PackageInfo pi = c.getPackageManager().getPackageInfo(c.getPackageName(), 0);
-            if (pi != null && pi.versionName != null && !pi.versionName.isEmpty()) {
-                return pi.versionName;
-            }
-        } catch (Throwable ignored) {
-        }
-        return "2.0.3";
-    }
-
-    public static String getCachedLatestVersion(Context c) {
-        return prefs(c).getString(KEY_LATEST_VER, "");
-    }
-
-    public static String getCachedDownloadUrl(Context c) {
-        return prefs(c).getString(KEY_LATEST_URL, GITHUB_FALLBACK_APK);
-    }
-
-    public static boolean isChecking() {
-        return checking;
-    }
-
-    public static boolean isDownloading() {
-        return downloading;
-    }
-
-    public static String cleanVersion(String v) {
-        if (v == null) return "";
-        String s = v.trim();
-        while (s.startsWith("v") || s.startsWith("V")) {
-            s = s.substring(1).trim();
-        }
-        return s;
-    }
-
-    /** Returns true if remoteVer is strictly newer than currentVer (e.g. "2.0.4" > "2.0.3"). */
-    public static boolean isNewerVersion(String currentVer, String remoteVer) {
-        String c = cleanVersion(currentVer);
-        String r = cleanVersion(remoteVer);
-        if (r.isEmpty()) return false;
-        if (c.isEmpty()) return true;
-        if (c.equals(r)) return false;
-        String[] cp = c.split("[^0-9]+");
-        String[] rp = r.split("[^0-9]+");
-        int len = Math.max(cp.length, rp.length);
-        for (int i = 0; i < len; i++) {
-            int cv = 0;
-            int rv = 0;
-            try {
-                if (i < cp.length && !cp[i].isEmpty()) cv = Integer.parseInt(cp[i]);
-            } catch (NumberFormatException ignored) {
-            }
-            try {
-                if (i < rp.length && !rp[i].isEmpty()) rv = Integer.parseInt(rp[i]);
-            } catch (NumberFormatException ignored) {
-            }
-            if (rv > cv) return true;
-            if (rv < cv) return false;
-        }
-        return false;
-    }
-
-    /**
-     * Queries GitHub Releases API for the latest release version and APK download URL.
-     */
-    public static void checkForUpdates(Context c, CheckCallback cb) {
-        if (c == null) return;
-        prefs(c).edit().remove(KEY_LATEST_VER).remove(KEY_LATEST_URL).apply();
-        final Context appCtx = c.getApplicationContext();
-        checking = true;
-        new Thread(() -> {
-            HttpURLConnection conn = null;
-            try {
-                URL url = new URL(GITHUB_API_LATEST);
-                conn = (HttpURLConnection) url.openConnection();
-                conn.setRequestMethod("GET");
-                conn.setConnectTimeout(10000);
-                conn.setReadTimeout(10000);
-                conn.setRequestProperty("Accept", "application/vnd.github+json");
-                conn.setRequestProperty("User-Agent", "Quswis-tvOS-Updater");
-
-                int code = conn.getResponseCode();
-                if (code != 200) {
-                    throw new Exception("HTTP " + code);
-                }
-                StringBuilder sb = new StringBuilder();
-                try (BufferedReader br = new BufferedReader(
-                        new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
-                    String line;
-                    while ((line = br.readLine()) != null) {
-                        sb.append(line);
-                    }
-                }
-                JSONObject json = new JSONObject(sb.toString());
-                String tag = json.optString("tag_name", "").trim();
-                if (tag.isEmpty()) {
-                    tag = json.optString("name", "").trim();
-                }
-                String cleanTag = cleanVersion(tag);
-                String apkUrl = "";
-                JSONArray assets = json.optJSONArray("assets");
-                if (assets != null) {
-                    for (int i = 0; i < assets.length(); i++) {
-                        JSONObject asset = assets.optJSONObject(i);
-                        if (asset == null) continue;
-                        String name = asset.optString("name", "").toLowerCase();
-                        String dl = asset.optString("browser_download_url", "");
-                        if (name.endsWith(".apk") && !dl.isEmpty()) {
-                            apkUrl = dl;
-                            break;
-                        }
-                    }
-                }
-                if (apkUrl.isEmpty()) throw new Exception("Release has no APK asset");
-                prefs(appCtx).edit()
-                        .putString(KEY_LATEST_VER, cleanTag)
-                        .putString(KEY_LATEST_URL, apkUrl)
-                        .putLong(KEY_LAST_CHECK, System.currentTimeMillis())
-                        .apply();
-                final String finalVer = cleanTag;
-                final String finalUrl = apkUrl;
-                final boolean newer = isNewerVersion(getCurrentVersion(appCtx), cleanTag);
-                checking = false;
-                if (cb != null) {
-                    MAIN.post(() -> cb.onResult(true, finalVer, finalUrl, newer, null));
-                }
-            } catch (Throwable t) {
-                checking = false;
-                final String err = t.getMessage() != null ? t.getMessage() : "Network error";
-                if (cb != null) {
-                    MAIN.post(() -> cb.onResult(false, getCachedLatestVersion(appCtx), getCachedDownloadUrl(appCtx), false, err));
-                }
-            } finally {
-                if (conn != null) conn.disconnect();
-            }
-        }, "github-update-check").start();
-    }
-
-    /**
-     * Called on MainActivity startup / network online: if Automatic Updates is ON, checks GitHub
-     * in the background and automatically pulls & installs if a newer release is found.
-     */
-    public static void checkAutoUpdateIfNeeded(Activity activity) {
-        if (UPDATES_FROZEN || activity == null || activity.isFinishing()) return;
-        if (!isAutoUpdateEnabled(activity)) return;
-        if (checking || downloading) return;
-        long last = prefs(activity).getLong(KEY_LAST_CHECK, 0L);
-        long now = System.currentTimeMillis();
-        // Throttle automatic background checks to once every 15 minutes
-        if (now - last < 15 * 60 * 1000L) return;
-
-        checkForUpdates(activity, (success, latestVersion, downloadUrl, updateAvailable, errorMsg) -> {
-            if (success && updateAvailable && !activity.isFinishing()) {
-                Toast.makeText(activity,
-                        I18n.s(activity,
-                                "Updating Quswis tvOS Launcher to v" + latestVersion + "…",
-                                "tvOS Launcher v" + latestVersion + " sürümüne güncelleniyor…"),
-                        Toast.LENGTH_SHORT).show();
-                downloadAndInstall(activity, downloadUrl, latestVersion, true, null);
-            }
-        });
-    }
-
-    /**
-     * Shows interactive update check / prompt from Settings -> Updates.
-     */
-    public static void manualCheckAndPrompt(Activity activity, Runnable onUiRefresh) {
-        if (activity == null || activity.isFinishing()) return;
-        if (UPDATES_FROZEN) {
-            Toast.makeText(activity, "هذا هو الإصدار المعتمد (v" + getCurrentVersion(activity) + "). التحديثات متوقفة.",
-                    Toast.LENGTH_LONG).show();
-            return;
-        }
-        if (checking || downloading) return;
-        if (onUiRefresh != null) onUiRefresh.run();
-        checkForUpdates(activity, (success, latestVersion, downloadUrl, updateAvailable, errorMsg) -> {
-            if (onUiRefresh != null) onUiRefresh.run();
-            if (activity.isFinishing()) return;
-            if (!success) {
-                Toast.makeText(activity,
-                        I18n.s(activity, "Could not check for updates.", "Güncellemeler kontrol edilemedi."),
-                        Toast.LENGTH_SHORT).show();
-                return;
-            }
-            String cur = getCurrentVersion(activity);
-            if (updateAvailable) {
-                new AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
-                        .setTitle(I18n.s(activity, "Update Available", "Güncelleme Mevcut") + " (v" + latestVersion + ")")
-                        .setMessage(I18n.s(activity,
-                                "A new version of Quswis tvOS Launcher (v" + latestVersion + ") is available on GitHub.\nCurrent version: v" + cur,
-                                "GitHub'da yeni bir tvOS Launcher sürümü (v" + latestVersion + ") mevcut.\nMevcut sürüm: v" + cur))
-                        .setPositiveButton(I18n.s(activity, "Update Now", "Şimdi Güncelle"), (d, w) -> {
-                            downloadAndInstall(activity, downloadUrl, latestVersion, false, onUiRefresh);
-                        })
-                        .setNegativeButton(I18n.s(activity, "Cancel", "İptal"), null)
-                        .show();
-            } else {
-                Toast.makeText(activity,
-                        I18n.s(activity,
-                                "You are up to date (v" + cur + ")",
-                                "Sürümünüz güncel (v" + cur + ")"),
-                        Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
-
-    public static void downloadAndInstall(
-            Activity activity,
-            String apkUrl,
-            String version,
-            boolean autoSilent,
-            Runnable onUiRefresh) {
-        if (activity == null || downloading) return;
-        downloading = true;
-        if (onUiRefresh != null) MAIN.post(onUiRefresh);
-        final Context appCtx = activity.getApplicationContext();
-
-        if (!autoSilent) {
-            Toast.makeText(activity,
-                    I18n.s(activity, "Downloading update v" + version + "…", "Güncelleme indiriliyor v" + version + "…"),
-                    Toast.LENGTH_SHORT).show();
-        }
-
-        new Thread(() -> {
-            HttpURLConnection conn = null;
-            File apkFile = new File(appCtx.getCacheDir(), "tvos-update.apk");
-            try {
-                if (apkFile.exists()) apkFile.delete();
-                String currentUrl = (apkUrl != null && !apkUrl.isEmpty()) ? apkUrl : GITHUB_FALLBACK_APK;
-                for (int redirects = 0; redirects < 6; redirects++) {
-                    conn = (HttpURLConnection) new URL(currentUrl).openConnection();
-                    conn.setInstanceFollowRedirects(true);
-                    conn.setConnectTimeout(15000);
-                    conn.setReadTimeout(30000);
-                    conn.setRequestProperty("User-Agent", "tvOS-Launcher-Updater");
-                    int status = conn.getResponseCode();
-                    if (status == HttpURLConnection.HTTP_MOVED_TEMP
-                            || status == HttpURLConnection.HTTP_MOVED_PERM
-                            || status == HttpURLConnection.HTTP_SEE_OTHER
-                            || status == 307 || status == 308) {
-                        String loc = conn.getHeaderField("Location");
-                        conn.disconnect();
-                        if (loc == null || loc.isEmpty()) break;
-                        currentUrl = loc;
-                        continue;
-                    }
-                    break;
-                }
-                if (conn == null || conn.getResponseCode() != 200) {
-                    throw new Exception("Download failed");
-                }
-                try (InputStream in = conn.getInputStream();
-                     FileOutputStream fos = new FileOutputStream(apkFile)) {
-                    byte[] buf = new byte[32768];
-                    int r;
-                    while ((r = in.read(buf)) > 0) {
-                        fos.write(buf, 0, r);
-                    }
-                    fos.flush();
-                }
-                if (!apkFile.exists() || apkFile.length() < 10_000) {
-                    throw new Exception("Downloaded APK invalid");
-                }
-                // Make readable for shell/system installer if needed
-                try {
-                    appCtx.getCacheDir().setExecutable(true, false);
-                    apkFile.setReadable(true, false);
-                } catch (Throwable ignored) {
-                }
-
-                // 1. Try silent install via LocalAdb if paired
-                if (LocalAdb.isPaired(appCtx)) {
-                    try {
-                        String pkg = appCtx.getPackageName();
-                        LocalAdb.execShellOutput(appCtx,
-                                "appops set " + pkg + " REQUEST_INSTALL_PACKAGES allow 2>/dev/null");
-                        // Also try copying to /data/local/tmp and running pm install -r
-                        File extDir = appCtx.getExternalCacheDir();
-                        if (extDir != null) {
-                            File extApk = new File(extDir, "tvos-update.apk");
-                            copyFile(apkFile, extApk);
-                            extApk.setReadable(true, false);
-                            String out = LocalAdb.execShellOutput(appCtx,
-                                    "cp \"" + extApk.getAbsolutePath() + "\" /data/local/tmp/tvos-update.apk 2>/dev/null && "
-                                    + "pm install -r /data/local/tmp/tvos-update.apk");
-                            if (out != null && out.contains("Success")) {
-                                downloading = false;
-                                if (onUiRefresh != null) MAIN.post(onUiRefresh);
-                                return;
-                            }
-                        }
-                    } catch (Throwable ignored) {
-                    }
-                }
-
-                // 2. Install via Android PackageInstaller Session
-                downloading = false;
-                if (onUiRefresh != null) MAIN.post(onUiRefresh);
-                MAIN.post(() -> installWithPackageInstaller(activity, apkFile));
-            } catch (Throwable t) {
-                downloading = false;
-                if (onUiRefresh != null) MAIN.post(onUiRefresh);
-                MAIN.post(() -> Toast.makeText(appCtx,
-                        I18n.s(appCtx, "Update download failed.", "Güncelleme indirilemedi."),
-                        Toast.LENGTH_SHORT).show());
-            } finally {
-                if (conn != null) conn.disconnect();
-            }
-        }, "github-apk-download").start();
-    }
-
-    private static void copyFile(File src, File dst) throws Exception {
-        try (FileInputStream fis = new FileInputStream(src);
-             FileOutputStream fos = new FileOutputStream(dst)) {
-            byte[] buf = new byte[32768];
-            int r;
-            while ((r = fis.read(buf)) > 0) {
-                fos.write(buf, 0, r);
-            }
-            fos.flush();
-        }
-    }
-
-    private static void installWithPackageInstaller(Activity activity, File apkFile) {
-        if (activity == null || !apkFile.exists()) return;
-        try {
-            if (Build.VERSION.SDK_INT >= 26 && !activity.getPackageManager().canRequestPackageInstalls()) {
-                Toast.makeText(activity,
-                        I18n.s(activity, "Please allow 'Install unknown apps' for tvOS Launcher.",
-                                "Lütfen tvOS Launcher için 'Bilinmeyen uygulamaları yükle' iznini verin."),
-                        Toast.LENGTH_LONG).show();
-                try {
-                    Intent permIntent = new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                            Uri.parse("package:" + activity.getPackageName()));
-                    activity.startActivity(permIntent);
-                } catch (Throwable ignored) {
-                }
-                return;
-            }
-
-            PackageInstaller pi = activity.getPackageManager().getPackageInstaller();
-            PackageInstaller.SessionParams params =
-                    new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);
-            params.setAppPackageName(activity.getPackageName());
-            int sessionId = pi.createSession(params);
-            try (PackageInstaller.Session session = pi.openSession(sessionId)) {
-                try (OutputStream out = session.openWrite("tvos-update.apk", 0, apkFile.length());
-                     FileInputStream in = new FileInputStream(apkFile)) {
-                    byte[] buf = new byte[32768];
-                    int r;
-                    while ((r = in.read(buf)) > 0) {
-                        out.write(buf, 0, r);
-                    }
-                    session.fsync(out);
-                }
-                Intent callbackIntent = new Intent(activity, InstallStatusReceiver.class);
-                int flags = PendingIntent.FLAG_UPDATE_CURRENT;
-                if (Build.VERSION.SDK_INT >= 31) {
-                    flags |= PendingIntent.FLAG_MUTABLE;
-                }
-                PendingIntent piCallback = PendingIntent.getBroadcast(activity, sessionId, callbackIntent, flags);
-                session.commit(piCallback.getIntentSender());
-            }
-        } catch (Throwable t) {
-            Toast.makeText(activity,
-                    I18n.s(activity, "Could not start installer.", "Yükleyici başlatılamadı."),
-                    Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    /**
-     * Receives PackageInstaller status callbacks and launches the user confirmation prompt if required.
-     */
-    public static final class InstallStatusReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            if (intent == null) return;
-            int status = intent.getIntExtra(PackageInstaller.EXTRA_STATUS, -1);
-            if (status == PackageInstaller.STATUS_PENDING_USER_ACTION) {
-                Intent confirm = intent.getParcelableExtra(Intent.EXTRA_INTENT);
-                if (confirm != null) {
-                    confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                    try {
-                        context.startActivity(confirm);
-                    } catch (Throwable ignored) {
-                    }
-                }
-            } else if (status == PackageInstaller.STATUS_SUCCESS) {
-                Toast.makeText(context,
-                        I18n.s(context, "Update installed!", "Güncelleme yüklendi!"),
-                        Toast.LENGTH_SHORT).show();
-            }
-        }
-    }
+ public static final String GITHUB_API_LATEST="https://api.github.com/repos/vipkash13-prog/Quswis-tvos-launcher/releases/latest";
+ public static final String GITHUB_FALLBACK_APK="https://github.com/vipkash13-prog/Quswis-tvos-launcher/releases/latest/download/Quswis-tvOS-Launcher.apk";
+ public static final boolean UPDATES_FROZEN=false;
+ private static final Handler MAIN=new Handler(Looper.getMainLooper());
+ private static final AtomicBoolean CHECKING=new AtomicBoolean(),DOWNLOADING=new AtomicBoolean(),INSTALLING=new AtomicBoolean();
+ private static boolean offering;
+ public interface CheckCallback{void onResult(boolean success,String latestVersion,String downloadUrl,boolean available,String error);}
+ private static SharedPreferences prefs(Context c){return c.getApplicationContext().getSharedPreferences("updates",Context.MODE_PRIVATE);}
+ private static void migrate(Context c){SharedPreferences p=prefs(c);if(!p.getBoolean("consent_checks_v1",false))p.edit().putBoolean("consent_checks_v1",true).putBoolean("auto_update",true).apply();}
+ public static boolean isAutoUpdateEnabled(Context c){migrate(c);return prefs(c).getBoolean("auto_update",true);}
+ public static void setAutoUpdateEnabled(Context c,boolean enabled){migrate(c);prefs(c).edit().putBoolean("auto_update",enabled).apply();}
+ public static boolean isChecking(){return CHECKING.get();}public static boolean isDownloading(){return DOWNLOADING.get();}
+ public static String getCurrentVersion(Context c){try{return c.getPackageManager().getPackageInfo(c.getPackageName(),0).versionName;}catch(Exception e){return "";}}
+ public static String getCachedLatestVersion(Context c){return prefs(c).getString("latest_version","");}
+ public static String getCachedDownloadUrl(Context c){return prefs(c).getString("latest_apk_url","");}
+ public static String cleanVersion(String v){return AppUpdateData.cleanVersion(v);}
+ public static boolean isNewerVersion(String current,String remote){return AppUpdateData.isNewer(current,remote);}
+ public static void checkForUpdates(Context context,CheckCallback callback){
+  Context app=context.getApplicationContext();if(!CHECKING.compareAndSet(false,true)){if(callback!=null)MAIN.post(()->callback.onResult(false,"","",false,"جارٍ التحقق بالفعل"));return;}
+  prefs(app).edit().putLong("last_check_ms",System.currentTimeMillis()).apply();
+  new Thread(()->{try{
+   HttpURLConnection http=(HttpURLConnection)new URL(GITHUB_API_LATEST).openConnection();JSONObject release;
+   try{http.setConnectTimeout(10000);http.setReadTimeout(15000);http.setRequestProperty("Accept","application/vnd.github+json");http.setRequestProperty("User-Agent","Quswis-Updater");if(http.getResponseCode()!=200)throw new IOException();release=new JSONObject(new String(read(http.getInputStream(),2*1024*1024),"UTF-8"));}finally{http.disconnect();}
+   AppUpdateData.Release found=AppUpdateData.release(release);prefs(app).edit().putString("latest_version",found.version).putString("latest_apk_url",found.url).putString("latest_apk_sha256",found.digest).apply();
+   CHECKING.set(false);if(callback!=null)MAIN.post(()->callback.onResult(true,found.version,found.url,isNewerVersion(getCurrentVersion(app),found.version),null));
+  }catch(Exception e){CHECKING.set(false);if(callback!=null)MAIN.post(()->callback.onResult(false,getCachedLatestVersion(app),getCachedDownloadUrl(app),false,"تعذّر التحقق من GitHub. تحقق من الاتصال أو حاول لاحقًا."));}},"github-update-check").start();
+ }
+ public static void checkAutoUpdateIfNeeded(Activity activity){
+  if(activity==null||activity.isFinishing()||!isAutoUpdateEnabled(activity)||CHECKING.get()||DOWNLOADING.get())return;
+  if(System.currentTimeMillis()-prefs(activity).getLong("last_check_ms",0)<15*60000L)return;
+  checkForUpdates(activity,(ok,version,url,available,error)->{if(ok&&available&&!activity.isFinishing()&&!(version.equals(prefs(activity).getString("dismissed_version",""))&&System.currentTimeMillis()-prefs(activity).getLong("dismissed_at",0)<24*3600000L))offer(activity,url,version,null);});
+ }
+ public static void manualCheckAndPrompt(Activity activity,Runnable refresh){
+  if(activity==null||activity.isFinishing())return;
+  checkForUpdates(activity,(ok,version,url,available,error)->{if(refresh!=null)refresh.run();if(activity.isFinishing())return;if(!ok){toast(activity,error);return;}if(available)offer(activity,url,version,refresh);else toast(activity,"نسختك محدثة أو أحدث من الإصدار المستقر على GitHub • "+getCurrentVersion(activity));});
+  if(refresh!=null)refresh.run();
+ }
+ private static void show(Activity activity,AlertDialog dialog){dialog.setOnShowListener(d->{if(dialog.getButton(AlertDialog.BUTTON_NEGATIVE)!=null)dialog.getButton(AlertDialog.BUTTON_NEGATIVE).requestFocus();});dialog.show();}
+ private static void offer(Activity activity,String url,String version,Runnable refresh){
+  if(offering||activity.isFinishing())return;offering=true;
+  AlertDialog dialog=new AlertDialog.Builder(activity,android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle("يتوفر تحديث • "+version)
+   .setMessage("الإصدار الحالي: "+getCurrentVersion(activity)+"\nالإصدار المتاح: "+version+"\nيبدأ التنزيل فقط عند اختيار تحديث الآن. يُفحص التوقيع ورقم البناء لحماية بياناتك.")
+   .setPositiveButton("تحديث الآن",(d,w)->startDownload(activity,url,version,refresh)).setNegativeButton("لاحقًا",(d,w)->prefs(activity).edit().putString("dismissed_version",version).putLong("dismissed_at",System.currentTimeMillis()).apply()).create();dialog.setOnDismissListener(d->offering=false);show(activity,dialog);
+ }
+ /** Compatibility entry point: even callers requesting silent mode must obtain explicit consent. */
+ public static void downloadAndInstall(Activity activity,String url,String version,boolean ignoredSilent,Runnable refresh){offer(activity,url,version,refresh);}
+ private static void startDownload(Activity activity,String url,String version,Runnable refresh){
+  if(!AppUpdateData.apkUrl(url)){toast(activity,"رابط التحديث لا ينتمي إلى إصدارات المشروع على GitHub");return;}
+  if(!DOWNLOADING.compareAndSet(false,true))return;Context app=activity.getApplicationContext();toast(activity,"جارٍ تنزيل التحديث بعد موافقتك…");if(refresh!=null)refresh.run();
+  new Thread(()->{File temporary=new File(app.getCacheDir(),"update-download.tmp"),approved=new File(app.getCacheDir(),"approved-update.apk");
+   try{HttpURLConnection http=download(url);try(InputStream input=http.getInputStream();FileOutputStream out=new FileOutputStream(temporary)){
+     byte[] block=new byte[32768];long total=0;int n;while((n=input.read(block))!=-1){out.write(block,0,n);total+=n;if(total>256L*1024*1024)throw new IOException("ملف التحديث أكبر من الحد المسموح");}out.getFD().sync();
+    }finally{http.disconnect();}
+    String digest=prefs(app).getString("latest_apk_sha256","");if(url.equals(getCachedDownloadUrl(app))&&!digest.isEmpty()&&!digest.equals(sha256(temporary)))throw new IOException("فشل التحقق من سلامة ملف GitHub");
+    validateArchive(app,temporary);if(approved.exists()&&!approved.delete())throw new IOException();if(!temporary.renameTo(approved))throw new IOException();prefs(app).edit().putString("pending_version",version).apply();
+    MAIN.post(()->{DOWNLOADING.set(false);if(refresh!=null)refresh.run();if(!activity.isFinishing())installDownloaded(activity);});
+   }catch(Exception error){temporary.delete();DOWNLOADING.set(false);String message=error.getMessage();MAIN.post(()->{if(refresh!=null)refresh.run();toast(app,message==null||message.isEmpty()?"تعذّر تنزيل التحديث. لم تتغير بياناتك.":message);});}
+  },"github-approved-download").start();
+ }
+ public static boolean hasDownloadedUpdate(Context c){return new File(c.getCacheDir(),"approved-update.apk").isFile()&&!prefs(c).getString("pending_version","").isEmpty();}
+ public static void installDownloaded(Activity activity){
+  if(activity.isFinishing()||!hasDownloadedUpdate(activity))return;
+  if(Build.VERSION.SDK_INT>=26&&!activity.getPackageManager().canRequestPackageInstalls()){
+   AlertDialog dialog=new AlertDialog.Builder(activity,android.R.style.Theme_DeviceDefault_Dialog_Alert).setTitle("إذن تثبيت التحديث")
+    .setMessage("اسمح بتثبيت التطبيقات لهذا اللانشر، ثم عد إلى الإعدادات واختر تثبيت التحديث المحمّل. لم تُحذف إعداداتك.")
+    .setPositiveButton("فتح إذن التثبيت",(d,w)->{try{activity.startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,Uri.parse("package:"+activity.getPackageName())));}catch(Exception e){toast(activity,"افتح إذن تثبيت التطبيقات من إعدادات Android");}}).setNegativeButton("لاحقًا",null).create();show(activity,dialog);return;
+  }
+  if(!INSTALLING.compareAndSet(false,true))return;
+  Context app=activity.getApplicationContext();new Thread(()->{PackageInstaller installer=app.getPackageManager().getPackageInstaller();int id=-1;try{
+   File apk=new File(app.getCacheDir(),"approved-update.apk");validateArchive(app,apk);
+   PackageInstaller.SessionParams params=new PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL);params.setAppPackageName(app.getPackageName());
+   if(Build.VERSION.SDK_INT>=31)params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED);
+   id=installer.createSession(params);try(PackageInstaller.Session session=installer.openSession(id)){
+    try(InputStream in=new FileInputStream(apk);OutputStream out=session.openWrite("update.apk",0,apk.length())){byte[] block=new byte[32768];int n;while((n=in.read(block))!=-1)out.write(block,0,n);session.fsync(out);}
+    int flags=PendingIntent.FLAG_UPDATE_CURRENT|(Build.VERSION.SDK_INT>=31?PendingIntent.FLAG_MUTABLE:0);PendingIntent result=PendingIntent.getBroadcast(app,id,new Intent(app,InstallStatusReceiver.class),flags);session.commit(result.getIntentSender());
+   }
+  }catch(Exception e){INSTALLING.set(false);if(id>=0)try{installer.abandonSession(id);}catch(Exception ignored){}MAIN.post(()->toast(app,e.getMessage()==null?"تعذّر فتح مثبّت التحديث":e.getMessage()));}},"approved-package-installer").start();
+ }
+ static void validateArchive(Context c,File apk)throws Exception{
+  PackageManager pm=c.getPackageManager();int flags=Build.VERSION.SDK_INT>=28?PackageManager.GET_SIGNING_CERTIFICATES:PackageManager.GET_SIGNATURES;
+  PackageInfo incoming=pm.getPackageArchiveInfo(apk.getAbsolutePath(),flags),current=pm.getPackageInfo(c.getPackageName(),flags);
+  if(incoming==null||!c.getPackageName().equals(incoming.packageName))throw new IOException("ملف التحديث لا يخص هذا التطبيق");
+  long old=Build.VERSION.SDK_INT>=28?current.getLongVersionCode():current.versionCode,next=Build.VERSION.SDK_INT>=28?incoming.getLongVersionCode():incoming.versionCode;
+  if(next<=old)throw new IOException("رقم بناء الملف ليس أحدث من نسختك. لم تتغير بياناتك.");
+  if(Build.VERSION.SDK_INT>=28&&(current.signingInfo==null||incoming.signingInfo==null))throw new IOException("لا يمكن التحقق من شهادة ملف التحديث. لم تتغير بياناتك.");
+  android.content.pm.Signature[] ours=Build.VERSION.SDK_INT>=28?current.signingInfo.getApkContentsSigners():current.signatures,theirs=Build.VERSION.SDK_INT>=28?incoming.signingInfo.getApkContentsSigners():incoming.signatures;
+  Set<String> a=new HashSet<>(),b=new HashSet<>();if(ours!=null)for(android.content.pm.Signature x:ours)a.add(hex(MessageDigest.getInstance("SHA-256").digest(x.toByteArray())));if(theirs!=null)for(android.content.pm.Signature x:theirs)b.add(hex(MessageDigest.getInstance("SHA-256").digest(x.toByteArray())));
+  if(a.isEmpty()||!a.equals(b))throw new IOException("توقيع التحديث لا يطابق النسخة المثبتة. أُوقف التثبيت لحماية بياناتك. لا تحذف نسختك الحالية.");
+ }
+ private static HttpURLConnection download(String source)throws Exception{
+  String url=source;for(int i=0;i<8;i++){
+   if(!AppUpdateData.downloadHost(url))throw new IOException("وجهة تنزيل غير موثوقة");HttpURLConnection http=(HttpURLConnection)new URL(url).openConnection();http.setInstanceFollowRedirects(false);http.setConnectTimeout(15000);http.setReadTimeout(30000);http.setRequestProperty("User-Agent","Quswis-Updater");int status=http.getResponseCode();
+   if(status>=300&&status<400){String next=http.getHeaderField("Location");http.disconnect();if(next==null)throw new IOException();url=new URI(url).resolve(next).toString();continue;}if(status!=200){http.disconnect();throw new IOException("تعذّر تنزيل الملف من GitHub");}return http;
+  }throw new IOException("تحويلات تنزيل كثيرة");
+ }
+ private static byte[] read(InputStream source,int limit)throws Exception{try(InputStream input=source;ByteArrayOutputStream out=new ByteArrayOutputStream()){byte[] b=new byte[8192];int n;while((n=input.read(b))!=-1){out.write(b,0,n);if(out.size()>limit)throw new IOException();}return out.toByteArray();}}
+ private static String hex(byte[] bytes){StringBuilder out=new StringBuilder();for(byte b:bytes)out.append(String.format(Locale.US,"%02x",b&255));return out.toString();}
+ static String sha256(File f)throws Exception{MessageDigest d=MessageDigest.getInstance("SHA-256");try(InputStream in=new FileInputStream(f)){byte[] b=new byte[32768];int n;while((n=in.read(b))!=-1)d.update(b,0,n);}return hex(d.digest());}
+ private static void toast(Context c,String text){Toast.makeText(c,text,Toast.LENGTH_LONG).show();}
+ public static final class InstallStatusReceiver extends BroadcastReceiver{
+  @Override public void onReceive(Context c,Intent intent){if(intent==null)return;int status=intent.getIntExtra(PackageInstaller.EXTRA_STATUS,-1);
+   if(status==PackageInstaller.STATUS_PENDING_USER_ACTION){Intent confirm=intent.getParcelableExtra(Intent.EXTRA_INTENT);if(confirm!=null){confirm.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);try{c.startActivity(confirm);}catch(Exception e){toast(c,"أعد فتح إعدادات التحديث لإكمال موافقة Android");}}}
+   else if(status==PackageInstaller.STATUS_SUCCESS){INSTALLING.set(false);prefs(c).edit().remove("pending_version").apply();new File(c.getCacheDir(),"approved-update.apk").delete();toast(c,"اكتمل التحديث مع الاحتفاظ ببيانات التطبيق");}
+   else {INSTALLING.set(false);toast(c,"لم يُثبَّت التحديث. بقيت النسخة الحالية وبياناتها محفوظة.");}
+  }
+ }
 }
