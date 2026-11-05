@@ -32,6 +32,7 @@ final class MatchCenterRepository {
         if(!prefs.contains("selected")){
             Set<String> imported=FootballScores.selectedLeagues(app),known=new HashSet<>();
             for(String[] l:MatchCenterData.LEAGUES)if(imported.contains(l[0]))known.add(l[0]);
+            if(known.isEmpty())for(String[] l:MatchCenterData.LEAGUES)known.add(l[0]);
             prefs.edit().putStringSet("selected",known).apply();
         }
         return new HashSet<>(prefs.getStringSet("selected",Collections.emptySet()));
