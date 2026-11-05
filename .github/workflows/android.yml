@@ -81,7 +81,8 @@ jobs:
         "$BT/d8" --min-api 24 --lib "$JAR" --classpath /tmp/quswis-ui/app-classes.jar --output /tmp/quswis-ui/dex /tmp/quswis-ui/classes/com/techgenius/tvoslauncher/PrayerWindowInstrumentation.class
         (cd /tmp/quswis-ui/dex && zip -q ../unsigned.apk classes.dex)
         "$BT/zipalign" -f 4 /tmp/quswis-ui/unsigned.apk /tmp/quswis-ui/aligned.apk
-        "$BT/apksigner" sign --ks debug.keystore --ks-pass pass:android --key-pass pass:android --out /tmp/quswis-ui/test.apk /tmp/quswis-ui/aligned.apk
+        keytool -genkeypair -keystore /tmp/quswis-ui/test.keystore -storepass android -keypass android -alias debug -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=TV test" >/dev/null 2>&1
+        "$BT/apksigner" sign --ks /tmp/quswis-ui/test.keystore --ks-pass pass:android --key-pass pass:android --out /tmp/quswis-ui/test.apk /tmp/quswis-ui/aligned.apk
         sudo chmod 666 /dev/kvm
 
     - name: Test remote navigation on Android 14 and capture window
