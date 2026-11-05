@@ -9,7 +9,7 @@ final class LiveTvDubbed {
  static final Set<String> ASIAN=new HashSet<>(Arrays.asList("ZeeAlwan.ae","ZeeAflam.ae","MBCBollywood.ae","B4UAflam.ae"));
  static boolean asian(LiveTvData.Channel c){return ASIAN.contains(c.id);}
  static void localize(LiveTvData.Channel c){if(c.id.equals("MBCBollywood.ae"))c.name="MBC بوليوود";else if(c.id.equals("MBC3USA.us"))c.name="إم بي سي 3 USA";}
- static boolean eligible(LiveTvData.Channel c){return c.animation()||asian(c);}
+ static boolean eligible(LiveTvData.Channel c){return c.animation()||asian(c)||c.id.startsWith("xtream:");}
  static LiveTvData.Channel spacetoon(){LiveTvData.Channel c=new LiveTvData.Channel();c.id=SPACETOON_ID;c.name="سبيستون";c.sourceName="Spacetoon Arabic";c.country="AE";c.groups="Animation;Kids";c.website="https://spacetoon.com";c.logo="https://upload.wikimedia.org/wikipedia/en/2/2b/Spacetoon_logo.png";LiveTvData.Endpoint e=new LiveTvData.Endpoint();e.url=SPACETOON_URL;e.feed=SPACETOON_ID+"@SD";e.referrer="https://spacetoon.com";e.languages="ara";c.streams.add(e);return c;}
  /** Keep old working URLs in their original order. Add new alternatives without replacing any URL. */
  static LiveTvData.Channel merge(LiveTvData.Channel old,LiveTvData.Channel fresh){if(old==null)return fresh;if(fresh==null)return old;if(!old.key().equals(fresh.key()))throw new IllegalArgumentException("Different channel identities");try{LiveTvData.Channel result=LiveTvData.Channel.from(fresh.json());result.streams.clear();Set<String> seen=new HashSet<>();for(LiveTvData.Channel c:new LiveTvData.Channel[]{old,fresh})for(LiveTvData.Endpoint e:c.streams)if(seen.add(e.url))result.streams.add(LiveTvData.Endpoint.from(e.json()));return result;}catch(Exception e){return old;}}
