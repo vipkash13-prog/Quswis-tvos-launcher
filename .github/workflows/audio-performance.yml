@@ -2,7 +2,7 @@ name: Audio Focus and Measured Performance 206
 on:
   push:
     branches: ["fix/audio-focus-performance-206"]
-    paths: ["src/**", "assets/**", "res/**", "live-tv-build/**"]
+    paths: ["src/**", "assets/**", "res/**", "live-tv-build/**", "tests/**"]
   workflow_dispatch:
 permissions:
   contents: write
