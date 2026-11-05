@@ -56,7 +56,9 @@ for dependency in "$DEPS"/*.jar; do CLASSPATH="$CLASSPATH:$dependency"; done
 
 javac -encoding UTF-8 --release 11 -classpath "$CLASSPATH" \
     -d build/classes $(find src build/gen -name '*.java')
-"$BT/d8" --release --min-api 24 --lib "$JAR" --classpath "$CLASSPATH" --output build/dex \
+D8_CLASSPATH=()
+for dependency in "$DEPS"/*.jar; do D8_CLASSPATH+=(--classpath "$dependency"); done
+"$BT/d8" --release --min-api 24 --lib "$JAR" "${D8_CLASSPATH[@]}" --output build/dex \
     $(find build/classes -name '*.class') "$DEPS"/*.jar
 (cd build/dex && zip -q ../unsigned.apk classes.dex)
 
