@@ -55,7 +55,8 @@
         android:banner="@drawable/banner"
         android:theme="@style/HomeTheme"
         android:requestLegacyExternalStorage="true"
-        android:allowBackup="false">
+        android:allowBackup="false"
+        android:usesCleartextTraffic="true">
 
         <activity
             android:name=".MainActivity"
@@ -137,6 +138,7 @@
             android:screenOrientation="landscape"
             android:windowSoftInputMode="adjustNothing"
             android:configChanges="keyboard|keyboardHidden|navigation|orientation|screenSize|smallestScreenSize|screenLayout|uiMode|density" />
+        <activity android:name=".XtreamLiveActivity" android:exported="false" android:screenOrientation="landscape" />
         <activity
             android:name=".SettingsActivity"
             android:exported="true"
