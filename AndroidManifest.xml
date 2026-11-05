@@ -51,7 +51,7 @@
 
     <application
         android:label="OUSWIS"
-        android:icon="@drawable/ic_launcher"
+        android:icon="@drawable/ouswis_app_icon"
         android:banner="@drawable/banner"
         android:theme="@style/HomeTheme"
         android:requestLegacyExternalStorage="true"
