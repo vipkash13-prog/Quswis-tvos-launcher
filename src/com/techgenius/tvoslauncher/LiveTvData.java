@@ -5,7 +5,7 @@ import java.io.*;import java.net.*;import java.text.*;import java.util.*;import 
 
 /** Catalogue facts, never promises that a URL is playable or that a programme is on air. */
 final class LiveTvData {
- static final String[] SECTIONS={"🇸🇦 القنوات السعودية","🌙 القنوات العربية","🌍 قنوات العالم","📰 قنوات الأخبار","⚽ القنوات الرياضية","🎌 قنوات الأنمي","🧸 قنوات الكرتون المدبلج بالعربية","🎬 الأفلام والمسلسلات الآسيوية المدبلجة"};
+ static final String[] SECTIONS={"🇸🇦 القنوات السعودية","🌙 القنوات العربية","🌍 قنوات العالم","📰 قنوات الأخبار","⚽ القنوات الرياضية","🎌 قنوات الأنمي","🧸 قنوات الكرتون المدبلج بالعربية","📺 قنوات اشتراكي IPTV"};
  static final String[] LISTS={"countries/sa","regions/arab","index","categories/news","categories/sports","categories/animation","categories/kids","categories/movies","categories/series","countries/ae"};
  static final long DAY=86400000L;
  static final class Meta {String id="",name="",arabic="",country="",website="",categories="",network="";boolean blocked;}
