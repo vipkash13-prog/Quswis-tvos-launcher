@@ -1098,24 +1098,31 @@ public class MainActivity extends Activity {
         tile.setFocusable(true);
         tile.setClickable(true);
         tile.setLongClickable(true);
+        // macOS-style square app artwork inside the existing TV grid footprint.
+        // Keep tile focus, row geometry, and remote-control navigation untouched.
+        int iconSide = tileH;
+        float macRadius = iconSide * 0.23f;
+        FrameLayout iconPlate = new FrameLayout(this);
         GradientDrawable bg = new GradientDrawable();
-        bg.setCornerRadius(radius);
+        bg.setCornerRadius(macRadius);
         bg.setColor(a.banner != null ? 0xFF1C1C1E : a.color);
-        tile.setBackground(bg);
-        tile.setOutlineProvider(roundedOutline(new float[]{radius}));
-        tile.setClipToOutline(true);
+        bg.setStroke(Math.max(1, dp(0.7f)), 0x55FFFFFF);
+        iconPlate.setBackground(bg);
+        iconPlate.setOutlineProvider(roundedOutline(new float[]{macRadius}));
+        iconPlate.setClipToOutline(true);
         tile.setElevation(dp(3));
+        tile.addView(iconPlate, new FrameLayout.LayoutParams(iconSide, iconSide, Gravity.CENTER));
 
         ImageView iv = new ImageView(this);
         if (a.banner != null) {
             iv.setScaleType(ImageView.ScaleType.CENTER_CROP);
             iv.setImageDrawable(a.banner);
-            tile.addView(iv, match());
+            iconPlate.addView(iv, match());
         } else {
             iv.setScaleType(ImageView.ScaleType.FIT_CENTER);
             iv.setImageDrawable(a.icon);
-            int s = tileH * 55 / 100;
-            tile.addView(iv, new FrameLayout.LayoutParams(s, s, Gravity.CENTER));
+            int s = iconSide * 65 / 100;
+            iconPlate.addView(iv, new FrameLayout.LayoutParams(s, s, Gravity.CENTER));
         }
 
         // tvOS focus has no outline ring: a soft top sheen on the hardware-cached tile.
