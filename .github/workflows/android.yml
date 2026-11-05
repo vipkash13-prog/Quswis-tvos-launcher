@@ -122,7 +122,7 @@ jobs:
         target: google_apis
         profile: tv_1080p
         disable-animations: true
-        emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none -camera-front none
+        emulator-options: -no-window -gpu swiftshader_indirect -memory 4096 -noaudio -no-boot-anim -camera-back none -camera-front none
         script: |
           adb shell wm size 1920x1080
           adb install -r dist/Quswis-tvOS-Launcher.apk
@@ -132,9 +132,19 @@ jobs:
           grep -q PRAYER_UI_OK /tmp/quswis-ui/result.txt
           adb shell am force-stop com.techgenius.tvoslauncher
           adb shell wm size 3840x2160
+          adb shell wm density 320
+          adb logcat -c
+          set +e
           timeout 150 adb shell am instrument -w -r com.techgenius.tvoslauncher.windowtest/com.techgenius.tvoslauncher.PrayerWindowInstrumentation | tee /tmp/quswis-ui/result-4k.txt
-          adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/prayer-window-1080.png dist/prayer-window-4k.png
-          grep -q PRAYER_UI_OK /tmp/quswis-ui/result-4k.txt
+          test_status=${PIPESTATUS[0]}
+          adb logcat -d -v brief -t 5000 > dist/android14-4k-logcat.txt
+          adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/prayer-window-1080.png dist/prayer-window-4k.png || true
+          set -e
+          if [ "$test_status" -ne 0 ] || ! grep -q PRAYER_UI_OK /tmp/quswis-ui/result-4k.txt; then
+            echo "::error::4K emulator test failed. Inspect android14-4k-logcat artifact for the real crash; do not publish an unverified APK."
+            grep -E -A 35 'FATAL EXCEPTION|OutOfMemoryError|Fatal signal|Process crashed' dist/android14-4k-logcat.txt | tail -100 || true
+            exit 1
+          fi
 
     - name: Upload native window screenshot
       if: always()
@@ -144,6 +154,7 @@ jobs:
         path: |
           dist/prayer-window-1080.png
           dist/prayer-window-4k.png
+          dist/android14-4k-logcat.txt
         if-no-files-found: error
 
     - name: Upload APK artifact
