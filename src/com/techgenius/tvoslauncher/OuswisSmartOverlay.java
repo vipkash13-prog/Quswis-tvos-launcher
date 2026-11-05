@@ -22,6 +22,9 @@ final class OuswisSmartOverlay {
     private final TextView strip;
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Runnable hide;
+    private final Runnable eventTick;
+    private String lastPrayerEvent = "";
+    private boolean disposed;
 
     OuswisSmartOverlay(Activity activity, FrameLayout root) {
         this.activity = activity;
@@ -34,6 +37,14 @@ final class OuswisSmartOverlay {
                 strip.setVisibility(View.GONE);
             }
         };
+        eventTick = new Runnable() {
+            @Override public void run() {
+                if (disposed) return;
+                checkPrayerEvent();
+                handler.postDelayed(this, 30000L);
+            }
+        };
+        handler.postDelayed(eventTick, 30000L);
         FrameLayout.LayoutParams top = new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT, dp(38), Gravity.TOP | Gravity.CENTER_HORIZONTAL);
         top.topMargin = dp(12);
@@ -66,25 +77,62 @@ final class OuswisSmartOverlay {
         return view;
     }
 
-    void refresh() {
+    private void checkPrayerEvent() {
+        if (!PrayerTimes.enabled(activity)) return;
+        android.content.SharedPreferences prefs = PrayerTimes.prefs(activity);
+        try {
+            org.json.JSONObject times = new org.json.JSONObject(prefs.getString("data", "{}"));
+            org.json.JSONObject meta = new org.json.JSONObject(prefs.getString("detail_metadata", "{}"));
+            String zone = meta.optString("timezone", java.util.TimeZone.getDefault().getID());
+            java.util.TimeZone tz = java.util.TimeZone.getTimeZone(zone);
+            java.text.SimpleDateFormat day = new java.text.SimpleDateFormat("yyyy-MM-dd", Locale.US);
+            day.setTimeZone(tz);
+            long now = System.currentTimeMillis();
+            if (!day.format(new Date(now)).equals(meta.optString("day", prefs.getString("cache_date", "")))) return;
+            String[] names = {"الفجر", "الظهر", "العصر", "المغرب", "العشاء"};
+            String[] keys = {"Fajr", "Dhuhr", "Asr", "Maghrib", "Isha"};
+            String[] values = new String[5];
+            for (int i = 0; i < 5; i++) values[i] = times.optString(keys[i], "--:--");
+            PrayerPanelClock.Result next = PrayerPanelClock.next(values, zone, now);
+            if (next == null || next.tomorrow) return;
+            long remaining = next.at - now;
+            if (remaining < 0 || remaining > 5 * 60 * 1000L) return;
+            String key = day.format(new Date(now)) + ":" + next.index;
+            if (key.equals(lastPrayerEvent)) return;
+            lastPrayerEvent = key;
+            showEvent("الصلاة القادمة: " + names[next.index],
+                    "يتبقى " + Math.max(1, (remaining + 59999L) / 60000L) + " دقائق على الأذان");
+        } catch (Exception ignored) {
+            // Missing or invalid cached prayer data must not affect the launcher.
+        }
+    }
+
+    void showEvent(String title, String detail) {
         handler.removeCallbacks(hide);
         boolean showIsland = Profiles.homePrefs(activity).getBoolean("ouswis_smart_island", true);
         boolean showStrip = Profiles.homePrefs(activity).getBoolean("ouswis_glass_strip", true);
-        // A real local date/time, not invented sports scores or prayer times.
-        String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(new Date());
-        String date = new SimpleDateFormat("EEEE، d MMMM", new Locale("ar")).format(new Date());
-        island.setText("✦  OUSWIS  ·  " + time);
-        strip.setText("✦  " + date + "  ✦");
+        island.setText("✦  " + title);
+        strip.setText(detail);
         island.setVisibility(showIsland ? View.VISIBLE : View.GONE);
         strip.setVisibility(showStrip ? View.VISIBLE : View.GONE);
         island.bringToFront();
         strip.bringToFront();
-        if (Profiles.homePrefs(activity).getBoolean("ouswis_smart_autohide", true)) {
+        if (Profiles.homePrefs(activity).getBoolean("ouswis_smart_autohide", true))
             handler.postDelayed(hide, 10000L);
-        }
+    }
+
+    void refresh() {
+        handler.removeCallbacks(hide);
+        boolean showIsland = Profiles.homePrefs(activity).getBoolean("ouswis_smart_island", true);
+        boolean showStrip = Profiles.homePrefs(activity).getBoolean("ouswis_glass_strip", true);
+        island.setVisibility(View.GONE);
+        strip.setVisibility(View.GONE);
+        checkPrayerEvent();
     }
 
     void dispose() {
+        disposed = true;
+        handler.removeCallbacks(eventTick);
         handler.removeCallbacks(hide);
     }
 }
