@@ -89,6 +89,7 @@ public final class XtreamLiveActivity extends Activity {
             String url=XtreamLiveClient.playbackUrl(user,pass,channel.id,true);
             Intent intent=new Intent(this,XtreamPlayerActivity.class);
             intent.putExtra("stream_url",url);
+            intent.putExtra("stream_url_ts",XtreamLiveClient.playbackUrl(user,pass,channel.id,false));
             intent.putExtra("channel_name",channel.name);
             startActivity(intent);
         }catch(Exception ex){status.setText("تعذر فتح القناة");}
