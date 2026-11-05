@@ -250,13 +250,12 @@ public final class AppUpdater {
                         Toast.LENGTH_SHORT).show();
                 return;
             }
-            String cur = getCurrentVersion(activity);
             if (updateAvailable) {
                 new AlertDialog.Builder(activity, android.R.style.Theme_DeviceDefault_Dialog_Alert)
                         .setTitle(I18n.s(activity, "Update Available", "Güncelleme Mevcut") + " (v" + latestVersion + ")")
                         .setMessage(I18n.s(activity,
-                                "A new version of Quswis tvOS Launcher (v" + latestVersion + ") is available on GitHub.\nCurrent version: v" + cur,
-                                "GitHub'da yeni bir tvOS Launcher sürümü (v" + latestVersion + ") mevcut.\nMevcut sürüm: v" + cur))
+                                "A new version of Quswis tvOS Launcher (v" + latestVersion + ") is available on GitHub.",
+                                "GitHub'da yeni bir tvOS Launcher sürümü (v" + latestVersion + ") mevcut."))
                         .setPositiveButton(I18n.s(activity, "Update Now", "Şimdi Güncelle"), (d, w) -> {
                             downloadAndInstall(activity, downloadUrl, latestVersion, false, onUiRefresh);
                         })
@@ -265,8 +264,8 @@ public final class AppUpdater {
             } else {
                 Toast.makeText(activity,
                         I18n.s(activity,
-                                "You are up to date (v" + cur + ")",
-                                "Sürümünüz güncel (v" + cur + ")"),
+                                "You are up to date",
+                                "Sürümünüz güncel"),
                         Toast.LENGTH_SHORT).show();
             }
         });
