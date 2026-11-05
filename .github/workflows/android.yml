@@ -31,6 +31,22 @@ jobs:
         yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
         "$SDK/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0"
 
+    - name: Prepare original OUSWIS artwork
+      run: |
+        mkdir -p res/drawable
+        curl --fail --location --retry 3 --silent --show-error "https://raw.githubusercontent.com/vipkash13-prog/Quswis-tvos-launcher/fc5e990fb6c9ef48e1513fe31355a102c69029bb/assets/app-logos/ouswis-app-icon.png" -o /tmp/ouswis-original.png
+        echo "998e2267fd49b6439c567f0920c74cf44fc7fe38  /tmp/ouswis-original.png" | git hash-object --stdin >/dev/null
+        cp /tmp/ouswis-original.png res/drawable/ouswis_app_icon.png
+        python3 -m pip install --quiet Pillow
+        python3 - <<'PY'
+        from PIL import Image
+        im=Image.open('/tmp/ouswis-original.png').convert('RGBA')
+        canvas=Image.new('RGBA',(320,180),(20,23,34,255))
+        icon=im.resize((152,152),Image.Resampling.LANCZOS)
+        canvas.alpha_composite(icon,(84,14))
+        canvas.convert('RGB').save('res/drawable/ouswis_tv_banner.png')
+        PY
+
     - name: Build APK
       env:
         ANDROID_HOME: ${{ env.ANDROID_HOME }}
