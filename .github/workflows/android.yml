@@ -2,7 +2,7 @@ name: Android CI
 
 on:
   push:
-    branches: [ "main", "test-scene-glass-lens" ]
+    branches: [ "main", "test-scene-glass-lens", "fix/xtream-playback-fallback-20261105" ]
   workflow_dispatch:
 
 permissions:
