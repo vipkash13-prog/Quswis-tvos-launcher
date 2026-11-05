@@ -21,7 +21,18 @@ jobs:
           yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
           "$SDK/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0"
       - name: Build APK
+        env:
+          KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
+          RELEASE_KEYSTORE_PASS: ${{ secrets.RELEASE_KEYSTORE_PASS }}
         run: |
+          # Stable signing key (GitHub secrets) so every build can update the previous one; falls back to a debug key.
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$RELEASE_KEYSTORE_PASS" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            export RELEASE_KEYSTORE="$RUNNER_TEMP/release.jks"
+            echo "Signing with the stable release key"
+          else
+            echo "No release key secret: signing with a throw-away debug key"
+          fi
           chmod +x build.sh
           VERSION_NAME="1.0.208" VERSION_CODE="208" ./build.sh
           mkdir -p dist
