@@ -20,6 +20,12 @@ command -v javac >/dev/null || { echo "javac not found — install JDK 17+ or se
 
 rm -rf build && mkdir -p build/gen build/classes build/dex
 
+# Package the existing OUSWIS artwork as the actual Android launcher icon.
+# Keep the original vector icon and all home-screen assets untouched.
+ICON_SOURCE="assets/app-logos/ouswis-app-icon.png"
+[ -s "$ICON_SOURCE" ] || { echo "Missing OUSWIS launcher icon: $ICON_SOURCE" >&2; exit 1; }
+cp "$ICON_SOURCE" res/drawable/ouswis_app_icon.png
+
 "$BT/aapt2" compile --dir res -o build/res.zip
 "$BT/aapt2" link -o build/unsigned.apk -I "$JAR" --manifest AndroidManifest.xml \
     -A assets --java build/gen --min-sdk-version 24 --target-sdk-version 34 \
