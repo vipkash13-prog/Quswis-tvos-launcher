@@ -70,7 +70,11 @@ jobs:
         "$SDK/build-tools/34.0.0/apksigner" verify --verbose dist/Quswis-tvOS-Launcher.apk
 
     - name: Build native remote smoke test
+      env:
+        RELEASE_KEYSTORE_PASS: ${{ secrets.RELEASE_KEYSTORE_PASS }}
       run: |
+        echo "${{ secrets.RELEASE_KEYSTORE_B64 }}" | base64 -d > /tmp/quswis-release.keystore
+        export RELEASE_KEYSTORE=/tmp/quswis-release.keystore
         SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
         JAR="$SDK/platforms/android-34/android.jar"
         BT="$SDK/build-tools/34.0.0"
@@ -81,8 +85,7 @@ jobs:
         "$BT/d8" --min-api 24 --lib "$JAR" --classpath /tmp/quswis-ui/app-classes.jar --output /tmp/quswis-ui/dex /tmp/quswis-ui/classes/com/techgenius/tvoslauncher/PrayerWindowInstrumentation.class
         (cd /tmp/quswis-ui/dex && zip -q ../unsigned.apk classes.dex)
         "$BT/zipalign" -f 4 /tmp/quswis-ui/unsigned.apk /tmp/quswis-ui/aligned.apk
-        keytool -genkeypair -keystore /tmp/quswis-ui/test.keystore -storepass android -keypass android -alias debug -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=TV test" >/dev/null 2>&1
-        "$BT/apksigner" sign --ks /tmp/quswis-ui/test.keystore --ks-pass pass:android --key-pass pass:android --out /tmp/quswis-ui/test.apk /tmp/quswis-ui/aligned.apk
+        "$BT/apksigner" sign --ks "$RELEASE_KEYSTORE" --ks-pass env:RELEASE_KEYSTORE_PASS --ks-key-alias "${RELEASE_KEY_ALIAS:-tvos-release}" --out /tmp/quswis-ui/test.apk /tmp/quswis-ui/aligned.apk
         sudo chmod 666 /dev/kvm
 
     - name: Test remote navigation on Android 14 and capture window
