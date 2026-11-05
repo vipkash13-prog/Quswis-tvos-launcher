@@ -1,0 +1,39 @@
+name: Test IPTV 1.0.208-8 fallback
+on:
+  push:
+    branches: ["fix/live-208-8-source-fallback"]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install Android SDK
+        run: |
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+          "$SDK/cmdline-tools/latest/bin/sdkmanager" "platforms;android-34" "build-tools;34.0.0"
+      - name: Build test APK without release
+        env:
+          KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_B64 }}
+          RELEASE_KEYSTORE_PASS: ${{ secrets.RELEASE_KEYSTORE_PASS }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ] && [ -n "$RELEASE_KEYSTORE_PASS" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
+            export RELEASE_KEYSTORE="$RUNNER_TEMP/release.jks"
+          fi
+          chmod +x build.sh
+          VERSION_NAME="1.0.208" VERSION_CODE="208" ./build.sh
+          mkdir -p dist
+          cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
+          "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/34.0.0/apksigner" verify dist/Quswis-tvOS-Launcher.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Quswis-IPTV-2088-test
+          path: dist/Quswis-tvOS-Launcher.apk
