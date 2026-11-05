@@ -1,7 +1,7 @@
-name: Test macOS dock icons from working IPTV
+name: Ouswis 1.0.209 in-place update validation
 on:
   push:
-    branches: ["design/macos-icons-from-working-iptv"]
+    branches: ["feature/ouswis-209-inplace-update"]
   workflow_dispatch:
 permissions:
   contents: read
@@ -28,12 +28,16 @@ jobs:
             echo "$KEYSTORE_B64" | base64 -d > "$RUNNER_TEMP/release.jks"
             export RELEASE_KEYSTORE="$RUNNER_TEMP/release.jks"
           fi
+          if [ ! -s "$RUNNER_TEMP/release.jks" ]; then
+            echo "::error::Release signing key unavailable; refusing to produce an incompatible APK"
+            exit 1
+          fi
           chmod +x build.sh
-          VERSION_NAME="1.0.208" VERSION_CODE="208" ./build.sh
+          VERSION_NAME="1.0.209" VERSION_CODE="209" ./build.sh
           mkdir -p dist
           cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
           "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/34.0.0/apksigner" verify dist/Quswis-tvOS-Launcher.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: Quswis-IPTV-2088-test
+          name: Ouswis-1.0.209-signed-test
           path: dist/Quswis-tvOS-Launcher.apk
