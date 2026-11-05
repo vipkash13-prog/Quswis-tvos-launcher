@@ -25,9 +25,29 @@ rm -rf build && mkdir -p build/gen build/classes build/dex
     -A assets --java build/gen --min-sdk-version 24 --target-sdk-version 34 \
     --version-code "${VERSION_CODE:-5}" --version-name "${VERSION_NAME:-2.0.3}" build/res.zip
 
-javac -encoding UTF-8 --release 11 -classpath "$JAR" \
+# The launcher uses Media3 ExoPlayer for Quran radio playback. This project intentionally
+# builds without Gradle, so fetch the matching AAR class jars explicitly for javac and D8.
+DEPS="$PWD/build/deps"
+mkdir -p "$DEPS"
+MEDIA3_VERSION="1.11.1"
+for artifact in media3-common media3-container media3-database media3-decoder media3-datasource media3-extractor media3-exoplayer; do
+    aar="$DEPS/$artifact.aar"
+    curl --fail --silent --show-error --location \
+        "https://dl.google.com/dl/android/maven2/androidx/media3/$artifact/$MEDIA3_VERSION/$artifact-$MEDIA3_VERSION.aar" \
+        -o "$aar"
+    unzip -p "$aar" classes.jar > "$DEPS/$artifact.jar"
+done
+# Media3 exposes AndroidX annotation types in its public signatures.
+curl --fail --silent --show-error --location \
+    "https://dl.google.com/dl/android/maven2/androidx/annotation/annotation/1.9.1/annotation-1.9.1.jar" \
+    -o "$DEPS/annotation.jar"
+CLASSPATH="$JAR"
+for dependency in "$DEPS"/*.jar; do CLASSPATH="$CLASSPATH:$dependency"; done
+
+javac -encoding UTF-8 --release 11 -classpath "$CLASSPATH" \
     -d build/classes $(find src build/gen -name '*.java')
-"$BT/d8" --release --min-api 24 --lib "$JAR" --output build/dex $(find build/classes -name '*.class')
+"$BT/d8" --release --min-api 24 --lib "$JAR" --classpath "$CLASSPATH" --output build/dex \
+    $(find build/classes -name '*.class') "$DEPS"/*.jar
 (cd build/dex && zip -q ../unsigned.apk classes.dex)
 
 "$BT/zipalign" -f 4 build/unsigned.apk build/aligned.apk
