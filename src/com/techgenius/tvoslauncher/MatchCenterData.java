@@ -12,7 +12,7 @@ final class MatchCenterData {
     static final String NATIONAL="saudi-national";
     static final String[][] LEAGUES={
         {"ksa.1","دوري روشن السعودي"},{"afc.champions","دوري أبطال آسيا للنخبة"},
-        {"uefa.champions","دوري أبطال أوروبا"},{"eng.1","الدوري الإنجليزي الممتاز"},
+        {"uefa.champions","دوري أبطال أوروبا"},{"uefa.europa","الدوري الأوروبي"},{"eng.1","الدوري الإنجليزي الممتاز"},
         {"esp.1","الدوري الإسباني"},{"ita.1","الدوري الإيطالي"},
         {"fra.1","الدوري الفرنسي"},{NATIONAL,"مباريات المنتخب السعودي"}};
     static String label(String id){for(String[] l:LEAGUES)if(l[0].equals(id))return l[1];return id;}
