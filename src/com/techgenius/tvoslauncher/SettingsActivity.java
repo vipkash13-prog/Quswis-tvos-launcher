@@ -1852,6 +1852,14 @@ public class SettingsActivity extends Activity {
     }
 
     void pageQuickAndHome() {
+        section("OUSWIS • الواجهة الذكية");
+        row("الجزيرة الذكية", () -> Profiles.homePrefs(this).getBoolean("ouswis_smart_island", true) ? "مفعلة" : "متوقفة",
+                () -> { android.content.SharedPreferences p = Profiles.homePrefs(this); p.edit().putBoolean("ouswis_smart_island", !p.getBoolean("ouswis_smart_island", true)).apply(); refreshAll(); });
+        row("الشريط الزجاجي", () -> Profiles.homePrefs(this).getBoolean("ouswis_glass_strip", true) ? "مفعل" : "متوقف",
+                () -> { android.content.SharedPreferences p = Profiles.homePrefs(this); p.edit().putBoolean("ouswis_glass_strip", !p.getBoolean("ouswis_glass_strip", true)).apply(); refreshAll(); });
+        row("الإخفاء التلقائي", () -> Profiles.homePrefs(this).getBoolean("ouswis_smart_autohide", true) ? "مفعل" : "متوقف",
+                () -> { android.content.SharedPreferences p = Profiles.homePrefs(this); p.edit().putBoolean("ouswis_smart_autohide", !p.getBoolean("ouswis_smart_autohide", true)).apply(); refreshAll(); });
+
         section(tr("HOME & PERMISSIONS", "ANA EKRAN VE İZİNLER"));
         row(tr("Default home screen", "Varsayılan ana ekran"),
                 () -> Perms.isDefaultHome(this) ? tr("Active", "Etkin") : tr("Set as default…", "Varsayılan yap…"),
