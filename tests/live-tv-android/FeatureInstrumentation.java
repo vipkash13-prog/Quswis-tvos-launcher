@@ -33,7 +33,7 @@ final class FeatureInstrumentation {
   t.main(home::openLiveBroadcast);SystemClock.sleep(500);LiveTvDialog dialog=home.liveTvDialog;
   t.main(()->dialog.tabs[7].requestFocus());t.key(KeyEvent.KEYCODE_DPAD_CENTER);
   await("subscription tab loaded",90000,()->dialog.section==7&&dialog.adapter.getCount()>0);
-  t.main(()->{dialog.channelList.requestFocus();dialog.channelList.setSelection(0);});t.key(KeyEvent.KEYCODE_DPAD_CENTER);rendered(dialog,"subscription initial");
+  int initial=0;if(privateAccount&&!input.optString("stream_id").isEmpty())for(int n=0;n<snapshot.channels.size();n++)if(snapshot.channels.get(n).id.endsWith(":"+input.optString("stream_id")))initial=n;final int selected=initial;t.main(()->{if(privateAccount)dialog.engine.player.setTrackSelectionParameters(dialog.engine.player.getTrackSelectionParameters().buildUpon().setMaxVideoSize(426,240).setForceLowestBitrate(true).build());dialog.channelList.requestFocus();dialog.channelList.setSelection(selected);});t.key(KeyEvent.KEYCODE_DPAD_CENTER);rendered(dialog,"subscription initial");
   LiveTvData.Channel watched=dialog.playing;t.check(XtreamData.subscription(watched),"Subscription tab selected a public-list channel");
   if(!privateAccount){
    for(int n=0;n<12;n++)t.key(n%2==0?KeyEvent.KEYCODE_DPAD_DOWN:KeyEvent.KEYCODE_DPAD_UP);

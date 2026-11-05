@@ -13,6 +13,9 @@ final class XtreamData {
         if(!action.isEmpty()&&!action.equals("get_live_categories")&&!action.equals("get_live_streams"))throw new IllegalArgumentException("Only live API actions are allowed");
         return server+"/player_api.php?username="+segment(user)+"&password="+segment(pass)+(action.isEmpty()?"":"&action="+action);
     }
+    static String streamBase(String configured,JSONObject auth){
+        try{URI original=new URI(configured);JSONObject server=auth.optJSONObject("server_info");if(server==null||original.getPort()!=-1)return configured;String host=server.optString("url",original.getHost());if(host.contains("://"))host=new URI(host).getHost();if(!original.getHost().equalsIgnoreCase(host))return configured;int port=server.optInt("https".equals(original.getScheme())?"https_port":"port",-1);if(port<1||port>65535)return configured;return new URI(original.getScheme(),null,original.getHost(),port,null,null,null).toASCIIString();}catch(Exception ignored){return configured;}
+    }
     static List<String> formats(JSONObject auth)throws Exception{
         JSONObject user=auth.optJSONObject("user_info");if(user==null||user.optInt("auth")!=1)throw new Exception("بيانات الاشتراك غير صحيحة أو غير مصرح بها");
         String state=user.optString("status");if(!state.isEmpty()&&!state.equalsIgnoreCase("Active"))throw new Exception("الاشتراك غير نشط أو منتهي");

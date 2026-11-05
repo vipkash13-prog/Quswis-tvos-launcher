@@ -37,7 +37,7 @@ final class XtreamRepository {
                 try{
                     JSONObject auth=(JSONObject)request(cfg,"");List<String> formats=XtreamData.formats(auth);
                     JSONArray categories=(JSONArray)request(cfg,"get_live_categories"),streams=(JSONArray)request(cfg,"get_live_streams");
-                    JSONObject next=XtreamData.catalogue(cfg.getString("account"),categories,streams,formats);
+                    JSONObject next=XtreamData.catalogue(cfg.getString("account"),categories,streams,formats).put("stream_base",XtreamData.streamBase(cfg.getString("server"),auth));
                     synchronized(XtreamRepository.class){if(configuration!=cfg)throw new IOException();XtreamStore.write(c,"catalogue",next);catalogue=cache=next;valid=true;}
                 }catch(Exception error){out.failed=true;out.cached=valid;out.message=error.getMessage();}
             }else out.cached=true;
@@ -51,6 +51,6 @@ final class XtreamRepository {
     static String playback(Context c,String marker)throws Exception{
         if(!marker.startsWith("xtream://"))return marker;JSONObject cfg=configuration;if(cfg==null)throw new IOException("أعد فتح تبويب الاشتراك أولًا");URI uri=new URI(marker);
         if(!uri.getHost().equals(cfg.getString("account"))||!uri.getPath().matches("/[0-9]+\\.(?:ts|m3u8)"))throw new IOException("هذه القناة تخص حساب اشتراك آخر. حدّث القائمة.");
-        return cfg.getString("server")+"/live/"+XtreamData.segment(cfg.getString("username"))+"/"+XtreamData.segment(cfg.getString("password"))+uri.getPath();
+        JSONObject data=catalogue;String base=data==null?cfg.getString("server"):data.optString("stream_base",cfg.getString("server"));return base+"/live/"+XtreamData.segment(cfg.getString("username"))+"/"+XtreamData.segment(cfg.getString("password"))+uri.getPath();
     }
 }
