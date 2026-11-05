@@ -39,7 +39,7 @@ for artifact in media3-common media3-container media3-database media3-decoder me
 done
 # Media3 exposes AndroidX annotation types in its public signatures.
 curl --fail --silent --show-error --location \
-    "https://dl.google.com/dl/android/maven2/androidx/annotation/annotation-jvm/1.9.1/annotation-jvm-1.9.1.jar" \
+    "https://maven.google.com/androidx/annotation/annotation-jvm/1.9.1/annotation-jvm-1.9.1.jar" \
     -o "$DEPS/annotation.jar"
 # Guava's Android-compatible artifact supplies ImmutableList in Media3 public APIs.
 curl --fail --silent --show-error --location \
