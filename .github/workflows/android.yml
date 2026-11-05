@@ -136,7 +136,7 @@ jobs:
           adb logcat -c
           set +e
           timeout 150 adb shell am instrument -w -r com.techgenius.tvoslauncher.windowtest/com.techgenius.tvoslauncher.PrayerWindowInstrumentation | tee /tmp/quswis-ui/result-4k.txt
-          test_status=${PIPESTATUS[0]}
+          test_status=$?
           adb logcat -d -v brief -t 5000 > dist/android14-4k-logcat.txt
           adb pull /sdcard/Android/data/com.techgenius.tvoslauncher/files/prayer-window-1080.png dist/prayer-window-4k.png || true
           set -e
