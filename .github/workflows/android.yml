@@ -1,4 +1,4 @@
-Name: Android CI
+name: Android CI
 
 on:
   push:
@@ -21,7 +21,6 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
 
-    # This project has no Gradle build: build.sh compiles it with the plain Android SDK tools.
     - name: Install Android SDK platform and build-tools
       run: |
         SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
