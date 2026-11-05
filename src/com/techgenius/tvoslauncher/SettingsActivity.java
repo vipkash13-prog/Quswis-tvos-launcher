@@ -1989,17 +1989,7 @@ public class SettingsActivity extends Activity {
 
         section(tr("VERSION INFO", "SÜRÜM BİLGİSİ"));
         infoRow(tr("Current version", "Mevcut sürüm"), "v" + AppUpdater.getCurrentVersion(this), null);
-        infoRowDynamic(tr("GitHub release latest version", "GitHub son sürüm"),
-                () -> {
-                    String latest = AppUpdater.getCachedLatestVersion(this);
-                    if (latest != null && !latest.isEmpty()) {
-                        return "v" + latest;
-                    }
-                    return checkingLatestRelease
-                            ? tr("Checking…", "Kontrol ediliyor…")
-                            : tr("Tap Check for updates", "Güncellemeleri kontrol et'e basın");
-                },
-                null);
+
 
         infoNote("يتحقق من إصدارات GitHub لهذا المشروع (vipkash13-prog/Quswis-tvos-launcher). عند وجود إصدار أحدث تظهر نافذة بالرقم الجديد، ولا يبدأ التنزيل أو التثبيت إلا بعد ضغطك «تحديث الآن»، وتبقى إعداداتك وبياناتك.");
 
