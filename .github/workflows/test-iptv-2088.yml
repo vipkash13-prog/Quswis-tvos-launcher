@@ -1,7 +1,7 @@
-name: Test IPTV 1.0.208-8 fallback
+name: Test macOS dock icons from working IPTV
 on:
   push:
-    branches: ["fix/live-208-8-source-fallback"]
+    branches: ["design/macos-icons-from-working-iptv"]
   workflow_dispatch:
 permissions:
   contents: read
