@@ -2,7 +2,7 @@ name: Android CI
 
 on:
   push:
-    branches: [ "main", "test-scene-glass-lens" ]
+    branches: [ "main", "test-scene-glass-lens", "fix/2.0.6-safe-settings-and-signing" ]
   workflow_dispatch:
 
 permissions:
