@@ -464,7 +464,7 @@ public class MainActivity extends Activity {
         if (returningFromSettings && !folderMode && launchOverlay == null && moveIndex < 0) reload(currentKey());
         returningFromSettings = false;
         infoHudHold = false;
-        if (!ControlPanelOverlay.isShowing()) hideInfoHud(false);
+        if (!ControlPanelOverlay.isShowing() && !RecentAppsOverlay.isShowing()) hideInfoHud(false);
         updateStatusClockFormat();
         if (avatarView != null) {
             avatarView.setImageBitmap(Profiles.avatar(this, Profiles.current(this), avatarSize));
@@ -4789,7 +4789,7 @@ public class MainActivity extends Activity {
     /** Shows the shortcuts again shortly after the Control Panel closes, unless a screen is opening over Home. */
     void releaseInfoHudSoon() {
         handler.postDelayed(() -> {
-            if (resumed && !infoHudHold && !ControlPanelOverlay.isShowing()) hideInfoHud(false);
+            if (resumed && !infoHudHold && !ControlPanelOverlay.isShowing() && !RecentAppsOverlay.isShowing()) hideInfoHud(false);
         }, 320);
     }
 
@@ -4822,7 +4822,7 @@ public class MainActivity extends Activity {
 
     float weatherAlpha() {
         // An app's context menu (and moving an app) leaves the info lenses where they are.
-        if (infoHudHidden || infoHudHold || returningFromSettings || folderMode || weatherOpen || pickerLayer != null) return 0f;
+        if (infoHudHidden || infoHudHold || RecentAppsOverlay.isShowing() || returningFromSettings || folderMode || weatherOpen || pickerLayer != null) return 0f;
         return Scenes.isScenesLook(this) ? 1f : clockAlpha();
     }
 

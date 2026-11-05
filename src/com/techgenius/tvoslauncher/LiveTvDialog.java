@@ -77,7 +77,7 @@ final class LiveTvDialog extends Dialog {
   final EditText userField=accountField("اسم المستخدم (Username)","",android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS,EditorInfo.IME_ACTION_NEXT);
   final EditText passField=accountField("كلمة المرور (Password)","",android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD,EditorInfo.IME_ACTION_DONE);
   String serverValue=XtreamAccount.DEFAULT_SERVER,userValue="",passValue="";
-  try{XtreamAccount.Credentials saved=XtreamAccount.load(host);if(saved!=null){serverValue=saved.server;userValue=saved.username;passValue=saved.password;}}
+  try{XtreamAccount.Credentials saved=XtreamAccount.load(host);if(saved!=null){serverValue="http://cli2345.live".equals(saved.server)?XtreamAccount.DEFAULT_SERVER:saved.server;userValue=saved.username;passValue=saved.password;}}
   catch(Exception ignored){toast("تعذرت قراءة الحساب المحفوظ؛ أدخل بياناته من جديد");}
   serverField.setText(serverValue);userField.setText(userValue);passField.setText(passValue);
   EditText[] fields={serverField,userField,passField};

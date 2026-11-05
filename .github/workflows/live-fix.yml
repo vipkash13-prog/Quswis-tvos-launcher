@@ -1,4 +1,4 @@
-name: Live player, account form and updates 1.0.207
+name: Live player, account form and updates 1.0.208
 on:
   push:
     branches: ["fix/live-player-form-updates"]
@@ -23,14 +23,14 @@ jobs:
       - name: Build APK
         run: |
           chmod +x build.sh
-          VERSION_NAME="1.0.207" VERSION_CODE="207" ./build.sh
+          VERSION_NAME="1.0.208" VERSION_CODE="208" ./build.sh
           mkdir -p dist
           cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
           "${ANDROID_HOME:-$ANDROID_SDK_ROOT}/build-tools/34.0.0/apksigner" verify --verbose dist/Quswis-tvOS-Launcher.apk
       - name: Upload APK immediately
         uses: actions/upload-artifact@v4
         with:
-          name: Quswis-tvOS-Launcher-1.0.207
+          name: Quswis-tvOS-Launcher-1.0.208
           path: dist/Quswis-tvOS-Launcher.apk
       - name: Build test APK
         run: |
@@ -94,13 +94,13 @@ jobs:
       - name: Publish test APK
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: live-fix-v1.0.207-${{ github.run_number }}
+          tag_name: live-fix-v1.0.208-${{ github.run_number }}
           target_commitish: ${{ github.sha }}
-          name: Quswis 1.0.207 live player, account form and updates (run ${{ github.run_number }})
+          name: Quswis 1.0.208 live player, account form and updates (run ${{ github.run_number }})
           prerelease: true
           make_latest: false
           body: |
-            1.0.207 تجريبية: إصلاح إغلاق التطبيق عند تشغيل القنوات، حقل اسم المستخدم والتنقل بالريموت، إعادة تفعيل التحديث بموافقة المستخدم.
+            1.0.208 تجريبية: رابط الخادم link4king.xyz، إصلاح تداخل عدسات الرئيسية مع شاشة التطبيقات الحديثة، التحديثات مفعّلة بموافقتك.
             توقيع تطوير.
           files: dist/Quswis-tvOS-Launcher.apk
         env:

@@ -181,6 +181,7 @@ public final class RecentAppsOverlay {
             activeRamFill = null;
             activeEmptyView = null;
             activeHintView = null;
+            if (MainActivity.activeInstance != null) MainActivity.activeInstance.releaseInfoHudSoon();
             if (wm != null) {
                 try {
                     wm.removeViewImmediate(root);
@@ -400,6 +401,7 @@ public final class RecentAppsOverlay {
         wm.addView(layer, wlp);
         activeWm = wm;
         activeRoot = layer;
+        if (MainActivity.activeInstance != null) MainActivity.activeInstance.hideInfoHud(true);
         animateEntrance(unit);
     }
 
@@ -411,6 +413,7 @@ public final class RecentAppsOverlay {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         activeWm = null;
         activeRoot = layer;
+        act.hideInfoHud(true);
         animateEntrance(act.unit);
     }
 

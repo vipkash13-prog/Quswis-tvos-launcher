@@ -15,7 +15,7 @@ import javax.crypto.spec.GCMParameterSpec;
 
 /** Stores Xtream credentials encrypted with an Android Keystore AES-GCM key. */
 final class XtreamAccount {
-    static final String DEFAULT_SERVER = "http://cli2345.live";
+    static final String DEFAULT_SERVER = "http://link4king.xyz";
     private static final String PREFS = "xtream_live_account";
     private static final String ALIAS = "QuswisXtreamAccountKey";
     private XtreamAccount() {}
