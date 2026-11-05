@@ -49,7 +49,7 @@ echo "Downloading Guava failureaccess"; curl --fail --silent --show-error --loca
     "https://repo.maven.apache.org/maven2/com/google/guava/failureaccess/1.0.2/failureaccess-1.0.2.jar" \
     -o "$DEPS/failureaccess.jar"
 echo "Downloading Guava listenablefuture"; curl --fail --silent --show-error --location \
-    "https://repo.maven.apache.org/maven2/com/google/guava/listenablefuture/9999.0-empty-to-avoid-conflict/listenablefuture-9999.0-empty-to-avoid-conflict.jar" \
+    "https://repo.maven.apache.org/maven2/com/google/guava/listenablefuture/1.0/listenablefuture-1.0.jar" \
     -o "$DEPS/listenablefuture.jar"
 CLASSPATH="$JAR"
 for dependency in "$DEPS"/*.jar; do CLASSPATH="$CLASSPATH:$dependency"; done
