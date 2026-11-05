@@ -117,7 +117,7 @@ final class MatchCenterDialog extends Dialog {
     }
     private void render(){
         for(int i=0;i<4;i++){tabs[i].setSelected(i==tab);paintFocus(tabs[i]);}
-        for(int i=0;i<8;i++){checks[i].setText(chosen.contains(MatchCenterData.LEAGUES[i][0])?"☑":"☐");MatchCenterImages.load(host,leagueLogos[i],snapshot.logos.get(MatchCenterData.LEAGUES[i][0]));}
+        for(int i=0;i<MatchCenterData.LEAGUES.length;i++){checks[i].setText(chosen.contains(MatchCenterData.LEAGUES[i][0])?"☑":"☐");MatchCenterImages.load(host,leagueLogos[i],snapshot.logos.get(MatchCenterData.LEAGUES[i][0]));}
         List<JSONObject> all=MatchCenterData.select(snapshot.matches,chosen,tab,System.currentTimeMillis(),tab==MatchCenterData.LEAGUE_TAB?5:Integer.MAX_VALUE);
         total=all.size();page=Math.min(page,Math.max(0,(total-1)/5));int from=page*5;
         List<JSONObject> matches=all.subList(from,Math.min(total,from+5));
