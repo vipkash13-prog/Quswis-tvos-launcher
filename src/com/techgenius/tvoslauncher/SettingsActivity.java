@@ -1763,7 +1763,7 @@ public class SettingsActivity extends Activity {
                 },
                 null);
 
-        infoNote(tr("Checks GitHub Releases (techgenius1/tvOS-Launcher) for the latest APK and installs updates directly on your TV.",
+        infoNote(tr("Checks GitHub Releases (vipkash13-prog/Quswis-tvos-launcher) and asks before downloading or installing an APK.",
                 "En güncel APK için GitHub Sürümlerini (techgenius1/tvOS-Launcher) kontrol eder ve güncellemeleri doğrudan TV'nize kurar."));
 
         if (!checkingLatestRelease) {
