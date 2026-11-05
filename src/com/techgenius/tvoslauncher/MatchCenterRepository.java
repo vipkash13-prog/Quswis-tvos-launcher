@@ -84,6 +84,9 @@ final class MatchCenterRepository {
             if(tab==MatchCenterData.UPCOMING||tab==MatchCenterData.LEAGUE_TAB)loadSlot(slots,id,"fixtures",API+"all/teams/655/schedule?fixture=true",tab);
         }else{
             loadSlot(slots,id,today,API+id+"/scoreboard?dates="+today+"&limit=100",tab);
+            Calendar tomorrow=Calendar.getInstance(MatchCenterData.RIYADH);tomorrow.add(Calendar.DAY_OF_MONTH,1);
+            String nextDay=MatchCenterData.day(tomorrow.getTimeInMillis());
+            if(tab==MatchCenterData.LIVE||tab==MatchCenterData.UPCOMING)loadSlot(slots,id,nextDay,API+id+"/scoreboard?dates="+nextDay+"&limit=100",tab);
             Calendar yesterday=Calendar.getInstance(MatchCenterData.RIYADH);yesterday.add(Calendar.DAY_OF_MONTH,-1);String before=MatchCenterData.day(yesterday.getTimeInMillis());
             loadSlot(slots,id,before,API+id+"/scoreboard?dates="+before+"&limit=100",tab);
             if(tab==MatchCenterData.UPCOMING||tab==MatchCenterData.LEAGUE_TAB){
@@ -120,7 +123,7 @@ final class MatchCenterRepository {
         long now=System.currentTimeMillis(),ttl=tab==MatchCenterData.LIVE?LIVE_TTL:OTHER_TTL;
         JSONObject old=slots.optJSONObject(key);if(old!=null&&now-old.optLong("at")<ttl&&!old.optBoolean("failed"))return;
         try{
-            if(now<retryAfter)throw new IOException("Provider backoff");
+            // A rate limit for one competition must not suppress every other league.
             JSONObject root=json(endpoint);List<JSONObject> rows=MatchCenterData.parse(root,id);
             JSONArray array=new JSONArray();for(JSONObject row:rows)array.put(row);
             JSONObject slot=new JSONObject().put("at",System.currentTimeMillis()).put("matches",array).put("failed",false);
@@ -139,7 +142,7 @@ final class MatchCenterRepository {
             connection.setConnectTimeout(4500);connection.setReadTimeout(5000);
             connection.setRequestProperty("User-Agent",Weather.UA);connection.setRequestProperty("Accept","application/json");
             int code=connection.getResponseCode();
-            if(code==429||code==503){long delay=120;try{delay=Math.max(60,Math.min(900,Long.parseLong(connection.getHeaderField("Retry-After"))));}catch(Exception ignored){}retryAfter=System.currentTimeMillis()+delay*1000L;}
+            if(code==429||code==503){android.util.Log.w("Quswis-Matches","Provider HTTP "+code+" for "+endpoint);}
             if(code!=200)throw new IOException("HTTP "+code);
             StringBuilder body=new StringBuilder();try(BufferedReader r=new BufferedReader(new InputStreamReader(connection.getInputStream(),"UTF-8"))){char[] buffer=new char[4096];int n;while((n=r.read(buffer))!=-1){body.append(buffer,0,n);if(body.length()>4000000)throw new IOException("Response too large");}}
             return new JSONObject(body.toString());
