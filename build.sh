@@ -29,7 +29,7 @@ rm -rf build && mkdir -p build/gen build/classes build/dex
 # builds without Gradle, so fetch the matching AAR class jars explicitly for javac and D8.
 DEPS="$PWD/build/deps"
 mkdir -p "$DEPS"
-MEDIA3_VERSION="1.11.1"
+MEDIA3_VERSION="1.4.1"
 for artifact in media3-common media3-container media3-database media3-decoder media3-datasource media3-extractor media3-exoplayer; do
     aar="$DEPS/$artifact.aar"
     curl --fail --silent --show-error --location \
