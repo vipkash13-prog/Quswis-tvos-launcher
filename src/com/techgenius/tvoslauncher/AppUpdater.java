@@ -195,7 +195,17 @@ public final class AppUpdater {
                         .apply();
                 final String finalVer = cleanTag;
                 final String finalUrl = apkUrl;
-                final boolean newer = isNewerVersion(getCurrentVersion(appCtx), cleanTag);
+                // A release is only offered when it declares "versionCode: N" in its notes and N is higher than the installed
+                // build. Releases of other lines (e.g. an older 2.0.x) without that marker are never offered.
+                long declared = -1;
+                java.util.regex.Matcher vm = java.util.regex.Pattern.compile("versionCode\\s*[:=]\\s*(\\d+)").matcher(json.optString("body", ""));
+                if (vm.find()) declared = Long.parseLong(vm.group(1));
+                long installed = 0;
+                try {
+                    android.content.pm.PackageInfo pi = appCtx.getPackageManager().getPackageInfo(appCtx.getPackageName(), 0);
+                    installed = Build.VERSION.SDK_INT >= 28 ? pi.getLongVersionCode() : pi.versionCode;
+                } catch (Throwable ignored) { }
+                final boolean newer = declared > installed;
                 checking = false;
                 if (cb != null) {
                     MAIN.post(() -> cb.onResult(true, finalVer, finalUrl, newer, null));

@@ -55,7 +55,7 @@
     </queries>
 
     <application
-        android:label="tvOS Launcher"
+        android:label="Quswis TV Launcher"
         android:icon="@drawable/ic_launcher"
         android:banner="@drawable/banner"
         android:theme="@style/HomeTheme"
@@ -88,7 +88,7 @@
         <receiver
             android:name=".SleepReceiver$Admin"
             android:exported="true"
-            android:label="tvOS Launcher sleep"
+            android:label="Quswis TV Launcher sleep"
             android:permission="android.permission.BIND_DEVICE_ADMIN">
             <meta-data android:name="android.app.device_admin" android:resource="@xml/device_admin" />
             <intent-filter>
@@ -100,7 +100,7 @@
         <service
             android:name=".PowerService"
             android:exported="true"
-            android:label="tvOS Launcher – Button Mapper &amp; Control Panel"
+            android:label="Quswis TV Launcher – Button Mapper &amp; Control Panel"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
@@ -112,7 +112,7 @@
         <service
             android:name=".MediaWatchService"
             android:exported="true"
-            android:label="tvOS Launcher – Continue Watching"
+            android:label="Quswis TV Launcher – Continue Watching"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
