@@ -65,7 +65,7 @@ jobs:
         export RELEASE_KEYSTORE=/tmp/quswis-release.keystore
         test -s "$RELEASE_KEYSTORE"
         chmod +x build.sh
-        VERSION_NAME="1.0.221" VERSION_CODE="221" ./build.sh
+        VERSION_NAME="1.0.222" VERSION_CODE="222" ./build.sh
         mkdir -p dist
         cp build/tvos-home.apk dist/Quswis-tvOS-Launcher.apk
         ls -lh dist/Quswis-tvOS-Launcher.apk
@@ -161,13 +161,11 @@ jobs:
       uses: softprops/action-gh-release@v2
       if: success() && github.ref == 'refs/heads/main'
       with:
-        tag_name: v1.0.221
-        name: OUSWIS 1.0.221
+        tag_name: v1.0.222
+        name: OUSWIS 1.0.222
         body: |
           تحديث جديد لتطبيق Quswis tvOS Launcher من مستودعك:
-          - الجزيرة الذكية والشريط الزجاجي بمفاتيح مستقلة
-          - إخفاء تلقائي قابل للتحكم
-          - الحفاظ على وظائف الواجهة الحالية
+          - خلفية جديدة: الرياض — ليل ذهبي 4K في المشاهد الليلية والكلاسيكي
         prerelease: false
         files: |
           dist/Quswis-tvOS-Launcher.apk
