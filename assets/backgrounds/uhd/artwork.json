@@ -94,5 +94,17 @@
       2160
     ],
     "bytes": 1309736
+  },
+  {
+    "id": "riyadh-golden-night",
+    "source_dimensions": [
+      2576,
+      1449
+    ],
+    "export_dimensions": [
+      3840,
+      2160
+    ],
+    "bytes": 325060
   }
 ]}

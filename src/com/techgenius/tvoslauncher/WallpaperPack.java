@@ -13,7 +13,8 @@ final class WallpaperPack {
         {"saudi-alula", "السعودية — العلا 4K", "Saudi Arabia — AlUla 4K"},
         {"saudi-riyadh", "السعودية — الرياض 4K", "Saudi Arabia — Riyadh 4K"},
         {"morocco-chefchaouen", "المغرب — شفشاون 4K", "Morocco — Chefchaouen 4K"},
-        {"morocco-atlas", "المغرب — الأطلس 4K", "Morocco — Atlas 4K"}
+        {"morocco-atlas", "المغرب — الأطلس 4K", "Morocco — Atlas 4K"},
+        {"riyadh-golden-night", "الرياض — ليل ذهبي 4K", "Riyadh — Golden night 4K"}
     };
     static String asset(String id) { return "backgrounds/uhd/" + id + ".webp"; }
     static String title(Context c, String id) {
